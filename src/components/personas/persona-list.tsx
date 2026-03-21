@@ -58,7 +58,6 @@ export function PersonaList({
             <PersonaCard
               key={persona.id}
               persona={persona}
-              icpId={icpId}
               onEdit={() => handleEdit(persona)}
             />
           ))}

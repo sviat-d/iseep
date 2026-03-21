@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Target,
-  Users,
   Layers,
   Handshake,
   MessageSquare,

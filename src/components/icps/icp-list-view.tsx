@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { LayoutGrid, Table2 } from "lucide-react";
 import { IcpTable } from "@/components/icps/icp-table";
@@ -21,15 +21,24 @@ type IcpRow = {
 
 const STORAGE_KEY = "iseep-icp-view";
 
-export function IcpListView({ icps }: { icps: IcpRow[] }) {
-  const [view, setView] = useState<"table" | "grid">("table");
+function subscribeStorage(cb: () => void) {
+  window.addEventListener("storage", cb);
+  return () => window.removeEventListener("storage", cb);
+}
 
-  useEffect(() => {
+function getStoredView(): "table" | "grid" {
+  try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "grid" || saved === "table") {
-      setView(saved);
-    }
-  }, []);
+    if (saved === "grid" || saved === "table") return saved;
+  } catch {
+    // SSR or access denied
+  }
+  return "table";
+}
+
+export function IcpListView({ icps }: { icps: IcpRow[] }) {
+  const stored = useSyncExternalStore(subscribeStorage, getStoredView, () => "table" as const);
+  const [view, setView] = useState(stored);
 
   function handleToggle(next: "table" | "grid") {
     setView(next);

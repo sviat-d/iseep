@@ -41,6 +41,9 @@ Built with Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Supabas
 - `src/db/index.ts` — DB client
 - `src/db/seed.ts` — seed script
 - `src/actions/` — server actions
+- `src/lib/auth.ts` — auth context helper (workspace + user resolution)
+- `src/lib/types.ts` — shared TypeScript types (ActionResult, IcpSnapshotData)
+- `src/lib/queries/` — server-side query functions (icps, personas, dashboard)
 - `src/lib/supabase/` — Supabase client (browser + server)
 - `src/lib/validators.ts` — Zod schemas
 - `src/proxy.ts` — auth proxy (replaces middleware.ts in Next.js 16)

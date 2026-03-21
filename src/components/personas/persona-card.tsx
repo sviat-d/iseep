@@ -19,11 +19,10 @@ type PersonaCardProps = {
     name: string;
     description: string | null;
   };
-  icpId: string;
   onEdit: () => void;
 };
 
-export function PersonaCard({ persona, icpId: _icpId, onEdit }: PersonaCardProps) {
+export function PersonaCard({ persona, onEdit }: PersonaCardProps) {
   const [isPending, startTransition] = useTransition();
 
   function handleDelete() {
