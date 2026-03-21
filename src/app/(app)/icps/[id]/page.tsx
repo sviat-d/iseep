@@ -1,4 +1,9 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { notFound } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+import { getIcp, getIcpSnapshots } from "@/lib/queries/icps";
+import { IcpTabs } from "@/components/icps/icp-tabs";
+import { IcpDeleteDialog } from "@/components/icps/icp-delete-dialog";
+import { Badge } from "@/components/ui/badge";
 
 export default async function IcpDetailPage({
   params,
@@ -6,20 +11,30 @@ export default async function IcpDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
+
+  const icp = await getIcp(id, ctx.workspaceId);
+  if (!icp) notFound();
+
+  const snapshots = await getIcpSnapshots(id, ctx.workspaceId);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">ICP Detail</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming in Phase 2</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Detail view for ICP <code>{id}</code> — personas, dimensions, and linked segments.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">{icp.name}</h1>
+            <Badge variant="outline">{icp.status}</Badge>
+            <span className="text-sm text-muted-foreground">v{icp.version}</span>
+          </div>
+          {icp.description && (
+            <p className="text-muted-foreground">{icp.description}</p>
+          )}
+        </div>
+        <IcpDeleteDialog icpId={icp.id} icpName={icp.name} />
+      </div>
+      <IcpTabs icp={icp} snapshots={snapshots} />
     </div>
   );
 }

@@ -1,28 +1,33 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Target } from "lucide-react";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { getAuthContext } from "@/lib/auth";
+import { getIcps } from "@/lib/queries/icps";
+import { IcpListView } from "@/components/icps/icp-list-view";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Plus } from "lucide-react";
 
-export default function IcpsPage() {
+export default async function IcpsPage() {
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
+
+  const icps = await getIcps(ctx.workspaceId);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">ICPs</h1>
-        <p className="text-muted-foreground">
-          Define and manage your Ideal Customer Profiles
-        </p>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Coming in Phase 2
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            ICP management with personas, dimensions, and attributes will be available here.
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">ICPs</h1>
+          <p className="text-muted-foreground">
+            Define and manage your Ideal Customer Profiles
           </p>
-        </CardContent>
-      </Card>
+        </div>
+        <Link href="/icps/new" className={cn(buttonVariants())}>
+          <Plus className="mr-1.5 h-4 w-4" />
+          Create ICP
+        </Link>
+      </div>
+      <IcpListView icps={icps} />
     </div>
   );
 }
