@@ -22,7 +22,7 @@ Built with Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Supabas
 - Auth handled via Supabase SSR — proxy.ts refreshes sessions and protects routes
 - Server actions in `src/actions/` use `"use server"` directive
 - All database tables scoped by `workspace_id` for multi-tenancy
-- Drizzle schema defines 14 tables: workspaces, users, memberships, icps, personas, dimensions, segments, signals, companies, contacts, deals, deal_reasons, product_requests, meeting_notes
+- Drizzle schema defines 15 tables: workspaces, users, memberships, icps, personas, criteria, segments, signals, companies, contacts, deals, deal_reasons, product_requests, meeting_notes, icp_snapshots
 
 ## Commands
 - `pnpm dev` — start dev server
@@ -37,7 +37,7 @@ Built with Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, Supabas
 - `src/app/(app)/` — authenticated app (dashboard, icps, segments, deals, etc.)
 - `src/components/ui/` — shadcn/ui components
 - `src/components/layout/` — sidebar, topbar, app-shell
-- `src/db/schema.ts` — Drizzle schema (all 14 tables)
+- `src/db/schema.ts` — Drizzle schema (all 15 tables)
 - `src/db/index.ts` — DB client
 - `src/db/seed.ts` — seed script
 - `src/actions/` — server actions

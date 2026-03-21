@@ -3,20 +3,10 @@ config({ path: ".env.local" });
 
 import { db } from "./index";
 import {
-  workspaces,
-  users,
-  memberships,
-  icps,
-  personas,
-  dimensions,
-  segments,
-  signals,
-  companies,
-  contacts,
-  deals,
-  dealReasons,
-  productRequests,
-  meetingNotes,
+  workspaces, users, memberships, icps, personas,
+  criteria, // was: dimensions
+  segments, signals, companies, contacts, deals,
+  dealReasons, productRequests, meetingNotes, icpSnapshots,
 } from "./schema";
 
 async function seed() {
@@ -26,12 +16,13 @@ async function seed() {
   await db.delete(meetingNotes);
   await db.delete(productRequests);
   await db.delete(dealReasons);
+  await db.delete(icpSnapshots);
   await db.delete(deals);
   await db.delete(contacts);
   await db.delete(companies);
   await db.delete(signals);
   await db.delete(segments);
-  await db.delete(dimensions);
+  await db.delete(criteria);
   await db.delete(personas);
   await db.delete(icps);
   await db.delete(memberships);
@@ -104,44 +95,46 @@ async function seed() {
     ])
     .returning();
 
-  // Create dimensions
-  await db.insert(dimensions).values([
+  // Create criteria (fit factors + exclusions)
+  await db.insert(criteria).values([
     {
       workspaceId: workspace.id,
       icpId: icp1.id,
-      type: "attribute",
+      group: "firmographic",
       category: "industry",
       operator: "equals",
       value: "Financial Services",
+      intent: "qualify",
       weight: 9,
     },
     {
       workspaceId: workspace.id,
       icpId: icp1.id,
-      type: "attribute",
+      group: "firmographic",
       category: "region",
       operator: "in",
       value: "EU,UK,US",
+      intent: "qualify",
       weight: 7,
     },
     {
       workspaceId: workspace.id,
       icpId: icp1.id,
-      type: "signal",
+      group: "technographic",
       category: "tech_stack",
       operator: "contains",
       value: "crypto_payments",
+      intent: "qualify",
       weight: 10,
     },
     {
       workspaceId: workspace.id,
       icpId: icp1.id,
-      type: "attribute",
-      category: "compliance",
+      group: "compliance",
+      category: "compliance_status",
       operator: "equals",
       value: "aml_restricted",
-      weight: 8,
-      isNegative: true,
+      intent: "exclude",
       note: "Exclude companies in AML-restricted jurisdictions",
     },
   ]);

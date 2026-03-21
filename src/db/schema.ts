@@ -3,7 +3,6 @@ import {
   uuid,
   text,
   timestamp,
-  boolean,
   integer,
   numeric,
   jsonb,
@@ -63,6 +62,7 @@ export const icps = pgTable("icps", {
   status: text("status", { enum: ["draft", "active", "archived"] })
     .default("draft")
     .notNull(),
+  version: integer("version").default(1).notNull(),
   parentIcpId: uuid("parent_icp_id"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -85,21 +85,27 @@ export const personas = pgTable("personas", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// ─── F. Dimensions ──────────────────────────────────────────────────────────
+// ─── F. Criteria (replaces Dimensions) ──────────────────────────────────────
 
-export const dimensions = pgTable("dimensions", {
+export const criteria = pgTable("criteria", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id")
     .references(() => workspaces.id)
     .notNull(),
   icpId: uuid("icp_id").references(() => icps.id),
   personaId: uuid("persona_id").references(() => personas.id),
-  type: text("type").notNull(), // 'attribute' | 'signal' | 'keyword'
-  category: text("category").notNull(), // 'industry' | 'region' | 'tech_stack' | etc.
-  operator: text("operator"), // 'equals' | 'contains' | 'gt' | 'lt' | 'in' | 'not_in'
+  group: text("group", {
+    enum: ["firmographic", "technographic", "behavioral", "compliance", "keyword"],
+  }).notNull(),
+  category: text("category").notNull(),
+  operator: text("operator", {
+    enum: ["equals", "contains", "gt", "lt", "in", "not_in"],
+  }),
   value: text("value").notNull(),
-  weight: integer("weight"), // 1-10 importance
-  isNegative: boolean("is_negative").default(false),
+  intent: text("intent", { enum: ["qualify", "exclude"] })
+    .default("qualify")
+    .notNull(),
+  weight: integer("weight"), // 1-10, only meaningful for qualify intent
   note: text("note"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -122,6 +128,7 @@ export const segments = pgTable("segments", {
   status: text("status", { enum: ["draft", "active", "archived"] })
     .default("draft")
     .notNull(),
+  priorityScore: integer("priority_score").default(5).notNull(), // 1-10
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -248,6 +255,16 @@ export const productRequests = pgTable("product_requests", {
   }).notNull(),
   title: text("title").notNull(),
   description: text("description"),
+  status: text("status", {
+    enum: ["open", "validated", "planned", "rejected"],
+  })
+    .default("open")
+    .notNull(),
+  source: text("source", {
+    enum: ["deal", "meeting_note", "manual"],
+  })
+    .default("manual")
+    .notNull(),
   frequencyScore: integer("frequency_score"), // 1-10
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -269,3 +286,25 @@ export const meetingNotes = pgTable("meeting_notes", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── O. ICP Snapshots ───────────────────────────────────────────────────────
+
+export const icpSnapshots = pgTable(
+  "icp_snapshots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id")
+      .references(() => workspaces.id)
+      .notNull(),
+    icpId: uuid("icp_id")
+      .references(() => icps.id)
+      .notNull(),
+    version: integer("version").notNull(),
+    snapshotData: jsonb("snapshot_data").notNull(),
+    changeSummary: text("change_summary"),
+    note: text("note"),
+    createdBy: uuid("created_by").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [unique("icp_snapshots_icp_version").on(table.icpId, table.version)]
+);
