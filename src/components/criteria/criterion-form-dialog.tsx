@@ -203,7 +203,7 @@ export function CriterionFormDialog({
 
           {/* Intent */}
           <div className="space-y-2">
-            <Label>This rule helps to</Label>
+            <Label>This rule means</Label>
             <Select
               value={intent}
               onValueChange={(val) => {
@@ -212,22 +212,25 @@ export function CriterionFormDialog({
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {intent === "qualify" ? "Include" : "Exclude"}
+                  {intent === "qualify" ? "Good fit" : intent === "risk" ? "Risk / Needs review" : "Not a fit"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="qualify" label="Include">
-                  Include — defines your ICP
+                <SelectItem value="qualify" label="Good fit">
+                  ✅ Good fit — defines your ICP
                 </SelectItem>
-                <SelectItem value="exclude" label="Exclude">
-                  Exclude — disqualifies the company
+                <SelectItem value="risk" label="Risk / Needs review">
+                  ⚠️ Risk / Needs review — borderline, requires attention
+                </SelectItem>
+                <SelectItem value="exclude" label="Not a fit">
+                  ❌ Not a fit — disqualifies the company
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Weight — only for qualify */}
-          {intent === "qualify" && (
+          {/* Weight — only for qualify and risk */}
+          {intent !== "exclude" && (
             <div className="space-y-2">
               <Label htmlFor="crit-weight">Importance (1-10)</Label>
               <Input

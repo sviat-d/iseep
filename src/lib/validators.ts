@@ -33,7 +33,7 @@ export const criterionSchema = z.object({
   category: z.string().min(1, "Category is required"),
   operator: z.enum(["equals", "contains", "gt", "lt", "in", "not_in"]).optional(),
   value: z.string().min(1, "Value is required"),
-  intent: z.enum(["qualify", "exclude"]),
+  intent: z.enum(["qualify", "risk", "exclude"]),
   weight: z.coerce.number().int().min(1).max(10).optional(),
   note: z.string().optional(),
   icpId: z.string().uuid().optional(),

@@ -102,7 +102,7 @@ export const criteria = pgTable("criteria", {
     enum: ["equals", "contains", "gt", "lt", "in", "not_in"],
   }),
   value: text("value").notNull(),
-  intent: text("intent", { enum: ["qualify", "exclude"] })
+  intent: text("intent", { enum: ["qualify", "risk", "exclude"] })
     .default("qualify")
     .notNull(),
   weight: integer("weight"), // 1-10, only meaningful for qualify intent
