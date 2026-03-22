@@ -16,6 +16,7 @@ import {
   getWorkspaceMappings,
   saveMappings,
 } from "@/lib/scoring/mapping-memory";
+import { SAMPLE_LEADS, SAMPLE_COLUMN_MAPPING } from "@/lib/sample-data";
 import type { ActionResult } from "@/lib/types";
 
 type ColumnMapping = Record<string, string>; // csvColumn -> mappedField
@@ -24,6 +25,7 @@ export async function processUpload(
   fileName: string,
   rows: Record<string, string>[],
   columnMapping: ColumnMapping,
+  sourceName?: string,
 ): Promise<ActionResult & { uploadId?: string; aiMappingUsed?: boolean }> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
@@ -108,6 +110,7 @@ export async function processUpload(
     .values({
       workspaceId: ctx.workspaceId,
       fileName,
+      sourceName: sourceName || null,
       totalRows: rows.length,
       columnMapping,
       createdBy: ctx.userId,
@@ -158,6 +161,18 @@ export async function processUpload(
 
   revalidatePath("/scoring");
   return { success: true, uploadId: upload.id, aiMappingUsed };
+}
+
+export async function processSampleData(): Promise<ActionResult & { uploadId?: string }> {
+  const ctx = await getAuthContext();
+  if (!ctx) return { error: "Unauthorized" };
+
+  return processUpload(
+    "Sample leads (20 companies)",
+    SAMPLE_LEADS,
+    SAMPLE_COLUMN_MAPPING,
+    "Sample dataset",
+  );
 }
 
 export async function deleteUpload(id: string): Promise<ActionResult> {

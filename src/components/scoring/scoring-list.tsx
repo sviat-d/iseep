@@ -18,12 +18,51 @@ import { FileSpreadsheet, Trash2, ExternalLink } from "lucide-react";
 type Upload = {
   id: string;
   fileName: string;
+  sourceName?: string | null;
   totalRows: number;
   scoredAt: Date;
   createdAt: Date;
 };
 
-export function ScoringList({ uploads }: { uploads: Upload[] }) {
+function pctWidth(count: number, total: number): number {
+  if (total === 0) return 0;
+  return Math.round((count / total) * 100);
+}
+
+function FitMiniBar({ stats }: { stats?: { high: number; medium: number; low: number; risk: number; blocked: number; none: number; total: number } }) {
+  if (!stats || stats.total === 0) return null;
+
+  const segments = [
+    { color: "bg-green-500", count: stats.high + stats.medium },
+    { color: "bg-amber-500", count: stats.low + stats.risk },
+    { color: "bg-red-500", count: stats.blocked },
+    { color: "bg-gray-300 dark:bg-gray-600", count: stats.none },
+  ];
+
+  return (
+    <div className="flex h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+      {segments.map((seg, i) => {
+        const w = pctWidth(seg.count, stats.total);
+        if (w === 0) return null;
+        return (
+          <div
+            key={i}
+            className={seg.color}
+            style={{ width: `${w}%` }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+export function ScoringList({
+  uploads,
+  uploadStats,
+}: {
+  uploads: Upload[];
+  uploadStats?: Record<string, { high: number; medium: number; low: number; risk: number; blocked: number; none: number; total: number }>;
+}) {
   const router = useRouter();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -54,7 +93,9 @@ export function ScoringList({ uploads }: { uploads: Upload[] }) {
       <TableHeader>
         <TableRow>
           <TableHead>File Name</TableHead>
+          <TableHead>Source</TableHead>
           <TableHead>Total Rows</TableHead>
+          <TableHead>Fit Breakdown</TableHead>
           <TableHead>Scored</TableHead>
           <TableHead className="w-[100px]" />
         </TableRow>
@@ -71,7 +112,13 @@ export function ScoringList({ uploads }: { uploads: Upload[] }) {
                 {upload.fileName}
               </Link>
             </TableCell>
+            <TableCell className="text-muted-foreground text-sm">
+              {upload.sourceName || "\u2014"}
+            </TableCell>
             <TableCell>{upload.totalRows.toLocaleString()}</TableCell>
+            <TableCell>
+              <FitMiniBar stats={uploadStats?.[upload.id]} />
+            </TableCell>
             <TableCell className="text-muted-foreground">
               {new Date(upload.scoredAt).toLocaleDateString("en-US", {
                 month: "short",

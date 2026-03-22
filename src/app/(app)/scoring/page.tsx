@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
-import { getScoredUploads } from "@/lib/queries/scoring";
+import { getScoredUploads, getBulkUploadStats } from "@/lib/queries/scoring";
 import { ScoringList } from "@/components/scoring/scoring-list";
 import { Upload } from "lucide-react";
 
@@ -10,6 +10,11 @@ export default async function ScoringPage() {
   if (!ctx) notFound();
 
   const uploads = await getScoredUploads(ctx.workspaceId);
+
+  const uploadStats = await getBulkUploadStats(
+    uploads.map((u) => u.id),
+    ctx.workspaceId,
+  );
 
   return (
     <div className="space-y-6">
@@ -28,7 +33,7 @@ export default async function ScoringPage() {
           Upload CSV
         </Link>
       </div>
-      <ScoringList uploads={uploads} />
+      <ScoringList uploads={uploads} uploadStats={uploadStats} />
     </div>
   );
 }

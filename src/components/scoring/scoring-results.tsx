@@ -18,18 +18,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   ChevronDown,
   ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  XCircle,
+  Download,
+  Lightbulb,
   Sparkles,
-  ShieldAlert,
-  ShieldBan,
+  Upload,
+  ArrowRight,
+  Search,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -39,6 +39,7 @@ import {
 type Upload = {
   id: string;
   fileName: string;
+  sourceName?: string | null;
   totalRows: number;
   scoredAt: Date;
 };
@@ -63,6 +64,12 @@ type Stats = {
   risk: number;
   blocked: number;
   none: number;
+};
+
+type Cluster = {
+  industry: string;
+  leads: Lead[];
+  sharedTraits: string[];
 };
 
 // ---------------------------------------------------------------------------
@@ -128,15 +135,15 @@ function matchTypeIcon(matchType: string): string {
   switch (matchType) {
     case "exact":
     case "case_insensitive":
-      return "\u2713"; // check mark
+      return "\u2713";
     case "synonym":
     case "workspace_memory":
       return "~";
     case "ai_mapped":
-      return "\uD83E\uDD16"; // robot emoji
+      return "\uD83E\uDD16";
     case "none":
     default:
-      return "\u2717"; // X mark
+      return "\u2717";
   }
 }
 
@@ -164,13 +171,242 @@ function pct(count: number, total: number): string {
   return `${Math.round((count / total) * 100)}%`;
 }
 
+function pctNum(count: number, total: number): number {
+  if (total === 0) return 0;
+  return Math.round((count / total) * 100);
+}
+
 function parseMatchReasons(raw: unknown): MatchReason[] {
   if (Array.isArray(raw)) return raw as MatchReason[];
   return [];
 }
 
+/** Find the most frequent value in an array */
+function mode(arr: string[]): string | null {
+  if (arr.length === 0) return null;
+  const counts: Record<string, number> = {};
+  for (const v of arr) {
+    counts[v] = (counts[v] || 0) + 1;
+  }
+  let maxKey: string | null = null;
+  let maxCount = 0;
+  for (const [key, count] of Object.entries(counts)) {
+    if (count > maxCount) {
+      maxCount = count;
+      maxKey = key;
+    }
+  }
+  return maxKey;
+}
+
 // ---------------------------------------------------------------------------
-// Component
+// Insights generator (pure data analysis, no AI)
+// ---------------------------------------------------------------------------
+
+function generateInsights(leads: Lead[]): string[] {
+  const insights: string[] = [];
+
+  const highFit = leads.filter((l) => l.fitLevel === "high");
+  const blocked = leads.filter((l) => l.fitLevel === "blocked");
+  const unmatched = leads.filter((l) => l.fitLevel === "none");
+
+  // Most common industry in high fit
+  if (highFit.length > 0) {
+    const industries = highFit.map((l) => l.industry).filter(Boolean) as string[];
+    const topIndustry = mode(industries);
+    if (topIndustry) {
+      const count = industries.filter((i) => i === topIndustry).length;
+      insights.push(
+        `Your ICP works best for ${topIndustry} companies (${count} high-fit lead${count !== 1 ? "s" : ""})`,
+      );
+    }
+  }
+
+  // Blocker insights
+  if (blocked.length > 0) {
+    const blockerCategories: string[] = [];
+    for (const lead of blocked) {
+      const reasons = parseMatchReasons(lead.matchReasons);
+      for (const r of reasons) {
+        if (r.intent === "exclude" && r.matched && (r.weight ?? 5) >= 7) {
+          blockerCategories.push(r.category);
+        }
+      }
+    }
+    const topBlocker = mode(blockerCategories);
+    if (topBlocker) {
+      insights.push(
+        `${blocked.length} lead${blocked.length !== 1 ? "s" : ""} blocked -- most common blocker: ${topBlocker}`,
+      );
+    } else {
+      insights.push(
+        `${blocked.length} lead${blocked.length !== 1 ? "s" : ""} blocked -- review your exclusion rules`,
+      );
+    }
+  }
+
+  // Unmatched cluster
+  if (unmatched.length >= 3) {
+    const industries = unmatched.map((l) => l.industry).filter(Boolean) as string[];
+    const topIndustry = mode(industries);
+    if (topIndustry) {
+      const count = industries.filter((i) => i === topIndustry).length;
+      insights.push(
+        `${count} unmatched lead${count !== 1 ? "s" : ""} share "${topIndustry}" -- potential new ICP?`,
+      );
+    }
+  }
+
+  return insights;
+}
+
+// ---------------------------------------------------------------------------
+// Cluster unmatched leads by industry
+// ---------------------------------------------------------------------------
+
+function findSharedTraits(leads: Lead[]): string[] {
+  const traits: string[] = [];
+
+  // Shared industry
+  const industries = leads.map((l) => l.industry).filter(Boolean) as string[];
+  const topIndustry = mode(industries);
+  if (topIndustry && industries.filter((i) => i === topIndustry).length === leads.length) {
+    traits.push(topIndustry);
+  }
+
+  // Shared country
+  const countries = leads.map((l) => l.country).filter(Boolean) as string[];
+  const topCountry = mode(countries);
+  if (topCountry) {
+    const countryCount = countries.filter((c) => c === topCountry).length;
+    if (countryCount > leads.length / 2) {
+      traits.push(topCountry);
+    }
+  }
+
+  return traits;
+}
+
+function clusterUnmatchedLeads(leads: Lead[]): Cluster[] {
+  const unmatched = leads.filter((l) => l.fitLevel === "none");
+
+  // Group by industry
+  const byIndustry: Record<string, Lead[]> = {};
+  for (const lead of unmatched) {
+    const key = lead.industry || "Unknown";
+    if (!byIndustry[key]) byIndustry[key] = [];
+    byIndustry[key].push(lead);
+  }
+
+  return Object.entries(byIndustry)
+    .filter(([, clusterLeads]) => clusterLeads.length > 0)
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([industry, clusterLeads]) => ({
+      industry,
+      leads: clusterLeads,
+      sharedTraits: findSharedTraits(clusterLeads),
+    }));
+}
+
+// ---------------------------------------------------------------------------
+// CSV Export
+// ---------------------------------------------------------------------------
+
+function exportLeadsCSV(leads: Lead[], filename: string) {
+  const headers = [
+    "Company",
+    "Industry",
+    "Country",
+    "Best ICP",
+    "Fit Score",
+    "Confidence",
+    "Fit Level",
+  ];
+  const rows = leads.map((l) => [
+    l.companyName,
+    l.industry,
+    l.country,
+    l.bestIcpName,
+    l.fitScore,
+    l.confidence,
+    l.fitLevel,
+  ]);
+  const csv = [headers, ...rows]
+    .map((r) => r.map((v) => `"${v ?? ""}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
+// Summary Bar (colored segments)
+// ---------------------------------------------------------------------------
+
+function SummaryBar({ stats }: { stats: Stats }) {
+  const segments = [
+    {
+      label: "High fit",
+      count: stats.high + stats.medium,
+      color: "bg-green-500",
+      pctLabel: pct(stats.high + stats.medium, stats.total),
+    },
+    {
+      label: "Borderline",
+      count: stats.low + stats.risk,
+      color: "bg-amber-500",
+      pctLabel: pct(stats.low + stats.risk, stats.total),
+    },
+    {
+      label: "Blocked",
+      count: stats.blocked,
+      color: "bg-red-500",
+      pctLabel: pct(stats.blocked, stats.total),
+    },
+    {
+      label: "Unmatched",
+      count: stats.none,
+      color: "bg-gray-300 dark:bg-gray-600",
+      pctLabel: pct(stats.none, stats.total),
+    },
+  ];
+
+  return (
+    <div className="space-y-2">
+      {/* Bar */}
+      <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+        {segments.map((seg) => {
+          const w = pctNum(seg.count, stats.total);
+          if (w === 0) return null;
+          return (
+            <div
+              key={seg.label}
+              className={`${seg.color} transition-all`}
+              style={{ width: `${w}%` }}
+              title={`${seg.label}: ${seg.count} (${seg.pctLabel})`}
+            />
+          );
+        })}
+      </div>
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        {segments.map((seg) => (
+          <span key={seg.label} className="flex items-center gap-1.5">
+            <span className={`inline-block h-2.5 w-2.5 rounded-full ${seg.color}`} />
+            {seg.pctLabel} {seg.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Component
 // ---------------------------------------------------------------------------
 
 export function ScoringResults({
@@ -183,13 +419,29 @@ export function ScoringResults({
   stats: Stats;
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState("all");
+  const [activeTab, setActiveTab] = useState("best");
 
-  // Detect if AI mapping was used by checking match types
+  // Detect AI mapping usage
   const aiMappingUsed = leads.some((lead) => {
     const reasons = parseMatchReasons(lead.matchReasons);
     return reasons.some((r) => r.matchType === "ai_mapped");
   });
+
+  // Pre-compute tab lead groups
+  const bestFitLeads = leads.filter(
+    (l) => l.fitLevel === "high" || l.fitLevel === "medium",
+  );
+  const borderlineLeads = leads.filter(
+    (l) => l.fitLevel === "low" || l.fitLevel === "risk",
+  );
+  const blockedLeads = leads.filter((l) => l.fitLevel === "blocked");
+  const unmatchedLeads = leads.filter((l) => l.fitLevel === "none");
+
+  // Insights
+  const insights = generateInsights(leads);
+
+  // Clusters for unmatched
+  const clusters = clusterUnmatchedLeads(leads);
 
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
@@ -203,172 +455,368 @@ export function ScoringResults({
     });
   }
 
-  const filteredLeads =
-    activeTab === "all"
-      ? leads
-      : leads.filter((l) => l.fitLevel === activeTab);
+  function getTabLeads(tab: string): Lead[] {
+    switch (tab) {
+      case "best":
+        return bestFitLeads;
+      case "borderline":
+        return borderlineLeads;
+      case "blocked":
+        return blockedLeads;
+      case "unmatched":
+        return unmatchedLeads;
+      case "all":
+        return leads;
+      default:
+        return leads;
+    }
+  }
 
-  const statCards = [
-    {
-      label: "High Fit",
-      count: stats.high,
-      pct: pct(stats.high, stats.total),
-      icon: TrendingUp,
-      color: "text-green-600 dark:text-green-400",
-      bg: "bg-green-500/10",
-    },
-    {
-      label: "Medium Fit",
-      count: stats.medium,
-      pct: pct(stats.medium, stats.total),
-      icon: Minus,
-      color: "text-amber-600 dark:text-amber-400",
-      bg: "bg-amber-500/10",
-    },
-    {
-      label: "Low Fit",
-      count: stats.low,
-      pct: pct(stats.low, stats.total),
-      icon: TrendingDown,
-      color: "text-muted-foreground",
-      bg: "bg-muted",
-    },
-    {
-      label: "Risk",
-      count: stats.risk,
-      pct: pct(stats.risk, stats.total),
-      icon: ShieldAlert,
-      color: "text-amber-600 dark:text-amber-400",
-      bg: "bg-amber-500/10",
-    },
-    {
-      label: "Blocked",
-      count: stats.blocked,
-      pct: pct(stats.blocked, stats.total),
-      icon: ShieldBan,
-      color: "text-red-900 dark:text-red-400",
-      bg: "bg-red-900/10",
-    },
-    {
-      label: "Not ICP",
-      count: stats.none,
-      pct: pct(stats.none, stats.total),
-      icon: XCircle,
-      color: "text-destructive",
-      bg: "bg-destructive/10",
-    },
-  ];
+  const displayName = upload.sourceName || upload.fileName;
+  const scoredDate = new Date(upload.scoredAt).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <Link
-            href="/scoring"
-            className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to uploads
-          </Link>
-          <h1 className="text-2xl font-bold tracking-tight">
-            {upload.fileName}
-          </h1>
-          <p className="text-muted-foreground">
-            {upload.totalRows} leads scored on{" "}
-            {new Date(upload.scoredAt).toLocaleDateString("en-US", {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-          </p>
-          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-            {aiMappingUsed ? (
-              <>
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                <span>Scored with AI-assisted matching</span>
-              </>
-            ) : (
-              <span>Scored with exact matching</span>
-            )}
+      {/* ── Section 1: Header + Summary ── */}
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Link
+              href="/scoring"
+              className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to uploads
+            </Link>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {displayName}
+            </h1>
+            <p className="text-muted-foreground">
+              {upload.totalRows} leads analyzed
+              {" \u00b7 "}
+              {scoredDate}
+              {upload.sourceName && upload.sourceName !== upload.fileName && (
+                <>
+                  {" \u00b7 "}
+                  <span className="text-foreground/70">{upload.fileName}</span>
+                </>
+              )}
+            </p>
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              {aiMappingUsed ? (
+                <>
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  <span>Scored with AI-assisted matching</span>
+                </>
+              ) : (
+                <span>Scored with exact matching</span>
+              )}
+            </div>
+          </div>
+
+          {/* Header actions */}
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                exportLeadsCSV(leads, `${upload.fileName.replace(/\.csv$/, "")}-all-scored.csv`)
+              }
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Export CSV
+            </Button>
+            <Link href="/icps">
+              <Button variant="outline" size="sm">
+                Refine ICP
+              </Button>
+            </Link>
           </div>
         </div>
+
+        {/* Summary bar */}
+        <SummaryBar stats={stats} />
       </div>
 
-      {/* Stat Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {statCards.map((stat) => (
-          <Card key={stat.label}>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {stat.label}
-              </CardTitle>
-              <div className={`rounded-md p-1.5 ${stat.bg}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{stat.count}</p>
-              <p className="text-xs text-muted-foreground">{stat.pct} of total</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* ── Section 2: Insights ── */}
+      {insights.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Lightbulb className="h-4 w-4 text-amber-500" />
+              Insights
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1.5">
+              {insights.map((insight, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                  <span>{insight}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Results Table */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-      >
+      {/* ── Section 3: Tabbed Sections ── */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="best">
+            Best Fits ({bestFitLeads.length})
+          </TabsTrigger>
+          <TabsTrigger value="borderline">
+            Borderline ({borderlineLeads.length})
+          </TabsTrigger>
+          <TabsTrigger value="blocked">
+            Blocked ({blockedLeads.length})
+          </TabsTrigger>
+          <TabsTrigger value="unmatched">
+            Unmatched ({unmatchedLeads.length})
+          </TabsTrigger>
           <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-          <TabsTrigger value="high">High ({stats.high})</TabsTrigger>
-          <TabsTrigger value="medium">Medium ({stats.medium})</TabsTrigger>
-          <TabsTrigger value="low">Low ({stats.low})</TabsTrigger>
-          <TabsTrigger value="risk">Risk ({stats.risk})</TabsTrigger>
-          <TabsTrigger value="blocked">Blocked ({stats.blocked})</TabsTrigger>
-          <TabsTrigger value="none">Not ICP ({stats.none})</TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-4">
-          {filteredLeads.length === 0 ? (
-            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-              No leads in this category
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead>Company</TableHead>
-                  <TableHead>Industry</TableHead>
-                  <TableHead>Country</TableHead>
-                  <TableHead>Best ICP</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Confidence</TableHead>
-                  <TableHead>Fit Level</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLeads.map((lead) => {
-                  const isExpanded = expandedRows.has(lead.id);
-                  const reasons = parseMatchReasons(lead.matchReasons);
-                  return (
-                    <LeadRow
-                      key={lead.id}
-                      lead={lead}
-                      reasons={reasons}
-                      isExpanded={isExpanded}
-                      onToggle={() => toggleRow(lead.id)}
-                    />
-                  );
-                })}
-              </TableBody>
-            </Table>
+        {/* Best Fits */}
+        <TabsContent value="best" className="mt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              These are your best leads -- high and medium fit
+            </p>
+            {bestFitLeads.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  exportLeadsCSV(
+                    bestFitLeads,
+                    `${upload.fileName.replace(/\.csv$/, "")}-best-fits.csv`,
+                  )
+                }
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+                Export best fits
+              </Button>
+            )}
+          </div>
+          <LeadTable
+            leads={bestFitLeads}
+            expandedRows={expandedRows}
+            onToggle={toggleRow}
+          />
+        </TabsContent>
+
+        {/* Borderline */}
+        <TabsContent value="borderline" className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Worth exploring, but proceed with caution
+          </p>
+          <LeadTable
+            leads={borderlineLeads}
+            expandedRows={expandedRows}
+            onToggle={toggleRow}
+          />
+        </TabsContent>
+
+        {/* Blocked */}
+        <TabsContent value="blocked" className="mt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Excluded by your rules
+          </p>
+          <LeadTable
+            leads={blockedLeads}
+            expandedRows={expandedRows}
+            onToggle={toggleRow}
+          />
+        </TabsContent>
+
+        {/* Unmatched */}
+        <TabsContent value="unmatched" className="mt-4 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Not in your current ICPs
+          </p>
+
+          {/* Cluster display */}
+          {clusters.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Search className="h-4 w-4 text-primary" />
+                  Potential new ICPs found in unmatched leads
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {clusters.map((cluster) => (
+                    <div
+                      key={cluster.industry}
+                      className="rounded-lg border p-3 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">
+                          {cluster.industry} ({cluster.leads.length}{" "}
+                          lead{cluster.leads.length !== 1 ? "s" : ""})
+                        </p>
+                        <Link
+                          href={`/icps/new?prefill=industry:${encodeURIComponent(cluster.industry)}`}
+                        >
+                          <Button variant="outline" size="xs">
+                            Create ICP from this cluster
+                          </Button>
+                        </Link>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {cluster.leads
+                          .map((l) => l.companyName || "Unknown")
+                          .join(", ")}
+                      </p>
+                      {cluster.sharedTraits.length > 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Shared: {cluster.sharedTraits.join(" + ")}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           )}
+
+          <LeadTable
+            leads={unmatchedLeads}
+            expandedRows={expandedRows}
+            onToggle={toggleRow}
+          />
+        </TabsContent>
+
+        {/* All */}
+        <TabsContent value="all" className="mt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              All {stats.total} scored leads
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                exportLeadsCSV(
+                  leads,
+                  `${upload.fileName.replace(/\.csv$/, "")}-all-scored.csv`,
+                )
+              }
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Export all
+            </Button>
+          </div>
+          <LeadTable
+            leads={leads}
+            expandedRows={expandedRows}
+            onToggle={toggleRow}
+          />
         </TabsContent>
       </Tabs>
+
+      {/* ── Section 5: Bottom Actions ── */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
+        <Button
+          variant="outline"
+          onClick={() =>
+            exportLeadsCSV(
+              bestFitLeads,
+              `${upload.fileName.replace(/\.csv$/, "")}-best-fits.csv`,
+            )
+          }
+          disabled={bestFitLeads.length === 0}
+        >
+          <Download className="mr-1.5 h-4 w-4" />
+          Export high-fit leads (CSV)
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() =>
+            exportLeadsCSV(
+              leads,
+              `${upload.fileName.replace(/\.csv$/, "")}-all-scored.csv`,
+            )
+          }
+        >
+          <Download className="mr-1.5 h-4 w-4" />
+          Export all scored (CSV)
+        </Button>
+        <Link href="/icps">
+          <Button variant="outline">
+            Refine ICP
+            <ArrowRight className="ml-1.5 h-4 w-4" />
+          </Button>
+        </Link>
+        <Link href="/scoring/upload">
+          <Button variant="outline">
+            <Upload className="mr-1.5 h-4 w-4" />
+            Score another list
+          </Button>
+        </Link>
+      </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Lead Table (reusable for each tab)
+// ---------------------------------------------------------------------------
+
+function LeadTable({
+  leads,
+  expandedRows,
+  onToggle,
+}: {
+  leads: Lead[];
+  expandedRows: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  if (leads.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+        No leads in this category
+      </div>
+    );
+  }
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-8" />
+          <TableHead>Company</TableHead>
+          <TableHead>Industry</TableHead>
+          <TableHead>Country</TableHead>
+          <TableHead>ICP Match</TableHead>
+          <TableHead>Score</TableHead>
+          <TableHead>Confidence</TableHead>
+          <TableHead>Fit Level</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {leads.map((lead) => {
+          const isExpanded = expandedRows.has(lead.id);
+          const reasons = parseMatchReasons(lead.matchReasons);
+          return (
+            <LeadRow
+              key={lead.id}
+              lead={lead}
+              reasons={reasons}
+              isExpanded={isExpanded}
+              onToggle={() => onToggle(lead.id)}
+            />
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }
 

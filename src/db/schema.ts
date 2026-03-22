@@ -319,6 +319,7 @@ export const scoredUploads = pgTable("scored_uploads", {
     .references(() => workspaces.id)
     .notNull(),
   fileName: text("file_name").notNull(),
+  sourceName: text("source_name"), // e.g. "Web Summit 2026", "Apollo export April"
   totalRows: integer("total_rows").notNull(),
   scoredAt: timestamp("scored_at", { withTimezone: true }).defaultNow().notNull(),
   columnMapping: jsonb("column_mapping").notNull(), // { csvColumn: mappedField }

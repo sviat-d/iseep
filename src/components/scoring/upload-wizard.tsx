@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { MAPPABLE_FIELDS } from "@/lib/scoring";
-import { processUpload } from "@/actions/scoring";
+import { processUpload, processSampleData } from "@/actions/scoring";
 import {
   Card,
   CardContent,
@@ -27,7 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Upload, ArrowRight, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Upload, ArrowRight, Loader2, CheckCircle2, AlertCircle, FlaskConical } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // CSV Parsing
@@ -108,6 +110,9 @@ export function UploadWizard() {
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [dragOver, setDragOver] = useState(false);
 
+  // Source name state
+  const [sourceName, setSourceName] = useState("");
+
   // Mapping state
   const [mapping, setMapping] = useState<Record<string, string>>({});
 
@@ -160,6 +165,24 @@ export function UploadWizard() {
     [handleFile]
   );
 
+  // ---- Sample data ----
+
+  function handleSampleData() {
+    setStep("processing");
+    setError(null);
+    startTransition(async () => {
+      const result = await processSampleData();
+      if (result.error) {
+        setError(result.error);
+        setStep("upload");
+        return;
+      }
+      if (result.uploadId) {
+        router.push(`/scoring/${result.uploadId}`);
+      }
+    });
+  }
+
   // ---- Mapping change ----
 
   function updateMapping(csvColumn: string, field: string | null) {
@@ -183,7 +206,12 @@ export function UploadWizard() {
     setStep("processing");
     setError(null);
     startTransition(async () => {
-      const result = await processUpload(fileName, rows, mapping);
+      const result = await processUpload(
+        fileName,
+        rows,
+        mapping,
+        sourceName || undefined,
+      );
       if (result.error) {
         setError(result.error);
         setStep("mapping");
@@ -209,49 +237,90 @@ export function UploadWizard() {
     <div className="space-y-4">
       {/* Step 1: Upload */}
       {step === "upload" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload CSV</CardTitle>
-            <CardDescription>
-              Drag and drop a .csv file or click to browse
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors cursor-pointer ${
-                dragOver
-                  ? "border-primary bg-primary/5"
-                  : "border-muted-foreground/25 hover:border-muted-foreground/50"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(true);
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
-              <p className="text-sm font-medium">Drop your CSV here</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                or click to browse
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleFileInput}
-              />
-            </div>
-            {error && (
-              <div className="mt-3 flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
+        <>
+          {/* Try sample data card */}
+          <Card>
+            <CardContent className="flex items-center gap-4 py-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <FlaskConical className="h-5 w-5 text-primary" />
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="flex-1">
+                <p className="text-sm font-medium">New here? Try sample data</p>
+                <p className="text-xs text-muted-foreground">
+                  Score 20 diverse companies instantly to see how ICP scoring works
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleSampleData}
+                disabled={isPending}
+              >
+                {isPending ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <FlaskConical className="mr-1.5 h-4 w-4" />
+                )}
+                Try sample data
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Upload CSV</CardTitle>
+              <CardDescription>
+                Drag and drop a .csv file or click to browse
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Source name input */}
+              <div className="space-y-1.5">
+                <Label htmlFor="source-name">Source (optional)</Label>
+                <Input
+                  id="source-name"
+                  placeholder="e.g. Web Summit 2026, Apollo export, Clay list v2"
+                  value={sourceName}
+                  onChange={(e) => setSourceName(e.target.value)}
+                />
+              </div>
+
+              {/* File drop zone */}
+              <div
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors cursor-pointer ${
+                  dragOver
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-muted-foreground/50"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+                <p className="text-sm font-medium">Drop your CSV here</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  or click to browse
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleFileInput}
+                />
+              </div>
+              {error && (
+                <div className="mt-3 flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {error}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* Step 2: Column Mapping */}
@@ -263,6 +332,11 @@ export function UploadWizard() {
               Map your CSV columns to scoring fields. Detected{" "}
               {headers.length} columns and {rows.length} data rows from{" "}
               <span className="font-medium">{fileName}</span>.
+              {sourceName && (
+                <>
+                  {" "}Source: <span className="font-medium">{sourceName}</span>
+                </>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -375,7 +449,7 @@ export function UploadWizard() {
                 <>
                   <Loader2 className="mb-4 h-8 w-8 animate-spin text-primary" />
                   <p className="text-sm font-medium">
-                    Scoring {rows.length} leads against your ICPs...
+                    Scoring {rows.length > 0 ? `${rows.length} leads` : "sample data"} against your ICPs...
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     This may take a moment
@@ -398,7 +472,7 @@ export function UploadWizard() {
 }
 
 // ---------------------------------------------------------------------------
-// Mapping Row — isolated to keep Select controlled cleanly
+// Mapping Row -- isolated to keep Select controlled cleanly
 // ---------------------------------------------------------------------------
 
 function MappingRow({
