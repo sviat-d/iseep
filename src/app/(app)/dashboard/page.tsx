@@ -6,7 +6,6 @@ import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Target, Layers, Handshake, BarChart3, Plus } from "lucide-react";
 
@@ -129,7 +128,7 @@ export default async function DashboardPage() {
             <CardDescription>Common tasks</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <Link href="/icps/new" className={cn(buttonVariants({ variant: "outline" }), "justify-start")}>
+            <Link href="/icps/new" className="inline-flex items-center justify-start rounded-lg px-2.5 h-8 text-sm font-medium border border-border bg-background hover:bg-muted hover:text-foreground transition-colors w-full">
               <Plus className="mr-2 h-4 w-4" /> Create ICP
             </Link>
           </CardContent>

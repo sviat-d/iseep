@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { Target, Layers, Handshake, BarChart3 } from "lucide-react";
 
 export default async function Home() {
@@ -22,11 +20,14 @@ export default async function Home() {
         <div className="flex items-center gap-3">
           <Link
             href="/sign-in"
-            className={cn(buttonVariants({ variant: "ghost" }))}
+            className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium hover:bg-muted hover:text-foreground transition-colors"
           >
             Sign in
           </Link>
-          <Link href="/sign-up" className={cn(buttonVariants())}>
+          <Link
+            href="/sign-up"
+            className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
+          >
             Get started
           </Link>
         </div>
@@ -44,13 +45,13 @@ export default async function Home() {
           <div className="flex justify-center gap-3 pt-2">
             <Link
               href="/sign-up"
-              className={cn(buttonVariants({ size: "lg" }))}
+              className="inline-flex items-center justify-center rounded-lg px-2.5 h-9 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
             >
               Start free
             </Link>
             <Link
               href="/sign-in"
-              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+              className="inline-flex items-center justify-center rounded-lg px-2.5 h-9 text-sm font-medium border border-border bg-background hover:bg-muted hover:text-foreground transition-colors"
             >
               Sign in
             </Link>
