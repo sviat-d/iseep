@@ -59,7 +59,7 @@ export async function getDeal(id: string, workspaceId: string) {
     .where(and(eq(meetingNotes.dealId, id), eq(meetingNotes.workspaceId, workspaceId)))
     .orderBy(sql`${meetingNotes.createdAt} desc`);
 
-  return { ...deal, company, contact, icp, segment, reasons, notes };
+  return { ...deal, company, contact, icp, segment, reasons, meetingNotes: notes };
 }
 
 export async function getCompanies(workspaceId: string) {

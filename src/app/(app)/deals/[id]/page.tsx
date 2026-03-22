@@ -1,4 +1,7 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { notFound } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+import { getDeal } from "@/lib/queries/deals";
+import { DealDetail } from "@/components/deals/deal-detail";
 
 export default async function DealDetailPage({
   params,
@@ -6,20 +9,11 @@ export default async function DealDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Deal Detail</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming in Phase 4</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Detail view for deal <code>{id}</code> — reasons, product requests, notes.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  const deal = await getDeal(id, ctx.workspaceId);
+  if (!deal) notFound();
+
+  return <DealDetail deal={deal} />;
 }

@@ -1,28 +1,29 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Handshake } from "lucide-react";
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { getAuthContext } from "@/lib/auth";
+import { getDeals } from "@/lib/queries/deals";
+import { DealList } from "@/components/deals/deal-list";
+import { Plus } from "lucide-react";
 
-export default function DealsPage() {
+export default async function DealsPage() {
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
+
+  const deals = await getDeals(ctx.workspaceId);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Deals</h1>
-        <p className="text-muted-foreground">
-          Track deals with structured win/loss analysis
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Deals</h1>
+          <p className="text-muted-foreground">Track deals and capture win/loss insights</p>
+        </div>
+        <Link href="/deals/new" className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors">
+          <Plus className="mr-1.5 h-4 w-4" />
+          New Deal
+        </Link>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Handshake className="h-5 w-5" />
-            Coming in Phase 4
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Deal tracking with structured win/loss reasons will be available here.
-          </p>
-        </CardContent>
-      </Card>
+      <DealList deals={deals} />
     </div>
   );
 }
