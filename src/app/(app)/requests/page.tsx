@@ -1,28 +1,25 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare } from "lucide-react";
+import { notFound } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+import { getRequests } from "@/lib/queries/requests";
+import { getIcpsForSelect } from "@/lib/queries/icps";
+import { RequestsView } from "@/components/requests/requests-view";
 
-export default function RequestsPage() {
+export default async function RequestsPage() {
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
+
+  const requests = await getRequests(ctx.workspaceId);
+  const icps = await getIcpsForSelect(ctx.workspaceId);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Product Requests</h1>
-        <p className="text-muted-foreground">
-          Feature requests and product feedback from deals
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Product Requests</h1>
+          <p className="text-muted-foreground">Feature requests and product feedback from deals</p>
+        </div>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Coming in Phase 5
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Aggregated product requests with frequency scoring will be available here.
-          </p>
-        </CardContent>
-      </Card>
+      <RequestsView requests={requests} icps={icps} />
     </div>
   );
 }

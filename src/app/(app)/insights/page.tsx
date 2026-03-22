@@ -1,28 +1,36 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3 } from "lucide-react";
+import { notFound } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+import {
+  getWinLossByIcp,
+  getWinLossBySegment,
+  getTopLossReasons,
+  getTopRequestsByIcp,
+} from "@/lib/queries/insights";
+import { InsightsView } from "@/components/insights/insights-view";
 
-export default function InsightsPage() {
+export default async function InsightsPage() {
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
+
+  const [winLossByIcp, winLossBySegment, topLossReasons, requestsByIcp] = await Promise.all([
+    getWinLossByIcp(ctx.workspaceId),
+    getWinLossBySegment(ctx.workspaceId),
+    getTopLossReasons(ctx.workspaceId),
+    getTopRequestsByIcp(ctx.workspaceId),
+  ]);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Insights</h1>
-        <p className="text-muted-foreground">
-          Analytics and intelligence across your ICP data
-        </p>
+        <p className="text-muted-foreground">Win/loss patterns and product feedback analysis</p>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5" />
-            Coming in Phase 5
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Win/loss analytics, ICP coverage heatmaps, and trend analysis will be available here.
-          </p>
-        </CardContent>
-      </Card>
+      <InsightsView
+        winLossByIcp={winLossByIcp}
+        winLossBySegment={winLossBySegment}
+        topLossReasons={topLossReasons}
+        requestsByIcp={requestsByIcp}
+      />
     </div>
   );
 }
