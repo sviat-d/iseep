@@ -27,6 +27,7 @@ import {
   TrendingDown,
   Minus,
   XCircle,
+  Sparkles,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -119,6 +120,12 @@ export function ScoringResults({
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("all");
 
+  // Detect if AI mapping was used by checking if any lead has mappedFrom in reasons
+  const aiMappingUsed = leads.some((lead) => {
+    const reasons = parseMatchReasons(lead.matchReasons);
+    return reasons.some((r) => r.mappedFrom);
+  });
+
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
       const next = new Set(prev);
@@ -194,6 +201,16 @@ export function ScoringResults({
               year: "numeric",
             })}
           </p>
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            {aiMappingUsed ? (
+              <>
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <span>Scored with AI-assisted matching</span>
+              </>
+            ) : (
+              <span>Scored with exact matching</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -439,7 +456,13 @@ function ReasonLine({ reason }: { reason: MatchReason }) {
         <span>{reason.value}</span>
         {" (lead: "}
         <span className="text-muted-foreground">
-          {reason.leadValue || "\u2014"}
+          {reason.mappedFrom ? (
+            <>
+              &ldquo;{reason.mappedFrom}&rdquo;{" \u2192 "}mapped to &ldquo;{reason.leadValue}&rdquo;
+            </>
+          ) : (
+            reason.leadValue || "\u2014"
+          )}
         </span>
         {")"}
         <span className="text-muted-foreground">{weightLabel}</span>

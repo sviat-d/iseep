@@ -6,6 +6,12 @@ import { scoredUploads, scoredLeads, icps, criteria } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getAuthContext } from "@/lib/auth";
 import { scoreLeadAgainstAllIcps } from "@/lib/scoring";
+import {
+  collectUniqueValues,
+  collectIcpValues,
+  mapValuesToIcp,
+} from "@/lib/value-mapper";
+import { checkAiLimit, trackAiUsage } from "@/lib/ai-usage";
 import type { ActionResult } from "@/lib/types";
 
 type ColumnMapping = Record<string, string>; // csvColumn -> mappedField
@@ -14,7 +20,7 @@ export async function processUpload(
   fileName: string,
   rows: Record<string, string>[],
   columnMapping: ColumnMapping
-): Promise<ActionResult & { uploadId?: string }> {
+): Promise<ActionResult & { uploadId?: string; aiMappingUsed?: boolean }> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
 
@@ -38,6 +44,54 @@ export async function processUpload(
       })
   );
 
+  // Check AI limit for fuzzy matching
+  let useAiMapping = false;
+  try {
+    const limit = await checkAiLimit(ctx.workspaceId);
+    useAiMapping = limit.allowed;
+  } catch {
+    // If limit check fails, proceed without AI mapping
+  }
+
+  // Build value mappings using AI
+  let valueMappings: Record<string, Record<string, string>> = {};
+  let aiMappingUsed = false;
+
+  if (useAiMapping) {
+    try {
+      const csvUniqueValues = collectUniqueValues(rows, columnMapping);
+      const allCriteria = icpsWithCriteria.flatMap((ic) => ic.criteria);
+      const icpUniqueValues = collectIcpValues(
+        allCriteria.map((c) => ({ category: c.category, value: c.value }))
+      );
+
+      // Map each category that has values in both CSV and ICPs
+      let aiCalled = false;
+      for (const [category, csvVals] of Object.entries(csvUniqueValues)) {
+        const icpVals = icpUniqueValues[category];
+        if (icpVals && icpVals.length > 0) {
+          try {
+            const mapping = await mapValuesToIcp(csvVals, icpVals, category);
+            if (Object.keys(mapping).length > 0) {
+              valueMappings[category] = mapping;
+              aiCalled = true;
+            }
+          } catch {
+            // AI mapping failed for this category, continue with exact matching
+          }
+        }
+      }
+
+      if (aiCalled) {
+        await trackAiUsage(ctx.workspaceId, ctx.userId, "csv_value_mapping");
+        aiMappingUsed = true;
+      }
+    } catch {
+      // AI mapping failed entirely, fall back to exact matching
+      valueMappings = {};
+    }
+  }
+
   // Create upload record
   const [upload] = await db
     .insert(scoredUploads)
@@ -50,7 +104,7 @@ export async function processUpload(
     })
     .returning();
 
-  // Score each row
+  // Score each row with value mappings
   const leadInserts = rows.map((row) => {
     // Map CSV columns to standard fields
     const mapped: Record<string, string | undefined> = {};
@@ -60,7 +114,7 @@ export async function processUpload(
       }
     }
 
-    const result = scoreLeadAgainstAllIcps(mapped, icpsWithCriteria);
+    const result = scoreLeadAgainstAllIcps(mapped, icpsWithCriteria, valueMappings);
 
     return {
       uploadId: upload.id,
@@ -87,7 +141,7 @@ export async function processUpload(
   }
 
   revalidatePath("/scoring");
-  return { success: true, uploadId: upload.id };
+  return { success: true, uploadId: upload.id, aiMappingUsed };
 }
 
 export async function deleteUpload(id: string): Promise<ActionResult> {

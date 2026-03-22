@@ -11,6 +11,7 @@ export type MatchReason = {
   matched: boolean;
   weight: number | null;
   leadValue: string | null;
+  mappedFrom?: string; // original CSV value if it was mapped
 };
 
 export type ScoringResult = {
@@ -37,24 +38,43 @@ function normalizeValue(v: string): string {
   return v.trim().toLowerCase();
 }
 
-function matchesCriterion(criterion: Criterion, lead: MappedLead): boolean {
-  const leadValue = lead[criterion.category];
-  if (!leadValue) return false;
+function matchesCriterion(
+  criterion: Criterion,
+  lead: MappedLead,
+  valueMappings?: Record<string, Record<string, string>>
+): { matched: boolean; mappedFrom?: string } {
+  let leadValue = lead[criterion.category];
+  if (!leadValue) return { matched: false };
+
+  // Apply mapping if available
+  let mappedFrom: string | undefined;
+  if (valueMappings?.[criterion.category]) {
+    const mapped = valueMappings[criterion.category][leadValue];
+    if (mapped) {
+      mappedFrom = leadValue;
+      leadValue = mapped;
+    }
+  }
 
   const criterionValues = criterion.value.split(",").map((v) => normalizeValue(v));
   const normalizedLead = normalizeValue(leadValue);
 
+  let matched: boolean;
   if (criterion.operator === "contains") {
-    return criterionValues.some((cv) => normalizedLead.includes(cv));
+    matched = criterionValues.some((cv) => normalizedLead.includes(cv));
+  } else {
+    // Default: equals (case-insensitive)
+    matched = criterionValues.some((cv) => cv === normalizedLead);
   }
-  // Default: equals (case-insensitive)
-  return criterionValues.some((cv) => cv === normalizedLead);
+
+  return { matched, mappedFrom };
 }
 
 export function scoreLeadAgainstIcp(
   lead: MappedLead,
   icp: Icp,
-  icpCriteria: Criterion[]
+  icpCriteria: Criterion[],
+  valueMappings?: Record<string, Record<string, string>>
 ): { score: number; reasons: MatchReason[] } {
   const reasons: MatchReason[] = [];
   let totalWeight = 0;
@@ -63,7 +83,7 @@ export function scoreLeadAgainstIcp(
   let hasRiskMatch = false;
 
   for (const criterion of icpCriteria) {
-    const matched = matchesCriterion(criterion, lead);
+    const { matched, mappedFrom } = matchesCriterion(criterion, lead, valueMappings);
     const weight = criterion.weight ?? 5;
 
     reasons.push({
@@ -73,6 +93,7 @@ export function scoreLeadAgainstIcp(
       matched,
       weight: criterion.weight,
       leadValue: lead[criterion.category] ?? null,
+      ...(mappedFrom ? { mappedFrom } : {}),
     });
 
     if (criterion.intent === "qualify") {
@@ -99,7 +120,8 @@ export function scoreLeadAgainstIcp(
 
 export function scoreLeadAgainstAllIcps(
   lead: MappedLead,
-  icps: Array<{ icp: Icp; criteria: Criterion[] }>
+  icps: Array<{ icp: Icp; criteria: Criterion[] }>,
+  valueMappings?: Record<string, Record<string, string>>
 ): ScoringResult {
   let bestScore = 0;
   let bestIcpId: string | null = null;
@@ -108,7 +130,7 @@ export function scoreLeadAgainstAllIcps(
 
   for (const { icp, criteria } of icps) {
     if (icp.status !== "active") continue;
-    const { score, reasons } = scoreLeadAgainstIcp(lead, icp, criteria);
+    const { score, reasons } = scoreLeadAgainstIcp(lead, icp, criteria, valueMappings);
     if (score > bestScore) {
       bestScore = score;
       bestIcpId = icp.id;
