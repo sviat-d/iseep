@@ -65,6 +65,11 @@ type CriterionFormDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
+const DEFAULT_PROPERTY = "industry";
+
+// Remember last used property across multiple "Add rule" actions
+let lastUsedProperty = DEFAULT_PROPERTY;
+
 function findPropertyOption(category: string) {
   return PROPERTY_OPTIONS.find((p) => p.category === category);
 }
@@ -80,12 +85,14 @@ export function CriterionFormDialog({
     ? findPropertyOption(defaultValues.category)
     : null;
 
+  const initialProperty = defaultValues
+    ? (existingProperty ? defaultValues.category : CUSTOM_PROPERTY)
+    : lastUsedProperty;
+
   const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
-  const [property, setProperty] = useState(
-    existingProperty ? defaultValues!.category : CUSTOM_PROPERTY
-  );
+  const [property, setProperty] = useState(initialProperty);
   const [customCategory, setCustomCategory] = useState(
-    existingProperty ? "" : (defaultValues?.category ?? "")
+    defaultValues && !existingProperty ? (defaultValues.category ?? "") : ""
   );
   const [showTooltip, setShowTooltip] = useState(false);
 
@@ -93,8 +100,8 @@ export function CriterionFormDialog({
   useEffect(() => {
     const opt = defaultValues ? findPropertyOption(defaultValues.category) : null;
     setIntent(defaultValues?.intent ?? "qualify");
-    setProperty(opt ? defaultValues!.category : CUSTOM_PROPERTY);
-    setCustomCategory(opt ? "" : (defaultValues?.category ?? ""));
+    setProperty(defaultValues ? (opt ? defaultValues.category : CUSTOM_PROPERTY) : lastUsedProperty);
+    setCustomCategory(defaultValues && !opt ? (defaultValues.category ?? "") : "");
     setShowTooltip(false);
   }, [defaultValues]);
 
@@ -187,7 +194,10 @@ export function CriterionFormDialog({
             <Select
               value={property}
               onValueChange={(val) => {
-                if (val) setProperty(val);
+                if (val) {
+                  setProperty(val);
+                  if (val !== CUSTOM_PROPERTY) lastUsedProperty = val;
+                }
               }}
             >
               <SelectTrigger className="w-full">
@@ -197,7 +207,7 @@ export function CriterionFormDialog({
                     : (selectedOption?.label ?? property)}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent alignItemWithTrigger={false}>
                 {PROPERTY_OPTIONS.map((opt) => (
                   <SelectItem
                     key={opt.category}
