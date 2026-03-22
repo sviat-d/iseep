@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/select";
 import { createCriterion, updateCriterion } from "@/actions/criteria";
 import type { ActionResult } from "@/lib/types";
-import { GROUP_LABELS, OPERATOR_LABELS } from "@/lib/constants";
+import { PROPERTY_OPTIONS, CONDITION_LABELS } from "@/lib/constants";
+
+const CUSTOM_PROPERTY = "__custom__";
 
 type CriterionFormDialogProps = {
   icpId: string;
@@ -41,6 +43,10 @@ type CriterionFormDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
+function findPropertyOption(category: string) {
+  return PROPERTY_OPTIONS.find((p) => p.category === category);
+}
+
 export function CriterionFormDialog({
   icpId,
   defaultValues,
@@ -48,9 +54,26 @@ export function CriterionFormDialog({
   open,
   onOpenChange,
 }: CriterionFormDialogProps) {
-  const [group, setGroup] = useState(defaultValues?.group ?? defaultGroup ?? "firmographic");
-  const [operator, setOperator] = useState(defaultValues?.operator ?? "equals");
+  const existingProperty = defaultValues
+    ? findPropertyOption(defaultValues.category)
+    : null;
+
+  const [property, setProperty] = useState(
+    existingProperty ? defaultValues!.category : CUSTOM_PROPERTY
+  );
+  const [customCategory, setCustomCategory] = useState(
+    existingProperty ? "" : (defaultValues?.category ?? "")
+  );
+  const [condition, setCondition] = useState(
+    defaultValues?.operator ?? "equals"
+  );
   const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
+
+  // Derive group from property selection
+  const selectedOption = PROPERTY_OPTIONS.find((p) => p.category === property);
+  const resolvedGroup = selectedOption?.group ?? defaultGroup ?? "firmographic";
+  const resolvedCategory =
+    property === CUSTOM_PROPERTY ? customCategory : property;
 
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
@@ -73,14 +96,18 @@ export function CriterionFormDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {defaultValues ? "Edit Criterion" : "Add Criterion"}
+            {defaultValues ? "Edit Rule" : "Add Rule"}
           </DialogTitle>
           <DialogDescription>
-            Define a qualification or exclusion criterion.
+            Define a rule for your ideal customer profile.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="icpId" value={icpId} />
+          <input type="hidden" name="group" value={resolvedGroup} />
+          <input type="hidden" name="category" value={resolvedCategory} />
+          <input type="hidden" name="operator" value={condition} />
+          <input type="hidden" name="intent" value={intent} />
 
           {state?.error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -88,92 +115,121 @@ export function CriterionFormDialog({
             </div>
           )}
 
+          {/* Property */}
           <div className="space-y-2">
-            <Label htmlFor="crit-group">Category group</Label>
-            <input type="hidden" name="group" value={group} />
+            <Label>Property</Label>
             <Select
-              value={group}
-              onValueChange={(val) => { if (val) setGroup(val); }}
+              value={property}
+              onValueChange={(val) => {
+                if (val) setProperty(val);
+              }}
             >
-              <SelectTrigger className="w-full" id="crit-group">
-                <SelectValue>{GROUP_LABELS[group]}</SelectValue>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {property === CUSTOM_PROPERTY
+                    ? "Custom property"
+                    : (selectedOption?.label ?? property)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(GROUP_LABELS).map(([val, label]) => (
+                {PROPERTY_OPTIONS.map((opt) => (
+                  <SelectItem
+                    key={opt.category}
+                    value={opt.category}
+                    label={opt.label}
+                  >
+                    {opt.label}
+                  </SelectItem>
+                ))}
+                <SelectItem value={CUSTOM_PROPERTY} label="Custom property">
+                  Custom property...
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Custom property input */}
+          {property === CUSTOM_PROPERTY && (
+            <div className="space-y-2">
+              <Label htmlFor="crit-custom-category">Property name</Label>
+              <Input
+                id="crit-custom-category"
+                value={customCategory}
+                onChange={(e) => setCustomCategory(e.target.value)}
+                placeholder="e.g. App Store presence, Web traffic"
+                required
+              />
+            </div>
+          )}
+
+          {/* Condition */}
+          <div className="space-y-2">
+            <Label>Condition</Label>
+            <Select
+              value={condition}
+              onValueChange={(val) => {
+                if (val) setCondition(val);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {CONDITION_LABELS[condition] ?? condition}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(CONDITION_LABELS).map(([val, label]) => (
                   <SelectItem key={val} value={val} label={label}>
                     {label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">What kind of factor is this?</p>
           </div>
 
+          {/* Value */}
           <div className="space-y-2">
-            <Label htmlFor="crit-category">What are you measuring?</Label>
-            <Input
-              id="crit-category"
-              name="category"
-              placeholder="e.g. Industry, Company size, Region"
-              defaultValue={defaultValues?.category ?? ""}
-              required
-            />
-            <p className="text-xs text-muted-foreground">The specific property you&apos;re evaluating.</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="crit-operator">How to compare</Label>
-            <input type="hidden" name="operator" value={operator} />
-            <Select
-              value={operator}
-              onValueChange={(val) => { if (val) setOperator(val); }}
-            >
-              <SelectTrigger className="w-full" id="crit-operator">
-                <SelectValue>{OPERATOR_LABELS[operator]}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(OPERATOR_LABELS).map(([val, label]) => (
-                  <SelectItem key={val} value={val} label={label}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">How should the value be matched?</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="crit-value">Expected value</Label>
+            <Label htmlFor="crit-value">Value</Label>
             <Input
               id="crit-value"
               name="value"
-              placeholder="e.g. FinTech, EU, 50-200 employees"
+              placeholder="e.g. FinTech, iGaming, EU"
               defaultValue={defaultValues?.value ?? ""}
               required
             />
-            <p className="text-xs text-muted-foreground">What this property should be (or contain) for a good fit.</p>
+            <p className="text-xs text-muted-foreground">
+              Separate multiple values with commas.
+            </p>
           </div>
 
+          {/* Intent */}
           <div className="space-y-2">
-            <Label htmlFor="crit-intent">This factor should...</Label>
-            <input type="hidden" name="intent" value={intent} />
+            <Label>This rule helps to</Label>
             <Select
               value={intent}
-              onValueChange={(val) => { if (val) setIntent(val); }}
+              onValueChange={(val) => {
+                if (val) setIntent(val);
+              }}
             >
-              <SelectTrigger className="w-full" id="crit-intent">
-                <SelectValue>{intent === "qualify" ? "Qualify" : "Exclude"}</SelectValue>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {intent === "qualify" ? "Include" : "Exclude"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="qualify" label="Qualify">✓ Qualify — helps define your ICP (positive fit factor)</SelectItem>
-                <SelectItem value="exclude" label="Exclude">✗ Exclude — disqualifies the company (hard rule)</SelectItem>
+                <SelectItem value="qualify" label="Include">
+                  Include — defines your ICP
+                </SelectItem>
+                <SelectItem value="exclude" label="Exclude">
+                  Exclude — disqualifies the company
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
+          {/* Weight — only for qualify */}
           {intent === "qualify" && (
             <div className="space-y-2">
-              <Label htmlFor="crit-weight">Importance</Label>
+              <Label htmlFor="crit-weight">Importance (1-10)</Label>
               <Input
                 id="crit-weight"
                 name="weight"
@@ -182,19 +238,22 @@ export function CriterionFormDialog({
                 max={10}
                 defaultValue={defaultValues?.weight ?? 5}
               />
-              <p className="text-xs text-muted-foreground">How much this factor matters (1 = minor, 10 = critical).</p>
+              <p className="text-xs text-muted-foreground">
+                How important is this rule? 1 = nice to have, 10 = must have.
+              </p>
             </div>
           )}
 
+          {/* Note */}
           <div className="space-y-2">
-            <Label htmlFor="crit-note">Why this matters</Label>
+            <Label htmlFor="crit-note">Note (optional)</Label>
             <Textarea
               id="crit-note"
               name="note"
-              placeholder="e.g. We win most deals in this segment"
+              placeholder="e.g. We win 80% of deals in this segment"
               defaultValue={defaultValues?.note ?? ""}
+              rows={2}
             />
-            <p className="text-xs text-muted-foreground">Optional context for your team.</p>
           </div>
 
           <DialogFooter>
@@ -210,7 +269,7 @@ export function CriterionFormDialog({
                 ? "Saving..."
                 : defaultValues
                   ? "Update"
-                  : "Add"}
+                  : "Add rule"}
             </Button>
           </DialogFooter>
         </form>

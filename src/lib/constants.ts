@@ -61,3 +61,30 @@ export const OPERATOR_LABELS: Record<string, string> = {
   in: "one of — comma-separated values",
   not_in: "none of — comma-separated values",
 };
+
+// Simplified condition labels for the rule builder
+export const CONDITION_LABELS: Record<string, string> = {
+  equals: "is",
+  not_in: "is not",
+  contains: "contains",
+};
+
+// Predefined properties with auto-mapped group
+export const PROPERTY_OPTIONS: Array<{
+  label: string;
+  category: string;
+  group: string;
+}> = [
+  { label: "Industry", category: "industry", group: "firmographic" },
+  { label: "Region", category: "region", group: "firmographic" },
+  { label: "Company size", category: "company_size", group: "firmographic" },
+  { label: "Business model", category: "business_model", group: "firmographic" },
+  { label: "Platform", category: "platform", group: "technographic" },
+  { label: "Payment method", category: "payment_method", group: "technographic" },
+  { label: "Tech stack", category: "tech_stack", group: "technographic" },
+  { label: "Growth stage", category: "growth_stage", group: "behavioral" },
+  { label: "Hiring activity", category: "hiring_activity", group: "behavioral" },
+  { label: "Regulatory status", category: "regulatory_status", group: "compliance" },
+  { label: "License type", category: "license_type", group: "compliance" },
+  { label: "Keywords", category: "keyword", group: "keyword" },
+];
