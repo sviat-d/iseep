@@ -1,106 +1,83 @@
 "use client";
 
-import type { ConditionNode, GroupNode, CriterionNode } from "@/lib/segment-helpers";
+import { PROPERTY_OPTIONS } from "@/lib/constants";
+import type { SegmentLogic, SegmentRule } from "@/lib/segment-helpers";
 
 type SegmentReadViewProps = {
-  logicJson: ConditionNode;
+  logic: SegmentLogic;
 };
 
 const INTENT_ICON: Record<string, string> = {
-  qualify: "✅",
-  risk: "⚠️",
-  exclude: "❌",
+  qualify: "\u2705",
+  risk: "\u26A0\uFE0F",
+  exclude: "\u274C",
 };
 
-function renderCriterion(node: CriterionNode) {
-  const icon = INTENT_ICON[node.intent] ?? "✅";
-  const op = node.operator === "contains" ? "contains" : "=";
-  return (
-    <span>
-      {icon} {node.category} {op} {node.value}
-    </span>
-  );
+const SECTIONS: Array<{
+  intent: "qualify" | "risk" | "exclude";
+  title: string;
+}> = [
+  { intent: "qualify", title: "Include (must match)" },
+  { intent: "exclude", title: "Exclude (must not match)" },
+  { intent: "risk", title: "Risk (needs review)" },
+];
+
+function propertyLabel(property: string): string {
+  const opt = PROPERTY_OPTIONS.find((p) => p.category === property);
+  return opt?.label ?? property;
 }
 
-function RenderGroup({
-  node,
-  depth,
-}: {
-  node: GroupNode;
-  depth: number;
-}) {
-  if (node.conditions.length === 0) {
-    return depth === 0 ? (
-      <p className="text-sm text-muted-foreground">
-        No conditions defined yet.
-      </p>
-    ) : null;
-  }
-
-  if (node.operator === "NOT") {
-    return (
-      <div className="pl-4">
-        <span className="text-sm font-medium text-muted-foreground">
-          NOT (
-        </span>
-        {node.conditions.map((child, i) => (
-          <RenderNode key={i} node={child} depth={depth + 1} />
-        ))}
-        <span className="text-sm font-medium text-muted-foreground">)</span>
-      </div>
-    );
-  }
-
+function RuleRow({ rule }: { rule: SegmentRule }) {
+  const icon = INTENT_ICON[rule.intent] ?? "\u2705";
   return (
-    <div className={depth > 0 ? "pl-4" : undefined}>
-      {node.conditions.map((child, i) => (
-        <div key={i}>
-          {i > 0 && (
-            <span className="text-xs font-semibold text-muted-foreground">
-              {node.operator}{" "}
-            </span>
-          )}
-          <RenderNode node={child} depth={depth + 1} />
-        </div>
-      ))}
+    <div className="text-sm py-0.5">
+      <span>
+        {icon} {propertyLabel(rule.property)} = {rule.value}
+      </span>
+      {rule.importance != null && (
+        <span className="ml-2 text-muted-foreground">({rule.importance}/10)</span>
+      )}
     </div>
   );
 }
 
-function RenderNode({
-  node,
-  depth,
-}: {
-  node: ConditionNode;
-  depth: number;
-}) {
-  if (node.type === "criterion") {
-    return (
-      <div className="text-sm py-0.5">
-        {renderCriterion(node)}
-      </div>
-    );
-  }
-  return <RenderGroup node={node} depth={depth} />;
-}
-
-export function SegmentReadView({ logicJson }: SegmentReadViewProps) {
-  const node = logicJson as ConditionNode;
-
-  if (
-    !node ||
-    (node.type === "group" && node.conditions.length === 0)
-  ) {
+export function SegmentReadView({ logic }: SegmentReadViewProps) {
+  if (logic.rules.length === 0) {
     return (
       <p className="py-4 text-sm text-muted-foreground">
-        No conditions defined yet.
+        No rules defined yet. Click Edit to start refining this segment.
+      </p>
+    );
+  }
+
+  const hasAnySection = SECTIONS.some(({ intent }) =>
+    logic.rules.some((r) => r.intent === intent)
+  );
+
+  if (!hasAnySection) {
+    return (
+      <p className="py-4 text-sm text-muted-foreground">
+        No rules defined yet. Click Edit to start refining this segment.
       </p>
     );
   }
 
   return (
-    <div className="rounded-lg border bg-muted/30 p-4 font-mono text-sm">
-      <RenderNode node={node} depth={0} />
+    <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+      {SECTIONS.map(({ intent, title }) => {
+        const rules = logic.rules.filter((r) => r.intent === intent);
+        if (rules.length === 0) return null;
+        return (
+          <div key={intent}>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+              {title}
+            </p>
+            {rules.map((rule, i) => (
+              <RuleRow key={i} rule={rule} />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -9,18 +9,7 @@ import { SegmentBuilder } from "@/components/segments/segment-builder";
 import { SegmentEditDialog } from "@/components/segments/segment-edit-dialog";
 import { SegmentDeleteDialog } from "@/components/segments/segment-delete-dialog";
 import { ArrowLeft, Pencil } from "lucide-react";
-import type { ConditionNode } from "@/lib/segment-helpers";
-
-type Criterion = {
-  id: string;
-  group: string;
-  category: string;
-  operator: string | null;
-  value: string;
-  intent: string;
-  weight: number | null;
-  note: string | null;
-};
+import { parseLogicJson } from "@/lib/segment-helpers";
 
 type Segment = {
   id: string;
@@ -38,7 +27,6 @@ type Segment = {
 
 type SegmentDetailProps = {
   segment: Segment;
-  icpCriteria: Criterion[];
 };
 
 const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
@@ -47,8 +35,9 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
-export function SegmentDetail({ segment, icpCriteria }: SegmentDetailProps) {
+export function SegmentDetail({ segment }: SegmentDetailProps) {
   const [editMode, setEditMode] = useState(false);
+  const logic = parseLogicJson(segment.logicJson);
 
   return (
     <div className="space-y-6">
@@ -100,7 +89,7 @@ export function SegmentDetail({ segment, icpCriteria }: SegmentDetailProps) {
               onClick={() => setEditMode(true)}
             >
               <Pencil className="mr-1.5 h-3.5 w-3.5" />
-              Edit conditions
+              Edit rules
             </Button>
           )}
           <SegmentDeleteDialog
@@ -110,19 +99,17 @@ export function SegmentDetail({ segment, icpCriteria }: SegmentDetailProps) {
         </div>
       </div>
 
-      {/* Condition display */}
+      {/* Rules display */}
       <div>
-        <h2 className="text-sm font-semibold mb-2">Conditions</h2>
+        <h2 className="text-sm font-semibold mb-2">Rules</h2>
         {editMode ? (
           <SegmentBuilder
             segmentId={segment.id}
-            initialLogicJson={segment.logicJson as ConditionNode}
-            icpCriteria={icpCriteria}
-            icpId={segment.icpId}
+            initialLogic={logic}
             onCancel={() => setEditMode(false)}
           />
         ) : (
-          <SegmentReadView logicJson={segment.logicJson as ConditionNode} />
+          <SegmentReadView logic={logic} />
         )}
       </div>
     </div>

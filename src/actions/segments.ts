@@ -33,7 +33,7 @@ export async function createSegment(formData: FormData) {
       icpId: parsed.data.icpId,
       status: parsed.data.status,
       priorityScore: parsed.data.priorityScore,
-      logicJson: { type: "group", operator: "AND", conditions: [] },
+      logicJson: { rules: [] },
     })
     .returning();
 

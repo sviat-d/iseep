@@ -1,104 +1,67 @@
-export type CriterionNode = {
-  type: "criterion";
-  criterionId: string;
-  group: string;
-  category: string;
-  operator: string;
+export type SegmentRule = {
+  criterionId?: string;
+  property: string;
   value: string;
-  intent: string;
+  intent: "qualify" | "risk" | "exclude";
+  importance?: number;
+  note?: string;
 };
 
-export type GroupNode = {
-  type: "group";
-  operator: "AND" | "OR" | "NOT";
-  conditions: ConditionNode[];
+export type SegmentLogic = {
+  rules: SegmentRule[];
 };
 
-export type ConditionNode = CriterionNode | GroupNode;
-
-export function emptyTree(): GroupNode {
-  return { type: "group", operator: "AND", conditions: [] };
+export function emptyLogic(): SegmentLogic {
+  return { rules: [] };
 }
 
-export function addCondition(
-  tree: GroupNode,
-  path: number[],
-  node: ConditionNode
-): GroupNode {
-  if (path.length === 0) {
-    return { ...tree, conditions: [...tree.conditions, node] };
+export function addRule(logic: SegmentLogic, rule: SegmentRule): SegmentLogic {
+  return { rules: [...logic.rules, rule] };
+}
+
+export function removeRule(logic: SegmentLogic, index: number): SegmentLogic {
+  return { rules: logic.rules.filter((_, i) => i !== index) };
+}
+
+export function updateRule(
+  logic: SegmentLogic,
+  index: number,
+  rule: SegmentRule
+): SegmentLogic {
+  return { rules: logic.rules.map((r, i) => (i === index ? rule : r)) };
+}
+
+export function countRules(logic: SegmentLogic): number {
+  return logic.rules.length;
+}
+
+/** Parse old tree format or new flat format. */
+export function parseLogicJson(json: unknown): SegmentLogic {
+  if (!json || typeof json !== "object") return emptyLogic();
+  if ("rules" in (json as Record<string, unknown>)) return json as SegmentLogic;
+  // Legacy tree format — extract leaf criteria as flat rules
+  const rules: SegmentRule[] = [];
+  function walk(node: unknown) {
+    if (!node || typeof node !== "object") return;
+    const n = node as Record<string, unknown>;
+    if (n.type === "criterion") {
+      rules.push({
+        criterionId: n.criterionId as string | undefined,
+        property: (n.category as string) ?? "",
+        value: (n.value as string) ?? "",
+        intent:
+          (n.intent as string) === "exclude"
+            ? "exclude"
+            : (n.intent as string) === "risk"
+              ? "risk"
+              : "qualify",
+        importance: typeof n.weight === "number" ? n.weight : undefined,
+        note: typeof n.note === "string" ? n.note : undefined,
+      });
+    } else if (n.type === "group" && Array.isArray(n.conditions)) {
+      (n.conditions as unknown[]).forEach(walk);
+    }
   }
-  const [head, ...rest] = path;
-  const conditions = tree.conditions.map((c, i) => {
-    if (i !== head || c.type !== "group") return c;
-    return addCondition(c, rest, node);
-  });
-  return { ...tree, conditions };
-}
-
-export function removeCondition(
-  tree: GroupNode,
-  path: number[]
-): GroupNode {
-  if (path.length === 1) {
-    return {
-      ...tree,
-      conditions: tree.conditions.filter((_, i) => i !== path[0]),
-    };
-  }
-  const [head, ...rest] = path;
-  const conditions = tree.conditions.map((c, i) => {
-    if (i !== head || c.type !== "group") return c;
-    return removeCondition(c, rest);
-  });
-  return { ...tree, conditions };
-}
-
-export function updateCondition(
-  tree: GroupNode,
-  path: number[],
-  node: ConditionNode
-): GroupNode {
-  if (path.length === 1) {
-    const conditions = tree.conditions.map((c, i) =>
-      i === path[0] ? node : c
-    );
-    return { ...tree, conditions };
-  }
-  const [head, ...rest] = path;
-  const conditions = tree.conditions.map((c, i) => {
-    if (i !== head || c.type !== "group") return c;
-    return updateCondition(c, rest, node);
-  });
-  return { ...tree, conditions };
-}
-
-export function addGroup(
-  tree: GroupNode,
-  path: number[],
-  operator: "AND" | "OR" | "NOT"
-): GroupNode {
-  const newGroup: GroupNode = { type: "group", operator, conditions: [] };
-  return addCondition(tree, path, newGroup);
-}
-
-export function toggleGroupOperator(
-  tree: GroupNode,
-  path: number[]
-): GroupNode {
-  if (path.length === 0) {
-    const next = tree.operator === "AND" ? "OR" : "AND";
-    return { ...tree, operator: next };
-  }
-  const [head, ...rest] = path;
-  const conditions = tree.conditions.map((c, i) => {
-    if (i !== head || c.type !== "group") return c;
-    return toggleGroupOperator(c, rest);
-  });
-  return { ...tree, conditions };
-}
-
-export function countConditions(node: ConditionNode): number {
-  if (node.type === "criterion") return 1;
-  return node.conditions.reduce((sum, c) => sum + countConditions(c), 0);
+  walk(json);
+  return { rules };
 }

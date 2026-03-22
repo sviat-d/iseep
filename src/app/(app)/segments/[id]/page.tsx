@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getSegment } from "@/lib/queries/segments";
-import { getIcp } from "@/lib/queries/icps";
 import { SegmentDetail } from "@/components/segments/segment-detail";
 
 export default async function SegmentDetailPage({
@@ -16,8 +15,5 @@ export default async function SegmentDetailPage({
   const segment = await getSegment(id, ctx.workspaceId);
   if (!segment) notFound();
 
-  const icp = await getIcp(segment.icpId, ctx.workspaceId);
-  if (!icp) notFound();
-
-  return <SegmentDetail segment={segment} icpCriteria={icp.criteria} />;
+  return <SegmentDetail segment={segment} />;
 }

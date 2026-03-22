@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { countConditions, type ConditionNode } from "@/lib/segment-helpers";
+import { parseLogicJson, countRules } from "@/lib/segment-helpers";
 
 type SegmentRow = {
   id: string;
@@ -115,8 +115,8 @@ export function SegmentListGrouped({ segments }: SegmentListGroupedProps) {
                 {!isCollapsed && (
                   <div className="border-t">
                     {segs.map((seg) => {
-                      const conditions = countConditions(
-                        seg.logicJson as ConditionNode
+                      const ruleCount = countRules(
+                        parseLogicJson(seg.logicJson)
                       );
                       return (
                         <Link
@@ -137,7 +137,7 @@ export function SegmentListGrouped({ segments }: SegmentListGroupedProps) {
                             </Badge>
                           </div>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>{conditions} condition{conditions !== 1 ? "s" : ""}</span>
+                            <span>{ruleCount} rule{ruleCount !== 1 ? "s" : ""}</span>
                             <span>Priority: {seg.priorityScore}/10</span>
                           </div>
                         </Link>
