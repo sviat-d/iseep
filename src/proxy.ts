@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicRoute = publicRoutes.includes(pathname);
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/share/");
 
   // Redirect unauthenticated users to sign-in
   if (!user && !isPublicRoute) {

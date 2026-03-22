@@ -88,6 +88,62 @@ export async function getIcpSnapshots(icpId: string, workspaceId: string) {
     .orderBy(sql`${icpSnapshots.version} desc`);
 }
 
+export async function getSharedIcp(shareToken: string) {
+  const [icp] = await db
+    .select()
+    .from(icps)
+    .where(eq(icps.shareToken, shareToken));
+
+  if (!icp || !icp.shareToken) return null;
+
+  const icpCriteria = await db
+    .select()
+    .from(criteria)
+    .where(eq(criteria.icpId, icp.id))
+    .orderBy(criteria.group, criteria.category);
+
+  const icpPersonas = await db
+    .select()
+    .from(personas)
+    .where(eq(personas.icpId, icp.id))
+    .orderBy(personas.name);
+
+  const icpSegments = await db
+    .select({
+      id: segments.id,
+      name: segments.name,
+      status: segments.status,
+      priorityScore: segments.priorityScore,
+    })
+    .from(segments)
+    .where(eq(segments.icpId, icp.id))
+    .orderBy(segments.name);
+
+  // Only load deal stats if shareMode is "with_stats"
+  let dealStats = { total: 0, won: 0, lost: 0, open: 0 };
+  if (icp.shareMode === "with_stats") {
+    const [stats] = await db
+      .select({
+        total: sql<number>`count(*)::int`,
+        won: sql<number>`count(*) filter (where outcome = 'won')::int`,
+        lost: sql<number>`count(*) filter (where outcome = 'lost')::int`,
+        open: sql<number>`count(*) filter (where outcome = 'open')::int`,
+      })
+      .from(deals)
+      .where(eq(deals.icpId, icp.id));
+    if (stats) dealStats = stats;
+  }
+
+  return {
+    ...icp,
+    criteria: icpCriteria,
+    personas: icpPersonas,
+    segments: icpSegments,
+    dealStats,
+    showStats: icp.shareMode === "with_stats",
+  };
+}
+
 export async function getIcpsForSelect(workspaceId: string) {
   return db
     .select({ id: icps.id, name: icps.name })

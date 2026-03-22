@@ -63,6 +63,8 @@ export const icps = pgTable("icps", {
     .default("draft")
     .notNull(),
   version: integer("version").default(1).notNull(),
+  shareToken: text("share_token").unique(),
+  shareMode: text("share_mode", { enum: ["without_stats", "with_stats"] }),
   parentIcpId: uuid("parent_icp_id"),
   createdBy: uuid("created_by").references(() => users.id),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

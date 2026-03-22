@@ -4,6 +4,7 @@ import { getIcp, getIcpSnapshots } from "@/lib/queries/icps";
 import { IcpTabs } from "@/components/icps/icp-tabs";
 import { IcpDeleteDialog } from "@/components/icps/icp-delete-dialog";
 import { IcpEditDialog } from "@/components/icps/icp-edit-dialog";
+import { IcpShareDialog } from "@/components/icps/icp-share-dialog";
 import { Badge } from "@/components/ui/badge";
 
 export default async function IcpDetailPage({
@@ -34,6 +35,7 @@ export default async function IcpDetailPage({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <IcpShareDialog icp={{ id: icp.id, shareToken: icp.shareToken, shareMode: icp.shareMode }} />
           <IcpEditDialog icp={icp} />
           <IcpDeleteDialog icpId={icp.id} icpName={icp.name} />
         </div>
