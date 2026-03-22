@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
-import { getCompanies } from "@/lib/queries/deals";
+import { getCompanies, getIndustrySuggestions } from "@/lib/queries/deals";
 import { CompanyList } from "@/components/companies/company-list";
 import { Plus } from "lucide-react";
 
@@ -9,7 +9,10 @@ export default async function CompaniesPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const companies = await getCompanies(ctx.workspaceId);
+  const [companies, industrySuggestions] = await Promise.all([
+    getCompanies(ctx.workspaceId),
+    getIndustrySuggestions(ctx.workspaceId),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -26,7 +29,7 @@ export default async function CompaniesPage() {
           Add Company
         </Link>
       </div>
-      <CompanyList companies={companies} />
+      <CompanyList companies={companies} industrySuggestions={industrySuggestions} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/table";
+import { CompanyEditDialog } from "@/components/companies/company-edit-dialog";
 import { Search } from "lucide-react";
 
 type Company = {
@@ -27,9 +28,10 @@ type Company = {
 
 type CompanyListProps = {
   companies: Company[];
+  industrySuggestions: string[];
 };
 
-export function CompanyList({ companies }: CompanyListProps) {
+export function CompanyList({ companies, industrySuggestions }: CompanyListProps) {
   const [search, setSearch] = useState("");
 
   const filtered = companies.filter((c) =>
@@ -65,6 +67,7 @@ export function CompanyList({ companies }: CompanyListProps) {
               <TableHead>Country</TableHead>
               <TableHead>Website</TableHead>
               <TableHead>Created</TableHead>
+              <TableHead></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -100,6 +103,12 @@ export function CompanyList({ companies }: CompanyListProps) {
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {company.createdAt.toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <CompanyEditDialog
+                    company={company}
+                    industrySuggestions={industrySuggestions}
+                  />
                 </TableCell>
               </TableRow>
             ))}
