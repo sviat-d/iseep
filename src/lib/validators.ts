@@ -43,3 +43,13 @@ export const criterionSchema = z.object({
 export type IcpInput = z.infer<typeof icpSchema>;
 export type PersonaInput = z.infer<typeof personaSchema>;
 export type CriterionInput = z.infer<typeof criterionSchema>;
+
+export const segmentSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
+  description: z.string().optional(),
+  icpId: z.string().uuid(),
+  status: z.enum(["draft", "active", "archived"]),
+  priorityScore: z.coerce.number().int().min(1).max(10),
+});
+
+export type SegmentInput = z.infer<typeof segmentSchema>;
