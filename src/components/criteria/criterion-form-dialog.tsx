@@ -48,6 +48,8 @@ export function CriterionFormDialog({
   open,
   onOpenChange,
 }: CriterionFormDialogProps) {
+  const [group, setGroup] = useState(defaultValues?.group ?? defaultGroup ?? "firmographic");
+  const [operator, setOperator] = useState(defaultValues?.operator ?? "equals");
   const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
 
   const [state, formAction, isPending] = useActionState<
@@ -88,14 +90,13 @@ export function CriterionFormDialog({
 
           <div className="space-y-2">
             <Label htmlFor="crit-group">Category group</Label>
+            <input type="hidden" name="group" value={group} />
             <Select
-              name="group"
-              defaultValue={
-                defaultValues?.group ?? defaultGroup ?? "firmographic"
-              }
+              value={group}
+              onValueChange={(val) => { if (val) setGroup(val); }}
             >
               <SelectTrigger className="w-full" id="crit-group">
-                <SelectValue placeholder="Select group" />
+                <SelectValue>{GROUP_LABELS[group]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(GROUP_LABELS).map(([val, label]) => (
@@ -122,12 +123,13 @@ export function CriterionFormDialog({
 
           <div className="space-y-2">
             <Label htmlFor="crit-operator">How to compare</Label>
+            <input type="hidden" name="operator" value={operator} />
             <Select
-              name="operator"
-              defaultValue={defaultValues?.operator ?? "equals"}
+              value={operator}
+              onValueChange={(val) => { if (val) setOperator(val); }}
             >
               <SelectTrigger className="w-full" id="crit-operator">
-                <SelectValue placeholder="Select operator" />
+                <SelectValue>{OPERATOR_LABELS[operator]}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {Object.entries(OPERATOR_LABELS).map(([val, label]) => (
@@ -154,13 +156,13 @@ export function CriterionFormDialog({
 
           <div className="space-y-2">
             <Label htmlFor="crit-intent">This factor should...</Label>
+            <input type="hidden" name="intent" value={intent} />
             <Select
-              name="intent"
-              defaultValue={intent}
+              value={intent}
               onValueChange={(val) => { if (val) setIntent(val); }}
             >
               <SelectTrigger className="w-full" id="crit-intent">
-                <SelectValue placeholder="Select intent" />
+                <SelectValue>{intent === "qualify" ? "Qualify" : "Exclude"}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="qualify" label="Qualify">✓ Qualify — helps define your ICP (positive fit factor)</SelectItem>
