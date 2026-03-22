@@ -31,7 +31,7 @@ export const personaSchema = z.object({
 export const criterionSchema = z.object({
   group: z.enum(["firmographic", "technographic", "behavioral", "compliance", "keyword"]),
   category: z.string().min(1, "Category is required"),
-  operator: z.enum(["equals", "contains", "gt", "lt", "in", "not_in"]).optional(),
+  operator: z.enum(["equals", "contains"]).optional(),
   value: z.string().min(1, "Value is required"),
   intent: z.enum(["qualify", "risk", "exclude"]),
   weight: z.coerce.number().int().min(1).max(10).optional(),

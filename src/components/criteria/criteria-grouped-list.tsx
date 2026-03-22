@@ -333,10 +333,10 @@ function CriterionRow({
             <X className="h-3.5 w-3.5 text-destructive shrink-0" />
           )}
           <span className="font-medium">{criterion.category}</span>
-          {criterion.operator && (
-            <Badge variant="outline">{criterion.operator}</Badge>
-          )}
-          <span className="text-muted-foreground">{criterion.value}</span>
+          <span className="text-muted-foreground">
+            {criterion.operator === "contains" ? "contains" : "="}{" "}
+            {criterion.value}
+          </span>
           {criterion.intent === "qualify" && criterion.weight != null && (
             <Badge variant="secondary">w:{criterion.weight}</Badge>
           )}

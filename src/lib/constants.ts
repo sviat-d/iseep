@@ -65,7 +65,6 @@ export const OPERATOR_LABELS: Record<string, string> = {
 // Simplified condition labels for the rule builder
 export const CONDITION_LABELS: Record<string, string> = {
   equals: "is",
-  not_in: "is not",
   contains: "contains",
 };
 
