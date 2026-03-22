@@ -70,11 +70,11 @@ export function PersonaFormDialog({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="persona-name">Name</Label>
+            <Label htmlFor="persona-name">Job Title</Label>
             <Input
               id="persona-name"
               name="name"
-              placeholder="e.g. VP of Engineering"
+              placeholder="e.g. VP of Engineering, Head of Payments"
               defaultValue={defaultValues?.name ?? ""}
               required
             />
