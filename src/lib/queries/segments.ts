@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { segments, icps } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export async function getSegments(workspaceId: string) {
   const result = await db

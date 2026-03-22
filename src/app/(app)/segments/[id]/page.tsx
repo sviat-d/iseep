@@ -1,4 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { notFound } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+import { getSegment } from "@/lib/queries/segments";
+import { getIcp } from "@/lib/queries/icps";
+import { SegmentDetail } from "@/components/segments/segment-detail";
 
 export default async function SegmentDetailPage({
   params,
@@ -6,20 +10,14 @@ export default async function SegmentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
 
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">Segment Detail</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming in Phase 3</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Detail view for segment <code>{id}</code>.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  const segment = await getSegment(id, ctx.workspaceId);
+  if (!segment) notFound();
+
+  const icp = await getIcp(segment.icpId, ctx.workspaceId);
+  if (!icp) notFound();
+
+  return <SegmentDetail segment={segment} icpCriteria={icp.criteria} />;
 }

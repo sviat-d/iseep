@@ -1,19 +1,33 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { notFound } from "next/navigation";
+import { getAuthContext } from "@/lib/auth";
+import { getIcpsForSelect } from "@/lib/queries/icps";
+import { createSegment } from "@/actions/segments";
+import { SegmentForm } from "@/components/segments/segment-form";
 
-export default function NewSegmentPage() {
+export default async function NewSegmentPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ icpId?: string }>;
+}) {
+  const params = await searchParams;
+  const ctx = await getAuthContext();
+  if (!ctx) notFound();
+
+  const icps = await getIcpsForSelect(ctx.workspaceId);
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold tracking-tight">New Segment</h1>
-      <Card>
-        <CardHeader>
-          <CardTitle>Coming in Phase 3</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Visual segment builder with condition groups will be available here.
-          </p>
-        </CardContent>
-      </Card>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Create Segment</h1>
+        <p className="text-muted-foreground">
+          Define a new audience segment within an ICP
+        </p>
+      </div>
+      <SegmentForm
+        action={createSegment}
+        icps={icps}
+        defaultIcpId={params.icpId}
+      />
     </div>
   );
 }

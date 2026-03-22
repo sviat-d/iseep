@@ -126,7 +126,7 @@ export function IcpTabs({ icp, snapshots }: IcpTabsProps) {
       </TabsContent>
 
       <TabsContent value="segments" className="pt-4">
-        <SegmentsTab segments={icp.segments} />
+        <SegmentsTab segments={icp.segments} icpId={icp.id} />
       </TabsContent>
 
       <TabsContent value="performance" className="pt-4">
@@ -140,34 +140,43 @@ export function IcpTabs({ icp, snapshots }: IcpTabsProps) {
   );
 }
 
-function SegmentsTab({ segments }: { segments: Segment[] }) {
-  if (segments.length === 0) {
-    return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        No segments yet.
-      </p>
-    );
-  }
-
+function SegmentsTab({ segments, icpId }: { segments: Segment[]; icpId: string }) {
   return (
-    <div className="space-y-2">
-      {segments.map((segment) => (
+    <div className="space-y-3">
+      <div className="flex justify-end">
         <Link
-          key={segment.id}
-          href={`/segments/${segment.id}`}
-          className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
+          href={`/segments/new?icpId=${icpId}`}
+          className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
         >
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium">{segment.name}</span>
-            <Badge variant={statusVariant[segment.status] ?? "outline"}>
-              {segment.status}
-            </Badge>
-          </div>
-          <span className="text-sm text-muted-foreground">
-            Priority: {segment.priorityScore}/10
-          </span>
+          Create Segment
         </Link>
-      ))}
+      </div>
+
+      {segments.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No segments yet.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {segments.map((segment) => (
+            <Link
+              key={segment.id}
+              href={`/segments/${segment.id}`}
+              className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">{segment.name}</span>
+                <Badge variant={statusVariant[segment.status] ?? "outline"}>
+                  {segment.status}
+                </Badge>
+              </div>
+              <span className="text-sm text-muted-foreground">
+                Priority: {segment.priorityScore}/10
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
