@@ -131,7 +131,7 @@ export function DealForm({ action, companies: initialCompanies, icps }: DealForm
           <div className="space-y-2">
             <Label>Company</Label>
             <Select
-              value={companyId || (showCreateCompany ? "__create_new__" : undefined)}
+              value={companyId || (showCreateCompany ? "__create_new__" : "")}
               onValueChange={handleCompanySelect}
             >
               <SelectTrigger className="w-full">

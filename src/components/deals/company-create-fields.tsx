@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,9 +14,24 @@ type CompanyCreateFieldsProps = {
 export function CompanyCreateFields({ onCreated, onCancel }: CompanyCreateFieldsProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const websiteRef = useRef<HTMLInputElement>(null);
+  const countryRef = useRef<HTMLInputElement>(null);
+  const industryRef = useRef<HTMLInputElement>(null);
 
-  function handleCreate(formData: FormData) {
+  function handleCreate() {
+    const name = nameRef.current?.value?.trim();
+    if (!name) {
+      setError("Company name is required");
+      return;
+    }
     setError(null);
+    const formData = new FormData();
+    formData.set("name", name);
+    if (websiteRef.current?.value) formData.set("website", websiteRef.current.value);
+    if (countryRef.current?.value) formData.set("country", countryRef.current.value);
+    if (industryRef.current?.value) formData.set("industry", industryRef.current.value);
+
     startTransition(async () => {
       const result = await createCompany(formData);
       if (result.error) {
@@ -24,10 +39,7 @@ export function CompanyCreateFields({ onCreated, onCancel }: CompanyCreateFields
         return;
       }
       if (result.companyId) {
-        onCreated({
-          id: result.companyId,
-          name: formData.get("name") as string,
-        });
+        onCreated({ id: result.companyId, name });
       }
     });
   }
@@ -40,34 +52,34 @@ export function CompanyCreateFields({ onCreated, onCancel }: CompanyCreateFields
           {error}
         </div>
       )}
-      <form action={handleCreate} className="space-y-3">
+      <div className="space-y-3">
         <div className="space-y-1">
           <Label htmlFor="company-name">Company Name</Label>
-          <Input id="company-name" name="name" placeholder="e.g. Acme Corp" required />
+          <Input ref={nameRef} id="company-name" placeholder="e.g. Acme Corp" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label htmlFor="company-website">Website</Label>
-            <Input id="company-website" name="website" placeholder="https://..." />
+            <Input ref={websiteRef} id="company-website" placeholder="https://..." />
           </div>
           <div className="space-y-1">
             <Label htmlFor="company-country">Country</Label>
-            <Input id="company-country" name="country" placeholder="e.g. US" />
+            <Input ref={countryRef} id="company-country" placeholder="e.g. US" />
           </div>
         </div>
         <div className="space-y-1">
           <Label htmlFor="company-industry">Industry</Label>
-          <Input id="company-industry" name="industry" placeholder="e.g. SaaS" />
+          <Input ref={industryRef} id="company-industry" placeholder="e.g. SaaS" />
         </div>
         <div className="flex gap-2">
-          <Button type="submit" size="sm" disabled={isPending}>
+          <Button type="button" size="sm" disabled={isPending} onClick={handleCreate}>
             {isPending ? "Creating..." : "Create Company"}
           </Button>
           <Button type="button" variant="outline" size="sm" onClick={onCancel}>
             Cancel
           </Button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }
