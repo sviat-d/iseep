@@ -29,6 +29,13 @@
       "when": 1774190230869,
       "tag": "0003_complex_bill_hollister",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1774210609820,
+      "tag": "0004_nifty_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

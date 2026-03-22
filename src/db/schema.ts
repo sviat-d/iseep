@@ -350,3 +350,18 @@ export const scoredLeads = pgTable("scored_leads", {
   matchReasons: jsonb("match_reasons").notNull(), // Array<{ criterion, matched, intent }>
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── R. AI Usage ────────────────────────────────────────────────────────────
+
+export const aiUsage = pgTable("ai_usage", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  userId: uuid("user_id")
+    .references(() => users.id)
+    .notNull(),
+  operation: text("operation").notNull(), // "icp_parse", "csv_score", etc.
+  tokensUsed: integer("tokens_used"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
