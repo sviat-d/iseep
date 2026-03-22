@@ -34,6 +34,7 @@ type DealFormProps = {
   action: (formData: FormData) => Promise<ActionResult | void>;
   companies: Company[];
   icps: IcpOption[];
+  industrySuggestions?: string[];
 };
 
 const STAGE_OPTIONS = [
@@ -57,7 +58,7 @@ const OUTCOME_LABELS: Record<string, string> = Object.fromEntries(
   OUTCOME_OPTIONS.map((o) => [o.value, o.label])
 );
 
-export function DealForm({ action, companies: initialCompanies, icps }: DealFormProps) {
+export function DealForm({ action, companies: initialCompanies, icps, industrySuggestions = [] }: DealFormProps) {
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
     FormData
@@ -160,6 +161,7 @@ export function DealForm({ action, companies: initialCompanies, icps }: DealForm
             <CompanyCreateFields
               onCreated={handleCompanyCreated}
               onCancel={() => setShowCreateCompany(false)}
+              industrySuggestions={industrySuggestions}
             />
           )}
 

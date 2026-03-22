@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { deals, companies, contacts, icps, segments, dealReasons, meetingNotes } from "@/db/schema";
+import { deals, companies, contacts, icps, segments, dealReasons, meetingNotes, criteria } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 export async function getDeals(workspaceId: string) {
@@ -84,4 +84,58 @@ export async function getContacts(companyId: string, workspaceId: string) {
     .from(contacts)
     .where(and(eq(contacts.companyId, companyId), eq(contacts.workspaceId, workspaceId)))
     .orderBy(contacts.fullName);
+}
+
+export async function getCompanyWithContacts(id: string, workspaceId: string) {
+  const [company] = await db
+    .select()
+    .from(companies)
+    .where(and(eq(companies.id, id), eq(companies.workspaceId, workspaceId)));
+  if (!company) return null;
+
+  const companyContacts = await db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.companyId, id), eq(contacts.workspaceId, workspaceId)))
+    .orderBy(contacts.fullName);
+
+  const companyDeals = await db
+    .select({
+      id: deals.id,
+      title: deals.title,
+      outcome: deals.outcome,
+      stage: deals.stage,
+      dealValue: deals.dealValue,
+      currency: deals.currency,
+    })
+    .from(deals)
+    .where(and(eq(deals.companyId, id), eq(deals.workspaceId, workspaceId)))
+    .orderBy(sql`${deals.updatedAt} desc`);
+
+  return { ...company, contacts: companyContacts, deals: companyDeals };
+}
+
+export async function getIndustrySuggestions(workspaceId: string): Promise<string[]> {
+  const companyIndustries = await db
+    .select({ industry: companies.industry })
+    .from(companies)
+    .where(and(eq(companies.workspaceId, workspaceId), sql`${companies.industry} is not null`));
+
+  const criteriaIndustries = await db
+    .select({ value: criteria.value })
+    .from(criteria)
+    .where(and(eq(criteria.workspaceId, workspaceId), eq(criteria.category, "industry")));
+
+  const all = new Set<string>();
+  companyIndustries.forEach((r) => {
+    if (r.industry) all.add(r.industry);
+  });
+  criteriaIndustries.forEach((r) => {
+    r.value.split(",").forEach((v) => {
+      const trimmed = v.trim();
+      if (trimmed) all.add(trimmed);
+    });
+  });
+
+  return Array.from(all).sort();
 }

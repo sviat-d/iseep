@@ -9,9 +9,10 @@ import { createCompany } from "@/actions/companies";
 type CompanyCreateFieldsProps = {
   onCreated: (company: { id: string; name: string }) => void;
   onCancel: () => void;
+  industrySuggestions?: string[];
 };
 
-export function CompanyCreateFields({ onCreated, onCancel }: CompanyCreateFieldsProps) {
+export function CompanyCreateFields({ onCreated, onCancel, industrySuggestions = [] }: CompanyCreateFieldsProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
@@ -69,7 +70,12 @@ export function CompanyCreateFields({ onCreated, onCancel }: CompanyCreateFields
         </div>
         <div className="space-y-1">
           <Label htmlFor="company-industry">Industry</Label>
-          <Input ref={industryRef} id="company-industry" placeholder="e.g. SaaS" />
+          <Input ref={industryRef} id="company-industry" list="inline-industry-suggestions" placeholder="e.g. SaaS" />
+          <datalist id="inline-industry-suggestions">
+            {industrySuggestions.map((s) => (
+              <option key={s} value={s} />
+            ))}
+          </datalist>
         </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" disabled={isPending} onClick={handleCreate}>

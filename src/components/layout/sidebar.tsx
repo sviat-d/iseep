@@ -7,6 +7,7 @@ import {
   Target,
   Layers,
   Handshake,
+  Building2,
   MessageSquare,
   BarChart3,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/icps", label: "ICPs", icon: Target },
   { href: "/segments", label: "Segments", icon: Layers },
   { href: "/deals", label: "Deals", icon: Handshake },
+  { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/requests", label: "Requests", icon: MessageSquare },
   { href: "/insights", label: "Insights", icon: BarChart3 },
 ];
