@@ -176,12 +176,12 @@ export function CriteriaGroupedList({
 
       {/* Risk summary section — duplicates risk rules from groups above */}
       <div className="rounded-lg border border-border">
-        <button
-          type="button"
-          onClick={() => toggleGroup("__risk")}
-          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50"
-        >
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button
+            type="button"
+            onClick={() => toggleGroup("__risk")}
+            className="flex items-center gap-2 text-left hover:opacity-80"
+          >
             {expandedGroups.has("__risk") ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
@@ -192,12 +192,12 @@ export function CriteriaGroupedList({
             <Badge variant="outline" className="text-amber-700">
               {riskCriteria.length}
             </Badge>
-          </div>
-          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleAdd(); }}>
+          </button>
+          <Button variant="ghost" size="sm" onClick={() => handleAdd()}>
             <Plus className="mr-1 h-3 w-3" />
             Add
           </Button>
-        </button>
+        </div>
         {expandedGroups.has("__risk") && (
           <>
             <p className="border-t px-4 pt-2 pb-1 text-xs text-muted-foreground">
@@ -231,12 +231,12 @@ export function CriteriaGroupedList({
 
       {/* Exclusions summary section — duplicates exclude rules from groups above */}
       <div className="rounded-lg border border-destructive/30">
-        <button
-          type="button"
-          onClick={() => toggleGroup("__exclusions")}
-          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50"
-        >
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-4 py-3">
+          <button
+            type="button"
+            onClick={() => toggleGroup("__exclusions")}
+            className="flex items-center gap-2 text-left hover:opacity-80"
+          >
             {expandedGroups.has("__exclusions") ? (
               <ChevronDown className="h-4 w-4" />
             ) : (
@@ -245,12 +245,12 @@ export function CriteriaGroupedList({
             <ShieldAlert className="h-4 w-4 text-destructive" />
             <span className="font-medium text-destructive">Not a fit</span>
             <Badge variant="destructive">{excludeCriteria.length}</Badge>
-          </div>
-          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleAdd(); }}>
+          </button>
+          <Button variant="ghost" size="sm" onClick={() => handleAdd()}>
             <Plus className="mr-1 h-3 w-3" />
             Add
           </Button>
-        </button>
+        </div>
         {expandedGroups.has("__exclusions") && (
           <>
             <p className="border-t border-destructive/20 px-4 pt-2 pb-1 text-xs text-muted-foreground">

@@ -43,12 +43,12 @@ export async function Topbar() {
           </div>
           <DropdownMenuSeparator />
           <form action={signOut}>
-            <button type="submit" className="w-full">
-              <DropdownMenuItem>
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out
-              </DropdownMenuItem>
-            </button>
+            <DropdownMenuItem
+              render={<button type="submit" className="w-full" />}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
           </form>
         </DropdownMenuContent>
       </DropdownMenu>
