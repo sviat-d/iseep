@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { getIcps } from "@/lib/queries/icps";
 import { IcpListView } from "@/components/icps/icp-list-view";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 
 export default async function IcpsPage() {
   const ctx = await getAuthContext();
@@ -20,13 +20,22 @@ export default async function IcpsPage() {
             Define and manage your Ideal Customer Profiles
           </p>
         </div>
-        <Link
-          href="/icps/new"
-          className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
-        >
-          <Plus className="mr-1.5 h-4 w-4" />
-          Create ICP
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/icps/import"
+            className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium border border-border bg-background hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <FileText className="mr-1.5 h-4 w-4" />
+            Import
+          </Link>
+          <Link
+            href="/icps/new"
+            className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
+          >
+            <Plus className="mr-1.5 h-4 w-4" />
+            Create ICP
+          </Link>
+        </div>
       </div>
       <IcpListView icps={icps} />
     </div>
