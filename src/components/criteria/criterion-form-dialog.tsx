@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { createCriterion, updateCriterion } from "@/actions/criteria";
 import type { ActionResult } from "@/lib/types";
+import { GROUP_LABELS, OPERATOR_LABELS } from "@/lib/constants";
 
 type CriterionFormDialogProps = {
   icpId: string;
@@ -86,7 +87,7 @@ export function CriterionFormDialog({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="crit-group">Group</Label>
+            <Label htmlFor="crit-group">Category group</Label>
             <Select
               name="group"
               defaultValue={
@@ -97,28 +98,30 @@ export function CriterionFormDialog({
                 <SelectValue placeholder="Select group" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="firmographic">Firmographic</SelectItem>
-                <SelectItem value="technographic">Technographic</SelectItem>
-                <SelectItem value="behavioral">Behavioral</SelectItem>
-                <SelectItem value="compliance">Compliance</SelectItem>
-                <SelectItem value="keyword">Keyword</SelectItem>
+                {Object.entries(GROUP_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">What kind of factor is this?</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="crit-category">Category</Label>
+            <Label htmlFor="crit-category">What are you measuring?</Label>
             <Input
               id="crit-category"
               name="category"
-              placeholder="e.g. Industry, Company Size"
+              placeholder="e.g. Industry, Company size, Region"
               defaultValue={defaultValues?.category ?? ""}
               required
             />
+            <p className="text-xs text-muted-foreground">The specific property you&apos;re evaluating.</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="crit-operator">Operator</Label>
+            <Label htmlFor="crit-operator">How to compare</Label>
             <Select
               name="operator"
               defaultValue={defaultValues?.operator ?? "equals"}
@@ -127,29 +130,30 @@ export function CriterionFormDialog({
                 <SelectValue placeholder="Select operator" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="equals">Equals</SelectItem>
-                <SelectItem value="contains">Contains</SelectItem>
-                <SelectItem value="gt">Greater than</SelectItem>
-                <SelectItem value="lt">Less than</SelectItem>
-                <SelectItem value="in">In</SelectItem>
-                <SelectItem value="not_in">Not in</SelectItem>
+                {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">How should the value be matched?</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="crit-value">Value</Label>
+            <Label htmlFor="crit-value">Expected value</Label>
             <Input
               id="crit-value"
               name="value"
-              placeholder="e.g. SaaS, 50-200"
+              placeholder="e.g. FinTech, EU, 50-200 employees"
               defaultValue={defaultValues?.value ?? ""}
               required
             />
+            <p className="text-xs text-muted-foreground">What this property should be (or contain) for a good fit.</p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="crit-intent">Intent</Label>
+            <Label htmlFor="crit-intent">This factor should...</Label>
             <Select
               name="intent"
               defaultValue={intent}
@@ -159,15 +163,15 @@ export function CriterionFormDialog({
                 <SelectValue placeholder="Select intent" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="qualify">Qualify</SelectItem>
-                <SelectItem value="exclude">Exclude</SelectItem>
+                <SelectItem value="qualify">Qualify — helps define your ICP (positive fit factor)</SelectItem>
+                <SelectItem value="exclude">Exclude — disqualifies the company (hard rule)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {intent === "qualify" && (
             <div className="space-y-2">
-              <Label htmlFor="crit-weight">Weight (1-10)</Label>
+              <Label htmlFor="crit-weight">Importance</Label>
               <Input
                 id="crit-weight"
                 name="weight"
@@ -176,17 +180,19 @@ export function CriterionFormDialog({
                 max={10}
                 defaultValue={defaultValues?.weight ?? 5}
               />
+              <p className="text-xs text-muted-foreground">How much this factor matters (1 = minor, 10 = critical).</p>
             </div>
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="crit-note">Note</Label>
+            <Label htmlFor="crit-note">Why this matters</Label>
             <Textarea
               id="crit-note"
               name="note"
-              placeholder="Optional note..."
+              placeholder="e.g. We win most deals in this segment"
               defaultValue={defaultValues?.note ?? ""}
             />
+            <p className="text-xs text-muted-foreground">Optional context for your team.</p>
           </div>
 
           <DialogFooter>

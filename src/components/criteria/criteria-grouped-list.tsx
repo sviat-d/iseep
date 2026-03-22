@@ -12,7 +12,17 @@ import {
   Pencil,
   Trash2,
   StickyNote,
+  Check,
+  X,
+  ShieldAlert,
 } from "lucide-react";
+import {
+  GROUP_LABELS,
+  GROUP_DESCRIPTIONS,
+  GROUP_EMPTY_SUGGESTIONS,
+  EXCLUSIONS_DESCRIPTION,
+  EXCLUSION_EMPTY_SUGGESTIONS,
+} from "@/lib/constants";
 
 type Criterion = {
   id: string;
@@ -115,16 +125,24 @@ export function CriteriaGroupedList({
                 ) : (
                   <ChevronRight className="h-4 w-4" />
                 )}
-                <span className="font-medium capitalize">{group}</span>
+                <span className="font-medium">{GROUP_LABELS[group] ?? group}</span>
                 <Badge variant="secondary">{items.length}</Badge>
               </div>
             </button>
             {isExpanded && (
               <div className="border-t">
+                <p className="px-4 pt-2 pb-1 text-xs text-muted-foreground">
+                  {GROUP_DESCRIPTIONS[group]}
+                </p>
                 {items.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-muted-foreground">
-                    No criteria in this group.
-                  </p>
+                  <div className="px-4 py-3 text-sm text-muted-foreground">
+                    <p>No criteria yet. Start by adding:</p>
+                    <ul className="mt-1 list-disc list-inside">
+                      {(GROUP_EMPTY_SUGGESTIONS[group] ?? []).map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : (
                   <div className="divide-y">
                     {items.map((criterion) => (
@@ -134,6 +152,7 @@ export function CriteriaGroupedList({
                         onEdit={() => handleEdit(criterion)}
                         onDelete={() => handleDelete(criterion.id)}
                         isPending={isPending}
+                        intent="qualify"
                       />
                     ))}
                   </div>
@@ -155,9 +174,12 @@ export function CriteriaGroupedList({
       })}
 
       {/* Exclusions section */}
-      <div className="rounded-lg border border-destructive/30 bg-destructive/5">
+      <div
+        className={`rounded-lg border border-destructive/30 ${excludeCriteria.length === 0 ? "bg-destructive/5" : ""}`}
+      >
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-destructive" />
             <span className="font-medium text-destructive">Exclusions</span>
             <Badge variant="destructive">{excludeCriteria.length}</Badge>
           </div>
@@ -166,7 +188,19 @@ export function CriteriaGroupedList({
             Add Exclusion
           </Button>
         </div>
-        {excludeCriteria.length > 0 && (
+        <p className="px-4 pb-2 text-xs text-muted-foreground">
+          {EXCLUSIONS_DESCRIPTION}
+        </p>
+        {excludeCriteria.length === 0 ? (
+          <div className="border-t border-destructive/20 px-4 py-3 text-sm text-muted-foreground">
+            <p>No criteria yet. Start by adding:</p>
+            <ul className="mt-1 list-disc list-inside">
+              {EXCLUSION_EMPTY_SUGGESTIONS.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ul>
+          </div>
+        ) : (
           <div className="border-t border-destructive/20 divide-y divide-destructive/10">
             {excludeCriteria.map((criterion) => (
               <CriterionRow
@@ -175,6 +209,7 @@ export function CriteriaGroupedList({
                 onEdit={() => handleEdit(criterion)}
                 onDelete={() => handleDelete(criterion.id)}
                 isPending={isPending}
+                intent="exclude"
               />
             ))}
           </div>
@@ -210,15 +245,22 @@ function CriterionRow({
   onEdit,
   onDelete,
   isPending,
+  intent,
 }: {
   criterion: Criterion;
   onEdit: () => void;
   onDelete: () => void;
   isPending: boolean;
+  intent: "qualify" | "exclude";
 }) {
   return (
     <div className="flex items-center justify-between px-4 py-2">
       <div className="flex items-center gap-3 text-sm">
+        {intent === "qualify" ? (
+          <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
+        ) : (
+          <X className="h-3.5 w-3.5 text-destructive shrink-0" />
+        )}
         <span className="font-medium">{criterion.category}</span>
         {criterion.operator && (
           <Badge variant="outline">{criterion.operator}</Badge>

@@ -105,12 +105,12 @@ export function IcpTabs({ icp, snapshots }: IcpTabsProps) {
   return (
     <Tabs defaultValue="profile">
       <TabsList variant="line">
-        <TabsTrigger value="profile">Profile</TabsTrigger>
+        <TabsTrigger value="profile">Criteria</TabsTrigger>
         <TabsTrigger value="personas">Personas</TabsTrigger>
         <TabsTrigger value="signals">Signals</TabsTrigger>
         <TabsTrigger value="segments">Segments</TabsTrigger>
         <TabsTrigger value="performance">Performance</TabsTrigger>
-        <TabsTrigger value="history">History</TabsTrigger>
+        <TabsTrigger value="history">Versions</TabsTrigger>
       </TabsList>
 
       <TabsContent value="profile" className="pt-4">

@@ -26,7 +26,7 @@ export default async function IcpDetailPage({
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">{icp.name}</h1>
             <Badge variant="outline">{icp.status}</Badge>
-            <span className="text-sm text-muted-foreground">v{icp.version}</span>
+            <span className="text-sm text-muted-foreground">Version {icp.version}</span>
           </div>
           {icp.description && (
             <p className="text-muted-foreground">{icp.description}</p>

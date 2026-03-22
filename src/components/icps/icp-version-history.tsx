@@ -63,17 +63,17 @@ export function IcpVersionHistory({
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Save Version Snapshot</DialogTitle>
+              <DialogTitle>Save ICP Version</DialogTitle>
               <DialogDescription>
-                Create a snapshot of the current ICP state.
+                Capture a snapshot of your current ICP definition. You can compare versions later.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="snapshot-note">Note (optional)</Label>
+                <Label htmlFor="snapshot-note">What changed?</Label>
                 <Input
                   id="snapshot-note"
-                  placeholder="What changed?"
+                  placeholder="e.g. Added compliance exclusions after Q1 review"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
