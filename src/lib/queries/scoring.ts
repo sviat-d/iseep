@@ -33,10 +33,12 @@ export async function getScoredLeadStats(uploadId: string, workspaceId: string) 
       high: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'high')::int`,
       medium: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'medium')::int`,
       low: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'low')::int`,
+      risk: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'risk')::int`,
+      blocked: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'blocked')::int`,
       none: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'none')::int`,
     })
     .from(scoredLeads)
     .where(and(eq(scoredLeads.uploadId, uploadId), eq(scoredLeads.workspaceId, workspaceId)));
 
-  return stats ?? { total: 0, high: 0, medium: 0, low: 0, none: 0 };
+  return stats ?? { total: 0, high: 0, medium: 0, low: 0, risk: 0, blocked: 0, none: 0 };
 }

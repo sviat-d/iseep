@@ -12,6 +12,10 @@ import {
   mapValuesToIcp,
 } from "@/lib/value-mapper";
 import { checkAiLimit, trackAiUsage } from "@/lib/ai-usage";
+import {
+  getWorkspaceMappings,
+  saveMappings,
+} from "@/lib/scoring/mapping-memory";
 import type { ActionResult } from "@/lib/types";
 
 type ColumnMapping = Record<string, string>; // csvColumn -> mappedField
@@ -19,7 +23,7 @@ type ColumnMapping = Record<string, string>; // csvColumn -> mappedField
 export async function processUpload(
   fileName: string,
   rows: Record<string, string>[],
-  columnMapping: ColumnMapping
+  columnMapping: ColumnMapping,
 ): Promise<ActionResult & { uploadId?: string; aiMappingUsed?: boolean }> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
@@ -41,8 +45,11 @@ export async function processUpload(
           .from(criteria)
           .where(eq(criteria.icpId, icp.id));
         return { icp, criteria: icpCriteria };
-      })
+      }),
   );
+
+  // Load workspace mapping memory
+  const workspaceMemory = await getWorkspaceMappings(ctx.workspaceId);
 
   // Check AI limit for fuzzy matching
   let useAiMapping = false;
@@ -54,7 +61,7 @@ export async function processUpload(
   }
 
   // Build value mappings using AI
-  let valueMappings: Record<string, Record<string, string>> = {};
+  let aiMappings: Record<string, Record<string, string>> = {};
   let aiMappingUsed = false;
 
   if (useAiMapping) {
@@ -62,7 +69,7 @@ export async function processUpload(
       const csvUniqueValues = collectUniqueValues(rows, columnMapping);
       const allCriteria = icpsWithCriteria.flatMap((ic) => ic.criteria);
       const icpUniqueValues = collectIcpValues(
-        allCriteria.map((c) => ({ category: c.category, value: c.value }))
+        allCriteria.map((c) => ({ category: c.category, value: c.value })),
       );
 
       // Map each category that has values in both CSV and ICPs
@@ -73,7 +80,7 @@ export async function processUpload(
           try {
             const mapping = await mapValuesToIcp(csvVals, icpVals, category);
             if (Object.keys(mapping).length > 0) {
-              valueMappings[category] = mapping;
+              aiMappings[category] = mapping;
               aiCalled = true;
             }
           } catch {
@@ -85,10 +92,13 @@ export async function processUpload(
       if (aiCalled) {
         await trackAiUsage(ctx.workspaceId, ctx.userId, "csv_value_mapping");
         aiMappingUsed = true;
+
+        // Save AI mappings to workspace memory for future use
+        await saveMappings(ctx.workspaceId, aiMappings);
       }
     } catch {
       // AI mapping failed entirely, fall back to exact matching
-      valueMappings = {};
+      aiMappings = {};
     }
   }
 
@@ -104,7 +114,7 @@ export async function processUpload(
     })
     .returning();
 
-  // Score each row with value mappings
+  // Score each row with workspace memory + AI mappings
   const leadInserts = rows.map((row) => {
     // Map CSV columns to standard fields
     const mapped: Record<string, string | undefined> = {};
@@ -114,7 +124,12 @@ export async function processUpload(
       }
     }
 
-    const result = scoreLeadAgainstAllIcps(mapped, icpsWithCriteria, valueMappings);
+    const result = scoreLeadAgainstAllIcps(
+      mapped,
+      icpsWithCriteria,
+      workspaceMemory,
+      aiMappings,
+    );
 
     return {
       uploadId: upload.id,
@@ -130,6 +145,7 @@ export async function processUpload(
       bestIcpName: result.bestIcpName,
       fitScore: result.fitScore,
       fitLevel: result.fitLevel,
+      confidence: result.confidence,
       matchReasons: result.matchReasons,
     };
   });

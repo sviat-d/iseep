@@ -346,10 +346,24 @@ export const scoredLeads = pgTable("scored_leads", {
   bestIcpId: uuid("best_icp_id").references(() => icps.id),
   bestIcpName: text("best_icp_name"),
   fitScore: integer("fit_score"), // 0-100
-  fitLevel: text("fit_level", { enum: ["high", "medium", "low", "none"] }).notNull(),
-  matchReasons: jsonb("match_reasons").notNull(), // Array<{ criterion, matched, intent }>
+  fitLevel: text("fit_level", { enum: ["high", "medium", "low", "risk", "blocked", "none"] }).notNull(),
+  confidence: integer("confidence"), // 0-100
+  matchReasons: jsonb("match_reasons").notNull(), // Array<MatchReason>
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── S. Value Mappings (workspace synonym memory) ───────────────────────────
+
+export const valueMappings = pgTable("value_mappings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  category: text("category").notNull(),
+  fromValue: text("from_value").notNull(),
+  toValue: text("to_value").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [unique("value_mappings_workspace_category_from").on(table.workspaceId, table.category, table.fromValue)]);
 
 // ─── R. AI Usage ────────────────────────────────────────────────────────────
 

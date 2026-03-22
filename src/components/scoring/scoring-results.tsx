@@ -28,6 +28,8 @@ import {
   Minus,
   XCircle,
   Sparkles,
+  ShieldAlert,
+  ShieldBan,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -48,7 +50,8 @@ type Lead = {
   country: string | null;
   bestIcpName: string | null;
   fitScore: number | null;
-  fitLevel: "high" | "medium" | "low" | "none";
+  confidence: number | null;
+  fitLevel: "high" | "medium" | "low" | "risk" | "blocked" | "none";
   matchReasons: unknown;
 };
 
@@ -57,6 +60,8 @@ type Stats = {
   high: number;
   medium: number;
   low: number;
+  risk: number;
+  blocked: number;
   none: number;
 };
 
@@ -72,6 +77,10 @@ function fitBadgeVariant(level: string): "default" | "secondary" | "outline" | "
       return "secondary";
     case "low":
       return "outline";
+    case "risk":
+      return "secondary";
+    case "blocked":
+      return "destructive";
     case "none":
       return "destructive";
     default:
@@ -87,10 +96,66 @@ function fitBadgeLabel(level: string): string {
       return "Medium Fit";
     case "low":
       return "Low Fit";
+    case "risk":
+      return "Risk";
+    case "blocked":
+      return "Blocked";
     case "none":
       return "Not ICP";
     default:
       return level;
+  }
+}
+
+function fitBadgeClassName(level: string): string {
+  switch (level) {
+    case "risk":
+      return "border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400";
+    case "blocked":
+      return "border-red-900/50 bg-red-900/10 text-red-900 dark:bg-red-950/30 dark:text-red-400";
+    default:
+      return "";
+  }
+}
+
+function confidenceColor(confidence: number): string {
+  if (confidence >= 70) return "text-green-600 dark:text-green-400";
+  if (confidence >= 40) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
+}
+
+function matchTypeIcon(matchType: string): string {
+  switch (matchType) {
+    case "exact":
+    case "case_insensitive":
+      return "\u2713"; // check mark
+    case "synonym":
+    case "workspace_memory":
+      return "~";
+    case "ai_mapped":
+      return "\uD83E\uDD16"; // robot emoji
+    case "none":
+    default:
+      return "\u2717"; // X mark
+  }
+}
+
+function matchTypeLabel(matchType: string): string {
+  switch (matchType) {
+    case "exact":
+      return "exact";
+    case "case_insensitive":
+      return "case match";
+    case "synonym":
+      return "synonym";
+    case "workspace_memory":
+      return "learned";
+    case "ai_mapped":
+      return "AI mapped";
+    case "none":
+      return "no match";
+    default:
+      return matchType;
   }
 }
 
@@ -120,10 +185,10 @@ export function ScoringResults({
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("all");
 
-  // Detect if AI mapping was used by checking if any lead has mappedFrom in reasons
+  // Detect if AI mapping was used by checking match types
   const aiMappingUsed = leads.some((lead) => {
     const reasons = parseMatchReasons(lead.matchReasons);
-    return reasons.some((r) => r.mappedFrom);
+    return reasons.some((r) => r.matchType === "ai_mapped");
   });
 
   function toggleRow(id: string) {
@@ -167,6 +232,22 @@ export function ScoringResults({
       icon: TrendingDown,
       color: "text-muted-foreground",
       bg: "bg-muted",
+    },
+    {
+      label: "Risk",
+      count: stats.risk,
+      pct: pct(stats.risk, stats.total),
+      icon: ShieldAlert,
+      color: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-500/10",
+    },
+    {
+      label: "Blocked",
+      count: stats.blocked,
+      pct: pct(stats.blocked, stats.total),
+      icon: ShieldBan,
+      color: "text-red-900 dark:text-red-400",
+      bg: "bg-red-900/10",
     },
     {
       label: "Not ICP",
@@ -215,7 +296,7 @@ export function ScoringResults({
       </div>
 
       {/* Stat Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {statCards.map((stat) => (
           <Card key={stat.label}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -244,6 +325,8 @@ export function ScoringResults({
           <TabsTrigger value="high">High ({stats.high})</TabsTrigger>
           <TabsTrigger value="medium">Medium ({stats.medium})</TabsTrigger>
           <TabsTrigger value="low">Low ({stats.low})</TabsTrigger>
+          <TabsTrigger value="risk">Risk ({stats.risk})</TabsTrigger>
+          <TabsTrigger value="blocked">Blocked ({stats.blocked})</TabsTrigger>
           <TabsTrigger value="none">Not ICP ({stats.none})</TabsTrigger>
         </TabsList>
 
@@ -262,6 +345,7 @@ export function ScoringResults({
                   <TableHead>Country</TableHead>
                   <TableHead>Best ICP</TableHead>
                   <TableHead>Score</TableHead>
+                  <TableHead>Confidence</TableHead>
                   <TableHead>Fit Level</TableHead>
                 </TableRow>
               </TableHeader>
@@ -303,7 +387,9 @@ function LeadRow({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const colSpan = 7;
+  const colSpan = 8;
+  const confidence = lead.confidence ?? 0;
+  const customBadgeClass = fitBadgeClassName(lead.fitLevel);
 
   return (
     <>
@@ -328,18 +414,27 @@ function LeadRow({
           <span className="font-mono text-sm">{lead.fitScore ?? 0}</span>
         </TableCell>
         <TableCell>
-          <Badge variant={fitBadgeVariant(lead.fitLevel)}>
-            {fitBadgeLabel(lead.fitLevel)}
-          </Badge>
+          <span className={`font-mono text-sm ${confidenceColor(confidence)}`}>
+            {confidence}%
+          </span>
+        </TableCell>
+        <TableCell>
+          {customBadgeClass ? (
+            <Badge variant="outline" className={customBadgeClass}>
+              {fitBadgeLabel(lead.fitLevel)}
+            </Badge>
+          ) : (
+            <Badge variant={fitBadgeVariant(lead.fitLevel)}>
+              {fitBadgeLabel(lead.fitLevel)}
+            </Badge>
+          )}
         </TableCell>
       </TableRow>
       {isExpanded && (
         <TableRow className="bg-muted/30 hover:bg-muted/30">
           <TableCell colSpan={colSpan} className="p-0">
             <MatchDetail
-              companyName={lead.companyName}
-              icpName={lead.bestIcpName}
-              score={lead.fitScore ?? 0}
+              lead={lead}
               reasons={reasons}
             />
           </TableCell>
@@ -354,14 +449,10 @@ function LeadRow({
 // ---------------------------------------------------------------------------
 
 function MatchDetail({
-  companyName,
-  icpName,
-  score,
+  lead,
   reasons,
 }: {
-  companyName: string | null;
-  icpName: string | null;
-  score: number;
+  lead: Lead;
   reasons: MatchReason[];
 }) {
   if (reasons.length === 0) {
@@ -375,36 +466,95 @@ function MatchDetail({
   const qualifyReasons = reasons.filter((r) => r.intent === "qualify");
   const excludeReasons = reasons.filter((r) => r.intent === "exclude");
   const riskReasons = reasons.filter((r) => r.intent === "risk");
-  const hasExcludeMatch = excludeReasons.some((r) => r.matched);
+
+  const blockerMatches = excludeReasons.filter((r) => r.matched && (r.weight ?? 5) >= 7);
+  const riskMatches = riskReasons.filter((r) => r.matched);
+
+  // Confidence breakdown
+  const totalCategories = new Set(reasons.map((r) => r.category)).size;
+  const presentCategories = new Set(
+    reasons.filter((r) => r.leadValue).map((r) => r.category),
+  ).size;
+  const matchedReasons = reasons.filter((r) => r.matched);
+  const exactCount = matchedReasons.filter(
+    (r) =>
+      r.matchType === "exact" ||
+      r.matchType === "case_insensitive" ||
+      r.matchType === "synonym",
+  ).length;
+  const exactPct =
+    matchedReasons.length > 0
+      ? Math.round((exactCount / matchedReasons.length) * 100)
+      : 0;
 
   return (
     <div className="space-y-3 px-6 py-4">
       <p className="text-sm font-medium">
         Match details for{" "}
         <span className="text-foreground">
-          &ldquo;{companyName || "Unknown"}&rdquo;
+          &ldquo;{lead.companyName || "Unknown"}&rdquo;
         </span>
-        {icpName && (
+        {lead.bestIcpName && (
           <>
             {" \u2192 "}
-            <span className="text-foreground">{icpName}</span>
+            <span className="text-foreground">{lead.bestIcpName}</span>
           </>
         )}
         {" "}
-        <span className="text-muted-foreground">(Score: {score})</span>
+        <span className="text-muted-foreground">
+          (Score: {lead.fitScore ?? 0}, Confidence: {lead.confidence ?? 0}%)
+        </span>
       </p>
+
+      {/* Confidence breakdown */}
+      <div className="rounded-md border border-muted bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        Data completeness: {presentCategories}/{totalCategories} fields
+        {" \u00b7 "}
+        Match quality: {exactPct}% exact/synonym
+      </div>
+
+      {/* Blockers section */}
+      {blockerMatches.length > 0 && (
+        <div className="rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2">
+          <p className="text-xs font-semibold text-red-700 dark:text-red-400 uppercase tracking-wider mb-1">
+            Blockers
+          </p>
+          {blockerMatches.map((r, i) => (
+            <p key={`blocker-${i}`} className="text-sm text-red-700 dark:text-red-400">
+              {r.category} = &ldquo;{r.leadValue}&rdquo; (excluded by: {r.criterionValue})
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Risk flags section */}
+      {riskMatches.length > 0 && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">
+            Risk Flags
+          </p>
+          {riskMatches.map((r, i) => (
+            <p key={`risk-${i}`} className="text-sm text-amber-700 dark:text-amber-400">
+              {r.category} = &ldquo;{r.leadValue}&rdquo; (risk criterion: {r.criterionValue})
+            </p>
+          ))}
+        </div>
+      )}
 
       {/* Qualify criteria */}
       {qualifyReasons.length > 0 && (
         <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Qualification Criteria
+          </p>
           {qualifyReasons.map((r, i) => (
             <ReasonLine key={`q-${i}`} reason={r} />
           ))}
         </div>
       )}
 
-      {/* Exclude */}
-      {excludeReasons.length > 0 ? (
+      {/* Exclude criteria (non-blocker) */}
+      {excludeReasons.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">
             Exclusions
@@ -413,11 +563,9 @@ function MatchDetail({
             <ReasonLine key={`e-${i}`} reason={r} />
           ))}
         </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">No exclude matches</p>
       )}
 
-      {/* Risk */}
+      {/* Risk criteria */}
       {riskReasons.length > 0 && (
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mt-2">
@@ -428,12 +576,6 @@ function MatchDetail({
           ))}
         </div>
       )}
-
-      {hasExcludeMatch && (
-        <p className="text-xs text-destructive font-medium">
-          Score set to 0 due to exclusion match
-        </p>
-      )}
     </div>
   );
 }
@@ -443,28 +585,35 @@ function MatchDetail({
 // ---------------------------------------------------------------------------
 
 function ReasonLine({ reason }: { reason: MatchReason }) {
-  const icon = reason.matched ? "\u2705" : "\u274C";
+  const icon = matchTypeIcon(reason.matchType);
+  const typeLabel = matchTypeLabel(reason.matchType);
   const weightLabel =
     reason.weight !== null ? ` \u2014 weight: ${reason.weight}` : "";
 
   return (
     <div className="flex items-start gap-2 text-sm">
-      <span className="mt-0.5 shrink-0 text-xs leading-none">{icon}</span>
+      <span className="mt-0.5 shrink-0 text-xs leading-none font-mono">
+        {icon}
+      </span>
       <span>
         <span className="font-medium capitalize">{reason.category}</span>
         {" = "}
-        <span>{reason.value}</span>
+        <span>{reason.criterionValue}</span>
         {" (lead: "}
         <span className="text-muted-foreground">
-          {reason.mappedFrom ? (
-            <>
-              &ldquo;{reason.mappedFrom}&rdquo;{" \u2192 "}mapped to &ldquo;{reason.leadValue}&rdquo;
-            </>
-          ) : (
-            reason.leadValue || "\u2014"
-          )}
+          {reason.leadValue || "\u2014"}
+          {reason.resolvedLeadValue &&
+            reason.resolvedLeadValue !== reason.leadValue && (
+              <>
+                {" \u2192 "}
+                &ldquo;{reason.resolvedLeadValue}&rdquo;
+              </>
+            )}
         </span>
         {")"}
+        <span className="ml-1.5 text-xs text-muted-foreground">
+          [{typeLabel}]
+        </span>
         <span className="text-muted-foreground">{weightLabel}</span>
       </span>
     </div>
