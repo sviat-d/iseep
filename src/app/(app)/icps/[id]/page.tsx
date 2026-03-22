@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth";
 import { getIcp, getIcpSnapshots } from "@/lib/queries/icps";
 import { IcpTabs } from "@/components/icps/icp-tabs";
 import { IcpDeleteDialog } from "@/components/icps/icp-delete-dialog";
+import { IcpEditDialog } from "@/components/icps/icp-edit-dialog";
 import { Badge } from "@/components/ui/badge";
 
 export default async function IcpDetailPage({
@@ -32,7 +33,10 @@ export default async function IcpDetailPage({
             <p className="text-muted-foreground">{icp.description}</p>
           )}
         </div>
-        <IcpDeleteDialog icpId={icp.id} icpName={icp.name} />
+        <div className="flex items-center gap-2">
+          <IcpEditDialog icp={icp} />
+          <IcpDeleteDialog icpId={icp.id} icpName={icp.name} />
+        </div>
       </div>
       <IcpTabs icp={icp} snapshots={snapshots} />
     </div>

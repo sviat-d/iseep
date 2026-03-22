@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { IcpEditDialog } from "@/components/icps/icp-edit-dialog";
 import { ArrowUpDown } from "lucide-react";
 
 type IcpRow = {
@@ -117,6 +118,13 @@ export function IcpTable({ icps }: { icps: IcpRow[] }) {
           </Button>
         ),
         cell: (info) => new Date(info.getValue()).toLocaleDateString(),
+      }),
+      columnHelper.display({
+        id: "actions",
+        header: "",
+        cell: (info) => (
+          <IcpEditDialog icp={info.row.original} />
+        ),
       }),
     ],
     []
