@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { IndustryInput } from "@/components/shared/industry-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { updateCompany } from "@/actions/companies";
@@ -109,17 +110,12 @@ export function CompanyEditDialog({
 
             <div className="space-y-2">
               <Label htmlFor="edit-industry">Industry</Label>
-              <Input
-                id="edit-industry"
+              <IndustryInput
+                suggestions={industrySuggestions}
                 name="industry"
-                list="edit-industry-suggestions"
+                id="edit-industry"
                 defaultValue={company.industry ?? ""}
               />
-              <datalist id="edit-industry-suggestions">
-                {industrySuggestions.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
             </div>
 
             <div className="space-y-2">

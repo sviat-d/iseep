@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { IndustryInput } from "@/components/shared/industry-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
@@ -79,18 +80,13 @@ export function CompanyForm({
 
           <div className="space-y-2">
             <Label htmlFor="industry">Industry</Label>
-            <Input
-              id="industry"
+            <IndustryInput
+              suggestions={industrySuggestions}
               name="industry"
-              list="industry-suggestions"
-              placeholder="e.g. SaaS"
+              id="industry"
               defaultValue={defaultValues?.industry}
+              placeholder="e.g. SaaS"
             />
-            <datalist id="industry-suggestions">
-              {industrySuggestions.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
           </div>
 
           <div className="space-y-2">

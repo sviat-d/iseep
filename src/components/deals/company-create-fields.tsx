@@ -3,6 +3,7 @@
 import { useState, useTransition, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { IndustryInput } from "@/components/shared/industry-input";
 import { Label } from "@/components/ui/label";
 import { createCompany } from "@/actions/companies";
 
@@ -70,12 +71,12 @@ export function CompanyCreateFields({ onCreated, onCancel, industrySuggestions =
         </div>
         <div className="space-y-1">
           <Label htmlFor="company-industry">Industry</Label>
-          <Input ref={industryRef} id="company-industry" list="inline-industry-suggestions" placeholder="e.g. SaaS" />
-          <datalist id="inline-industry-suggestions">
-            {industrySuggestions.map((s) => (
-              <option key={s} value={s} />
-            ))}
-          </datalist>
+          <IndustryInput
+            suggestions={industrySuggestions}
+            inputRef={industryRef}
+            id="company-industry"
+            placeholder="e.g. SaaS"
+          />
         </div>
         <div className="flex gap-2">
           <Button type="button" size="sm" disabled={isPending} onClick={handleCreate}>
