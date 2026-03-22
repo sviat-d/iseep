@@ -83,70 +83,58 @@ export function IcpShareDialog({ icp }: IcpShareDialogProps) {
         Share
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Share ICP Profile</DialogTitle>
             <DialogDescription>
               {isShared
-                ? "This ICP is shared via a public link. Anyone with the link can view it."
-                : "Generate a public link to share this ICP profile with anyone."}
+                ? "Shared via public link. Anyone with the link can view."
+                : "Generate a public link to share this ICP."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Mode selector */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <p className="text-sm font-medium">Sharing mode</p>
-              <div className="grid gap-2">
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => handleModeChange("without_stats")}
-                  className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
+                  className={`flex-1 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                     shareMode === "without_stats"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      ? "border-primary bg-primary/5"
                       : "hover:bg-muted/50"
                   }`}
                   disabled={isPending}
                 >
-                  <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">Without stats</p>
-                    <p className="text-xs text-muted-foreground">
-                      Share qualitative ICP info only — criteria, personas,
-                      segments
-                    </p>
-                  </div>
+                  <p className="font-medium">Without stats</p>
+                  <p className="text-muted-foreground">Criteria, personas, segments</p>
                 </button>
-
                 <button
                   type="button"
                   onClick={() => handleModeChange("with_stats")}
-                  className={`flex items-start gap-3 rounded-lg border p-3 text-left transition-colors ${
+                  className={`flex-1 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                     shareMode === "with_stats"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      ? "border-primary bg-primary/5"
                       : "hover:bg-muted/50"
                   }`}
                   disabled={isPending}
                 >
-                  <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium">With stats</p>
-                    <p className="text-xs text-muted-foreground">
-                      Include performance metrics — win rate, deal counts
-                    </p>
-                  </div>
+                  <p className="font-medium">With stats</p>
+                  <p className="text-muted-foreground">+ win rate, deal counts</p>
                 </button>
               </div>
             </div>
 
             {/* Share URL (only when shared) */}
             {isShared && (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <p className="text-sm font-medium">Public link</p>
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 flex-1 items-center overflow-hidden rounded-lg border bg-muted/50 px-3">
-                    <Link2 className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate text-sm text-muted-foreground">
+                  <div className="flex h-8 min-w-0 flex-1 items-center rounded-md border bg-muted/50 px-2.5">
+                    <Link2 className="mr-1.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-xs text-muted-foreground">
                       {shareUrl}
                     </span>
                   </div>
@@ -155,11 +143,12 @@ export function IcpShareDialog({ icp }: IcpShareDialogProps) {
                     size="sm"
                     onClick={handleCopy}
                     disabled={isPending}
+                    className="shrink-0"
                   >
                     {copied ? (
-                      <Check className="mr-1 h-3.5 w-3.5 text-green-600" />
+                      <Check className="mr-1 h-3 w-3 text-green-600" />
                     ) : (
-                      <Copy className="mr-1 h-3.5 w-3.5" />
+                      <Copy className="mr-1 h-3 w-3" />
                     )}
                     {copied ? "Copied" : "Copy"}
                   </Button>
@@ -172,13 +161,14 @@ export function IcpShareDialog({ icp }: IcpShareDialogProps) {
             {isShared ? (
               <Button
                 variant="destructive"
+                size="sm"
                 onClick={handleDisable}
                 disabled={isPending}
               >
                 {isPending ? "Disabling..." : "Disable Sharing"}
               </Button>
             ) : (
-              <Button onClick={handleEnable} disabled={isPending}>
+              <Button size="sm" onClick={handleEnable} disabled={isPending}>
                 {isPending ? "Enabling..." : "Enable Sharing"}
               </Button>
             )}
