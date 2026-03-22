@@ -22,9 +22,31 @@ import {
 } from "@/components/ui/select";
 import { createCriterion, updateCriterion } from "@/actions/criteria";
 import type { ActionResult } from "@/lib/types";
-import { PROPERTY_OPTIONS, CONDITION_LABELS } from "@/lib/constants";
+import { PROPERTY_OPTIONS } from "@/lib/constants";
+import { Info } from "lucide-react";
 
 const CUSTOM_PROPERTY = "__custom__";
+
+// Properties where "contains" makes more sense than "is"
+const TEXT_PROPERTIES = new Set(["keyword", "tech_stack", "hiring_activity"]);
+
+const IMPORTANCE_HELP: Record<string, { label: string; helper: string; tooltip: string }> = {
+  qualify: {
+    label: "Importance (1-10)",
+    helper: "1 = weak positive signal, 5 = useful signal, 10 = core ICP requirement",
+    tooltip: "How strongly this rule indicates a good ICP match.\n1 = weak signal, 10 = core requirement.",
+  },
+  risk: {
+    label: "Risk severity (1-10)",
+    helper: "1 = minor concern, 5 = noticeable risk, 10 = major risk requiring review",
+    tooltip: "How serious this risk is.\n1 = small concern, 10 = major risk.",
+  },
+  exclude: {
+    label: "Restriction strength (1-10)",
+    helper: "1 = soft restriction, 5 = strong restriction, 10 = hard blocker",
+    tooltip: "How strict this restriction is.\n1 = soft blocker, 10 = hard blocker.",
+  },
+};
 
 type CriterionFormDialogProps = {
   icpId: string;
@@ -58,31 +80,34 @@ export function CriterionFormDialog({
     ? findPropertyOption(defaultValues.category)
     : null;
 
+  const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
   const [property, setProperty] = useState(
     existingProperty ? defaultValues!.category : CUSTOM_PROPERTY
   );
   const [customCategory, setCustomCategory] = useState(
     existingProperty ? "" : (defaultValues?.category ?? "")
   );
-  const [condition, setCondition] = useState(
-    defaultValues?.operator ?? "equals"
-  );
-  const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
+  const [showTooltip, setShowTooltip] = useState(false);
 
-  // Reset state when defaultValues change (opening different criterion for edit)
+  // Reset state when defaultValues change
   useEffect(() => {
     const opt = defaultValues ? findPropertyOption(defaultValues.category) : null;
+    setIntent(defaultValues?.intent ?? "qualify");
     setProperty(opt ? defaultValues!.category : CUSTOM_PROPERTY);
     setCustomCategory(opt ? "" : (defaultValues?.category ?? ""));
-    setCondition(defaultValues?.operator ?? "equals");
-    setIntent(defaultValues?.intent ?? "qualify");
+    setShowTooltip(false);
   }, [defaultValues]);
+
+  // Auto-detect operator from property type
+  const resolvedCategory =
+    property === CUSTOM_PROPERTY ? customCategory : property;
+  const operator = TEXT_PROPERTIES.has(resolvedCategory) ? "contains" : "equals";
 
   // Derive group from property selection
   const selectedOption = PROPERTY_OPTIONS.find((p) => p.category === property);
   const resolvedGroup = selectedOption?.group ?? defaultGroup ?? "firmographic";
-  const resolvedCategory =
-    property === CUSTOM_PROPERTY ? customCategory : property;
+
+  const importanceConfig = IMPORTANCE_HELP[intent] ?? IMPORTANCE_HELP.qualify;
 
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
@@ -108,14 +133,14 @@ export function CriterionFormDialog({
             {defaultValues ? "Edit Rule" : "Add Rule"}
           </DialogTitle>
           <DialogDescription>
-            Define a rule for your ideal customer profile.
+            Define what this means for your ideal customer profile.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
           <input type="hidden" name="icpId" value={icpId} />
           <input type="hidden" name="group" value={resolvedGroup} />
           <input type="hidden" name="category" value={resolvedCategory} />
-          <input type="hidden" name="operator" value={condition} />
+          <input type="hidden" name="operator" value={operator} />
           <input type="hidden" name="intent" value={intent} />
 
           {state?.error && (
@@ -124,7 +149,39 @@ export function CriterionFormDialog({
             </div>
           )}
 
-          {/* Property */}
+          {/* 1. Rule type — FIRST */}
+          <div className="space-y-2">
+            <Label>This rule means</Label>
+            <Select
+              value={intent}
+              onValueChange={(val) => {
+                if (val) setIntent(val);
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {intent === "qualify"
+                    ? "✅ Good fit"
+                    : intent === "risk"
+                      ? "⚠️ Risk / Needs review"
+                      : "❌ Not a fit"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="qualify" label="✅ Good fit">
+                  ✅ Good fit — this defines your ICP
+                </SelectItem>
+                <SelectItem value="risk" label="⚠️ Risk / Needs review">
+                  ⚠️ Risk — borderline, needs case-by-case review
+                </SelectItem>
+                <SelectItem value="exclude" label="❌ Not a fit">
+                  ❌ Not a fit — disqualifies the company
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 2. Property */}
           <div className="space-y-2">
             <Label>Property</Label>
             <Select
@@ -171,37 +228,19 @@ export function CriterionFormDialog({
             </div>
           )}
 
-          {/* Condition */}
-          <div className="space-y-2">
-            <Label>Condition</Label>
-            <Select
-              value={condition}
-              onValueChange={(val) => {
-                if (val) setCondition(val);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {CONDITION_LABELS[condition] ?? condition}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(CONDITION_LABELS).map(([val, label]) => (
-                  <SelectItem key={val} value={val} label={label}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Value */}
+          {/* 3. Value */}
           <div className="space-y-2">
             <Label htmlFor="crit-value">Value</Label>
             <Input
               id="crit-value"
               name="value"
-              placeholder="e.g. FinTech, iGaming, EU"
+              placeholder={
+                intent === "qualify"
+                  ? "e.g. FinTech, iGaming, EU"
+                  : intent === "risk"
+                    ? "e.g. UK, USA"
+                    : "e.g. sanctioned jurisdictions"
+              }
               defaultValue={defaultValues?.value ?? ""}
               required
             />
@@ -210,55 +249,39 @@ export function CriterionFormDialog({
             </p>
           </div>
 
-          {/* Intent */}
+          {/* 4. Importance — with dynamic help */}
           <div className="space-y-2">
-            <Label>This rule means</Label>
-            <Select
-              value={intent}
-              onValueChange={(val) => {
-                if (val) setIntent(val);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {intent === "qualify" ? "Good fit" : intent === "risk" ? "Risk / Needs review" : "Not a fit"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="qualify" label="Good fit">
-                  ✅ Good fit — defines your ICP
-                </SelectItem>
-                <SelectItem value="risk" label="Risk / Needs review">
-                  ⚠️ Risk / Needs review — borderline, requires attention
-                </SelectItem>
-                <SelectItem value="exclude" label="Not a fit">
-                  ❌ Not a fit — disqualifies the company
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="crit-weight">{importanceConfig.label}</Label>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => setShowTooltip(!showTooltip)}
+              >
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            {showTooltip && (
+              <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground whitespace-pre-line">
+                {importanceConfig.tooltip}
+              </div>
+            )}
+            <Input
+              id="crit-weight"
+              name="weight"
+              type="number"
+              min={1}
+              max={10}
+              defaultValue={defaultValues?.weight ?? 5}
+            />
+            <p className="text-xs text-muted-foreground">
+              {importanceConfig.helper}
+            </p>
           </div>
 
-          {/* Weight — only for qualify */}
-          {intent === "qualify" && (
-            <div className="space-y-2">
-              <Label htmlFor="crit-weight">Importance (1-10)</Label>
-              <Input
-                id="crit-weight"
-                name="weight"
-                type="number"
-                min={1}
-                max={10}
-                defaultValue={defaultValues?.weight ?? 5}
-              />
-              <p className="text-xs text-muted-foreground">
-                How important is this rule? 1 = nice to have, 10 = must have.
-              </p>
-            </div>
-          )}
-
-          {/* Note */}
+          {/* 5. Note */}
           <div className="space-y-2">
-            <Label htmlFor="crit-note">Note (optional)</Label>
+            <Label htmlFor="crit-note">Why this matters (optional)</Label>
             <Textarea
               id="crit-note"
               name="note"
