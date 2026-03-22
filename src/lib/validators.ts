@@ -53,3 +53,55 @@ export const segmentSchema = z.object({
 });
 
 export type SegmentInput = z.infer<typeof segmentSchema>;
+
+export const companySchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  website: z.string().optional(),
+  country: z.string().optional(),
+  industry: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const contactSchema = z.object({
+  fullName: z.string().min(1, "Name is required"),
+  title: z.string().optional(),
+  email: z.string().optional(),
+  linkedinUrl: z.string().optional(),
+  companyId: z.string().uuid(),
+});
+
+export const dealSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  icpId: z.string().uuid().optional(),
+  personaId: z.string().uuid().optional(),
+  segmentId: z.string().uuid().optional(),
+  companyId: z.string().uuid(),
+  contactId: z.string().uuid().optional(),
+  dealValue: z.string().optional(),
+  currency: z.string().optional(),
+  stage: z.string().optional(),
+  outcome: z.enum(["won", "lost", "open"]),
+  notes: z.string().optional(),
+});
+
+export const dealReasonSchema = z.object({
+  dealId: z.string().uuid(),
+  reasonType: z.enum(["win", "loss", "objection", "general"]),
+  category: z.string().min(1, "Category is required"),
+  tag: z.string().min(1, "Tag is required"),
+  description: z.string().optional(),
+  severity: z.coerce.number().int().min(1).max(5).optional(),
+});
+
+export const meetingNoteSchema = z.object({
+  dealId: z.string().uuid().optional(),
+  companyId: z.string().uuid().optional(),
+  summary: z.string().min(1, "Summary is required"),
+  sourceType: z.enum(["manual", "notetaker", "import"]),
+});
+
+export type CompanyInput = z.infer<typeof companySchema>;
+export type ContactInput = z.infer<typeof contactSchema>;
+export type DealInput = z.infer<typeof dealSchema>;
+export type DealReasonInput = z.infer<typeof dealReasonSchema>;
+export type MeetingNoteInput = z.infer<typeof meetingNoteSchema>;
