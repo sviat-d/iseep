@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +68,15 @@ export function CriterionFormDialog({
     defaultValues?.operator ?? "equals"
   );
   const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
+
+  // Reset state when defaultValues change (opening different criterion for edit)
+  useEffect(() => {
+    const opt = defaultValues ? findPropertyOption(defaultValues.category) : null;
+    setProperty(opt ? defaultValues!.category : CUSTOM_PROPERTY);
+    setCustomCategory(opt ? "" : (defaultValues?.category ?? ""));
+    setCondition(defaultValues?.operator ?? "equals");
+    setIntent(defaultValues?.intent ?? "qualify");
+  }, [defaultValues]);
 
   // Derive group from property selection
   const selectedOption = PROPERTY_OPTIONS.find((p) => p.category === property);
@@ -229,8 +238,8 @@ export function CriterionFormDialog({
             </Select>
           </div>
 
-          {/* Weight — only for qualify and risk */}
-          {intent !== "exclude" && (
+          {/* Weight — only for qualify */}
+          {intent === "qualify" && (
             <div className="space-y-2">
               <Label htmlFor="crit-weight">Importance (1-10)</Label>
               <Input

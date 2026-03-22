@@ -65,13 +65,13 @@ export function CriteriaGroupedList({
   const [addGroup, setAddGroup] = useState<string | undefined>();
   const [isPending, startTransition] = useTransition();
 
-  const qualifyCriteria = criteria.filter((c) => c.intent === "qualify");
   const riskCriteria = criteria.filter((c) => c.intent === "risk");
   const excludeCriteria = criteria.filter((c) => c.intent === "exclude");
 
+  // ALL criteria grouped by their group — including risk and exclude
   const grouped = GROUPS.reduce(
     (acc, group) => {
-      acc[group] = qualifyCriteria.filter((c) => c.group === group);
+      acc[group] = criteria.filter((c) => c.group === group);
       return acc;
     },
     {} as Record<string, Criterion[]>
@@ -109,7 +109,7 @@ export function CriteriaGroupedList({
 
   return (
     <div className="space-y-4">
-      {/* Qualify criteria grouped by type */}
+      {/* All criteria grouped by type — shows qualify, risk, and exclude in context */}
       {GROUPS.map((group) => {
         const items = grouped[group];
         const isExpanded = expandedGroups.has(group);
@@ -174,10 +174,8 @@ export function CriteriaGroupedList({
         );
       })}
 
-      {/* Risk section */}
-      <div
-        className={`rounded-lg border border-amber-300/50 ${riskCriteria.length === 0 ? "bg-amber-50/50 dark:bg-amber-950/10" : ""}`}
-      >
+      {/* Risk summary section — duplicates risk rules from groups above */}
+      <div className="rounded-lg border border-border">
         <button
           type="button"
           onClick={() => toggleGroup("__risk")}
@@ -190,8 +188,8 @@ export function CriteriaGroupedList({
               <ChevronRight className="h-4 w-4" />
             )}
             <AlertTriangle className="h-4 w-4 text-amber-600" />
-            <span className="font-medium text-amber-700 dark:text-amber-500">Risk / Needs review</span>
-            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+            <span className="font-medium">Risk / Needs review</span>
+            <Badge variant="outline" className="text-amber-700">
               {riskCriteria.length}
             </Badge>
           </div>
@@ -202,7 +200,7 @@ export function CriteriaGroupedList({
         </button>
         {expandedGroups.has("__risk") && (
           <>
-            <p className="border-t border-amber-200/50 px-4 pt-2 pb-1 text-xs text-muted-foreground">
+            <p className="border-t px-4 pt-2 pb-1 text-xs text-muted-foreground">
               Borderline factors that need case-by-case evaluation. Not a hard exclusion, but requires attention.
             </p>
             {riskCriteria.length === 0 ? (
@@ -215,10 +213,10 @@ export function CriteriaGroupedList({
                 </ul>
               </div>
             ) : (
-              <div className="border-t border-amber-200/50 divide-y divide-amber-200/30">
+              <div className="border-t divide-y">
                 {riskCriteria.map((criterion) => (
                   <CriterionRow
-                    key={criterion.id}
+                    key={`risk-${criterion.id}`}
                     criterion={criterion}
                     onEdit={() => handleEdit(criterion)}
                     onDelete={() => handleDelete(criterion.id)}
@@ -231,10 +229,8 @@ export function CriteriaGroupedList({
         )}
       </div>
 
-      {/* Exclusions section */}
-      <div
-        className={`rounded-lg border border-destructive/30 ${excludeCriteria.length === 0 ? "bg-destructive/5" : ""}`}
-      >
+      {/* Exclusions summary section — duplicates exclude rules from groups above */}
+      <div className="rounded-lg border border-destructive/30">
         <button
           type="button"
           onClick={() => toggleGroup("__exclusions")}
@@ -273,7 +269,7 @@ export function CriteriaGroupedList({
               <div className="border-t border-destructive/20 divide-y divide-destructive/10">
                 {excludeCriteria.map((criterion) => (
                   <CriterionRow
-                    key={criterion.id}
+                    key={`excl-${criterion.id}`}
                     criterion={criterion}
                     onEdit={() => handleEdit(criterion)}
                     onDelete={() => handleDelete(criterion.id)}
@@ -341,7 +337,7 @@ function CriterionRow({
             <Badge variant="outline">{criterion.operator}</Badge>
           )}
           <span className="text-muted-foreground">{criterion.value}</span>
-          {criterion.intent !== "exclude" && criterion.weight != null && (
+          {criterion.intent === "qualify" && criterion.weight != null && (
             <Badge variant="secondary">w:{criterion.weight}</Badge>
           )}
           {criterion.note && (
