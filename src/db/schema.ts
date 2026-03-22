@@ -308,3 +308,43 @@ export const icpSnapshots = pgTable(
   },
   (table) => [unique("icp_snapshots_icp_version").on(table.icpId, table.version)]
 );
+
+// ─── P. Scored Uploads ──────────────────────────────────────────────────────
+
+export const scoredUploads = pgTable("scored_uploads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  fileName: text("file_name").notNull(),
+  totalRows: integer("total_rows").notNull(),
+  scoredAt: timestamp("scored_at", { withTimezone: true }).defaultNow().notNull(),
+  columnMapping: jsonb("column_mapping").notNull(), // { csvColumn: mappedField }
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── Q. Scored Leads ────────────────────────────────────────────────────────
+
+export const scoredLeads = pgTable("scored_leads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  uploadId: uuid("upload_id")
+    .references(() => scoredUploads.id)
+    .notNull(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  rawData: jsonb("raw_data").notNull(), // original CSV row as key-value
+  companyName: text("company_name"),
+  industry: text("industry"),
+  country: text("country"),
+  website: text("website"),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  bestIcpId: uuid("best_icp_id").references(() => icps.id),
+  bestIcpName: text("best_icp_name"),
+  fitScore: integer("fit_score"), // 0-100
+  fitLevel: text("fit_level", { enum: ["high", "medium", "low", "none"] }).notNull(),
+  matchReasons: jsonb("match_reasons").notNull(), // Array<{ criterion, matched, intent }>
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
