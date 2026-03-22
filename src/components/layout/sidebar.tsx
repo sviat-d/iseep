@@ -22,7 +22,7 @@ const navItems = [
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/requests", label: "Requests", icon: MessageSquare },
   { href: "/insights", label: "Insights", icon: BarChart3 },
-  { href: "/scoring", label: "Scoring", icon: FileSearch },
+  { href: "/scoring", label: "Score Leads", icon: FileSearch },
 ];
 
 export function Sidebar() {

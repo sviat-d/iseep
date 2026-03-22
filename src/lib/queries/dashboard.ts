@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { icps, segments, deals } from "@/db/schema";
+import { icps, segments, deals, scoredUploads, scoredLeads } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 export const MIN_DEALS_FOR_CONFIDENCE = 5;
@@ -69,4 +69,56 @@ export async function getRecentActivity(workspaceId: string, limit = 5) {
     .where(eq(icps.workspaceId, workspaceId))
     .orderBy(sql`${icps.updatedAt} desc`)
     .limit(limit);
+}
+
+export async function getDashboardState(workspaceId: string) {
+  const [icpCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(icps)
+    .where(eq(icps.workspaceId, workspaceId));
+
+  const [scoringCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(scoredUploads)
+    .where(eq(scoredUploads.workspaceId, workspaceId));
+
+  const [dealCount] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(deals)
+    .where(eq(deals.workspaceId, workspaceId));
+
+  return {
+    hasIcps: (icpCount?.count ?? 0) > 0,
+    hasScoringRuns: (scoringCount?.count ?? 0) > 0,
+    hasDeals: (dealCount?.count ?? 0) > 0,
+    icpCount: icpCount?.count ?? 0,
+    scoringRunCount: scoringCount?.count ?? 0,
+    dealCount: dealCount?.count ?? 0,
+  };
+}
+
+export async function getLatestScoringRun(workspaceId: string) {
+  const [upload] = await db
+    .select()
+    .from(scoredUploads)
+    .where(eq(scoredUploads.workspaceId, workspaceId))
+    .orderBy(sql`${scoredUploads.createdAt} desc`)
+    .limit(1);
+
+  if (!upload) return null;
+
+  const [stats] = await db
+    .select({
+      total: sql<number>`count(*)::int`,
+      high: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'high')::int`,
+      medium: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'medium')::int`,
+      low: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'low')::int`,
+      risk: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'risk')::int`,
+      blocked: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'blocked')::int`,
+      none: sql<number>`count(*) filter (where ${scoredLeads.fitLevel} = 'none')::int`,
+    })
+    .from(scoredLeads)
+    .where(eq(scoredLeads.uploadId, upload.id));
+
+  return { upload, stats: stats ?? { total: 0, high: 0, medium: 0, low: 0, risk: 0, blocked: 0, none: 0 } };
 }
