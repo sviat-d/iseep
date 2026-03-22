@@ -34,6 +34,7 @@ import {
   Trash2,
   Plus,
   Sparkles,
+  Upload,
 } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -88,6 +89,7 @@ Companies in UK/US with complex licensing are borderline — worth exploring but
 
 export function ImportIcpWizard() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [inputMode, setInputMode] = useState<"paste" | "file">("paste");
   const [text, setText] = useState("");
   const [parsedIcps, setParsedIcps] = useState<ParsedIcp[]>([]);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
@@ -123,6 +125,20 @@ export function ImportIcpWizard() {
         if (u) setUsage(u);
       }
     });
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result;
+      if (typeof content === "string") {
+        setText(content);
+        setInputMode("paste"); // Switch to paste view to show loaded content
+      }
+    };
+    reader.readAsText(file);
   }
 
   // ---- Step 2: Edit helpers ----
@@ -231,25 +247,74 @@ export function ImportIcpWizard() {
 
   return (
     <div className="space-y-4">
-      {/* Step 1: Paste */}
+      {/* Step 1: Input */}
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Paste ICP Description</CardTitle>
+            <CardTitle>Import ICP</CardTitle>
             <CardDescription>
-              Describe your ideal customer in plain text. We&apos;ll extract
-              structured criteria, personas, and more. You can describe multiple
-              ICPs in a single text.
+              Describe your ideal customer profile. We&apos;ll extract
+              structured criteria, personas, and more using AI. You can describe multiple
+              ICPs at once.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={PLACEHOLDER_TEXT}
-              className="min-h-48"
-              rows={10}
-            />
+            {/* Mode toggle */}
+            <div className="flex gap-1 rounded-md border p-0.5 w-fit">
+              <button
+                type="button"
+                onClick={() => setInputMode("paste")}
+                className={`rounded-sm px-3 py-1 text-sm font-medium transition-colors ${
+                  inputMode === "paste"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Paste text
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode("file")}
+                className={`rounded-sm px-3 py-1 text-sm font-medium transition-colors ${
+                  inputMode === "file"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Upload file
+              </button>
+            </div>
+
+            {inputMode === "paste" ? (
+              <Textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={PLACEHOLDER_TEXT}
+                className="min-h-48"
+                rows={10}
+              />
+            ) : (
+              <div className="space-y-3">
+                <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
+                  <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
+                  <p className="text-sm font-medium">Drop a file here or click to browse</p>
+                  <p className="text-xs text-muted-foreground mt-1">Supports .txt, .md, .csv, .doc</p>
+                  <input
+                    type="file"
+                    accept=".txt,.md,.csv,.text,.markdown"
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    style={{ position: "relative", marginTop: "8px", width: "auto" }}
+                  />
+                </div>
+                {text && (
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">File loaded — preview:</p>
+                    <p className="text-sm whitespace-pre-wrap line-clamp-6">{text}</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -275,7 +340,7 @@ export function ImportIcpWizard() {
                   {isParsing ? (
                     <>
                       <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                      Extracting ICPs from your description...
+                      Extracting ICPs...
                     </>
                   ) : (
                     <>
