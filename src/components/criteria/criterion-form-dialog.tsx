@@ -98,8 +98,8 @@ export function CriterionFormDialog({
                 <SelectValue placeholder="Select group" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(GROUP_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
+                {Object.entries(GROUP_LABELS).map(([val, label]) => (
+                  <SelectItem key={val} value={val} label={label}>
                     {label}
                   </SelectItem>
                 ))}
@@ -130,8 +130,8 @@ export function CriterionFormDialog({
                 <SelectValue placeholder="Select operator" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
+                {Object.entries(OPERATOR_LABELS).map(([val, label]) => (
+                  <SelectItem key={val} value={val} label={label}>
                     {label}
                   </SelectItem>
                 ))}
@@ -163,8 +163,8 @@ export function CriterionFormDialog({
                 <SelectValue placeholder="Select intent" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="qualify">Qualify — helps define your ICP (positive fit factor)</SelectItem>
-                <SelectItem value="exclude">Exclude — disqualifies the company (hard rule)</SelectItem>
+                <SelectItem value="qualify" label="Qualify">✓ Qualify — helps define your ICP (positive fit factor)</SelectItem>
+                <SelectItem value="exclude" label="Exclude">✗ Exclude — disqualifies the company (hard rule)</SelectItem>
               </SelectContent>
             </Select>
           </div>
