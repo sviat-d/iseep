@@ -2,17 +2,23 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { getIcps } from "@/lib/queries/icps";
+import { getProductContext } from "@/lib/queries/product-context";
 import { IcpListView } from "@/components/icps/icp-list-view";
+import { ProductContextNudge } from "@/components/shared/product-context-nudge";
 import { Plus, FileText } from "lucide-react";
 
 export default async function IcpsPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const icps = await getIcps(ctx.workspaceId);
+  const [icps, productCtx] = await Promise.all([
+    getIcps(ctx.workspaceId),
+    getProductContext(ctx.workspaceId),
+  ]);
 
   return (
     <div className="space-y-6">
+      {!productCtx && <ProductContextNudge />}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">ICPs</h1>

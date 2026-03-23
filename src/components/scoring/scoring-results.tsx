@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { MatchReason } from "@/lib/scoring";
+import { evaluateClusterWithAi } from "@/actions/evaluate-cluster";
+import type { AiEvaluation } from "@/actions/evaluate-cluster";
+import { ProductContextNudge } from "@/components/shared/product-context-nudge";
 import {
   Card,
   CardContent,
@@ -22,10 +25,12 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ArrowLeft,
+  Bot,
   ChevronDown,
   ChevronRight,
   Download,
   Lightbulb,
+  Loader2,
   Sparkles,
   Upload,
   ArrowRight,
@@ -458,15 +463,19 @@ export function ScoringResults({
   stats,
   clusterEvaluations = {},
   hasProductContext = false,
+  productDescription,
 }: {
   upload: Upload;
   leads: Lead[];
   stats: Stats;
   clusterEvaluations?: Record<string, ClusterEvaluation>;
   hasProductContext?: boolean;
+  productDescription?: string;
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("best");
+  const [aiEvaluations, setAiEvaluations] = useState<Record<string, AiEvaluation>>({});
+  const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
 
   // Detect AI mapping usage
   const aiMappingUsed = leads.some((lead) => {
@@ -528,6 +537,8 @@ export function ScoringResults({
 
   return (
     <div className="space-y-6">
+      {!hasProductContext && <ProductContextNudge />}
+
       {/* ── Section 1: Header + Summary ── */}
       <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
@@ -553,6 +564,16 @@ export function ScoringResults({
                 </>
               )}
             </p>
+            {productDescription && (
+              <p className="mt-1 text-sm text-muted-foreground">
+                Based on your product:{" "}
+                <Link href="/settings/product" className="hover:underline">
+                  {productDescription.length > 100
+                    ? productDescription.slice(0, 100) + "..."
+                    : productDescription}
+                </Link>
+              </p>
+            )}
             <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               {aiMappingUsed ? (
                 <>
@@ -699,94 +720,23 @@ export function ScoringResults({
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {clusters.map((cluster) => {
-                    const clusterConfidence =
-                      cluster.leads.length >= 5
-                        ? "High"
-                        : cluster.leads.length >= 3
-                          ? "Medium"
-                          : "Low";
-                    const exampleNames = cluster.leads
-                      .slice(0, 3)
-                      .map((l) => l.companyName || "Unknown")
-                      .join(", ");
-                    const remaining = cluster.leads.length - 3;
-                    const evaluation = clusterEvaluations[cluster.industry];
-                    return (
-                      <div
-                        key={cluster.industry}
-                        className="rounded-lg border p-3 space-y-2"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Search className="h-4 w-4 text-muted-foreground" />
-                            <p className="text-sm font-medium">
-                              {cluster.industry} ({cluster.leads.length}{" "}
-                              lead{cluster.leads.length !== 1 ? "s" : ""})
-                            </p>
-                          </div>
-                          <span
-                            className={`text-xs font-medium ${
-                              clusterConfidence === "High"
-                                ? "text-green-600 dark:text-green-400"
-                                : clusterConfidence === "Medium"
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-muted-foreground"
-                            }`}
-                          >
-                            {clusterConfidence} confidence
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {exampleNames}
-                          {remaining > 0 && ` +${remaining} more`}
-                        </p>
-
-                        {/* Evaluation indicators */}
-                        {evaluation && (
-                          <div className="space-y-1.5 pt-1">
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.icpSimilarity)}`} />
-                              <span className="text-muted-foreground">
-                                ICP similarity:{" "}
-                                <span className="text-foreground font-medium">{fitLabel(evaluation.icpSimilarity)}</span>
-                                {evaluation.icpSimilarity === "none" && " -- not in current ICPs"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.productFit)}`} />
-                              <span className="text-muted-foreground">
-                                Product fit:{" "}
-                                <span className="text-foreground font-medium">{fitLabel(evaluation.productFit)}</span>
-                                {evaluation.productFit === "unknown" && (
-                                  <span> -- add product context for better suggestions</span>
-                                )}
-                                {evaluation.productFitReason && (
-                                  <span> -- {evaluation.productFitReason.toLowerCase()}</span>
-                                )}
-                              </span>
-                            </div>
-                            {evaluation.explanation && evaluation.productFit !== "unknown" && evaluation.productFit !== "none" && (
-                              <p className="text-xs italic text-muted-foreground pl-4">
-                                &ldquo;{evaluation.explanation}&rdquo;
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-2 pt-1">
-                          <Link
-                            href={`/scoring/${upload.id}/review-cluster?industry=${encodeURIComponent(cluster.industry)}`}
-                          >
-                            <Button variant="outline" size="xs">
-                              Review suggested ICP
-                              <ArrowRight className="ml-1 h-3 w-3" />
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {clusters.map((cluster) => (
+                    <ClusterCard
+                      key={cluster.industry}
+                      cluster={cluster}
+                      uploadId={upload.id}
+                      evaluation={clusterEvaluations[cluster.industry]}
+                      aiEvaluation={aiEvaluations[cluster.industry]}
+                      aiError={aiErrors[cluster.industry]}
+                      hasProductContext={hasProductContext}
+                      onAiEvaluation={(industry, evaluation) => {
+                        setAiEvaluations((prev) => ({ ...prev, [industry]: evaluation }));
+                      }}
+                      onAiError={(industry, error) => {
+                        setAiErrors((prev) => ({ ...prev, [industry]: error }));
+                      }}
+                    />
+                  ))}
                 </div>
 
                 {/* Product context prompt */}
@@ -941,6 +891,218 @@ function LeadTable({
         })}
       </TableBody>
     </Table>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cluster Card (with AI evaluation)
+// ---------------------------------------------------------------------------
+
+function ClusterCard({
+  cluster,
+  uploadId,
+  evaluation,
+  aiEvaluation,
+  aiError,
+  hasProductContext,
+  onAiEvaluation,
+  onAiError,
+}: {
+  cluster: Cluster;
+  uploadId: string;
+  evaluation?: ClusterEvaluation;
+  aiEvaluation?: AiEvaluation;
+  aiError?: string;
+  hasProductContext: boolean;
+  onAiEvaluation: (industry: string, evaluation: AiEvaluation) => void;
+  onAiError: (industry: string, error: string) => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  const clusterConfidence =
+    cluster.leads.length >= 5
+      ? "High"
+      : cluster.leads.length >= 3
+        ? "Medium"
+        : "Low";
+  const exampleNames = cluster.leads
+    .slice(0, 3)
+    .map((l) => l.companyName || "Unknown")
+    .join(", ");
+  const remaining = cluster.leads.length - 3;
+
+  const countries = [
+    ...new Set(
+      cluster.leads
+        .map((l) => l.country)
+        .filter((c): c is string => Boolean(c?.trim()))
+    ),
+  ];
+  const companyNames = cluster.leads
+    .map((l) => l.companyName)
+    .filter((n): n is string => Boolean(n));
+
+  function handleEvaluate() {
+    startTransition(async () => {
+      const result = await evaluateClusterWithAi(
+        cluster.industry,
+        countries,
+        companyNames,
+        cluster.leads.length,
+      );
+      if (result.error) {
+        onAiError(cluster.industry, result.error);
+      } else if (result.evaluation) {
+        onAiEvaluation(cluster.industry, result.evaluation);
+      }
+    });
+  }
+
+  return (
+    <div className="rounded-lg border p-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <p className="text-sm font-medium">
+            {cluster.industry} ({cluster.leads.length}{" "}
+            lead{cluster.leads.length !== 1 ? "s" : ""})
+          </p>
+        </div>
+        <span
+          className={`text-xs font-medium ${
+            clusterConfidence === "High"
+              ? "text-green-600 dark:text-green-400"
+              : clusterConfidence === "Medium"
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-muted-foreground"
+          }`}
+        >
+          {clusterConfidence} confidence
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {exampleNames}
+        {remaining > 0 && ` +${remaining} more`}
+      </p>
+
+      {/* Evaluation indicators */}
+      {evaluation && (
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center gap-2 text-xs">
+            <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.icpSimilarity)}`} />
+            <span className="text-muted-foreground">
+              ICP similarity:{" "}
+              <span className="text-foreground font-medium">{fitLabel(evaluation.icpSimilarity)}</span>
+              {evaluation.icpSimilarity === "none" && " -- not in current ICPs"}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.productFit)}`} />
+            <span className="text-muted-foreground">
+              Product fit:{" "}
+              <span className="text-foreground font-medium">{fitLabel(evaluation.productFit)}</span>
+              {evaluation.productFit === "unknown" && (
+                <span> -- add product context for better suggestions</span>
+              )}
+              {evaluation.productFitReason && (
+                <span> -- {evaluation.productFitReason.toLowerCase()}</span>
+              )}
+            </span>
+          </div>
+          {evaluation.explanation && evaluation.productFit !== "unknown" && evaluation.productFit !== "none" && (
+            <p className="text-xs italic text-muted-foreground pl-4">
+              &ldquo;{evaluation.explanation}&rdquo;
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* AI Evaluation result */}
+      {aiEvaluation && (
+        <div className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3 mt-2">
+          <div className="flex items-center gap-1.5 text-xs font-medium">
+            <Bot className="h-3.5 w-3.5 text-primary" />
+            AI Analysis
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Fit probability:{" "}
+            <span className="font-medium text-foreground capitalize">{aiEvaluation.fitProbability}</span>
+            {" \u00b7 "}
+            Sell probability:{" "}
+            <span className="font-medium text-foreground capitalize">{aiEvaluation.sellProbability}</span>
+          </p>
+          <p className="text-xs text-muted-foreground italic">
+            &ldquo;{aiEvaluation.reasoning}&rdquo;
+          </p>
+          {aiEvaluation.potentialUseCases.length > 0 && (
+            <div className="text-xs">
+              <p className="font-medium text-muted-foreground">Potential use cases:</p>
+              <ul className="mt-0.5 space-y-0.5 text-muted-foreground">
+                {aiEvaluation.potentialUseCases.map((uc, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                    {uc}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {aiEvaluation.risks.length > 0 && (
+            <div className="text-xs">
+              <p className="font-medium text-muted-foreground">Risks:</p>
+              <ul className="mt-0.5 space-y-0.5 text-muted-foreground">
+                {aiEvaluation.risks.map((risk, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-muted-foreground" />
+                    {risk}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+            <Lightbulb className="mt-0.5 h-3 w-3 shrink-0 text-amber-500" />
+            &ldquo;{aiEvaluation.recommendation}&rdquo;
+          </p>
+        </div>
+      )}
+
+      {/* AI Error */}
+      {aiError && (
+        <p className="text-xs text-destructive mt-1">{aiError}</p>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <Link
+          href={`/scoring/${uploadId}/review-cluster?industry=${encodeURIComponent(cluster.industry)}`}
+        >
+          <Button variant="outline" size="xs">
+            Review suggested ICP
+            <ArrowRight className="ml-1 h-3 w-3" />
+          </Button>
+        </Link>
+        {!aiEvaluation && hasProductContext && (
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={handleEvaluate}
+            disabled={isPending}
+          >
+            {isPending ? (
+              <>
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                Evaluating...
+              </>
+            ) : (
+              <>
+                <Bot className="mr-1 h-3 w-3" />
+                Evaluate with AI
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    </div>
   );
 }
 

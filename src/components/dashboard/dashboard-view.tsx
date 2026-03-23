@@ -20,6 +20,7 @@ import {
   ClipboardList,
   Lightbulb,
 } from "lucide-react";
+import { ProductContextNudge } from "@/components/shared/product-context-nudge";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -216,6 +217,7 @@ function HasIcpsState({
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-8">
+      {!hasProductContext && <ProductContextNudge />}
       <div className="text-center">
         <h1 className="text-2xl font-bold tracking-tight">
           Your ICPs are set up. Now test them on real data.
@@ -277,24 +279,6 @@ function HasIcpsState({
         </CardContent>
       </Card>
 
-      {!hasProductContext && (
-        <div className="flex items-start gap-2 rounded-lg border border-dashed p-3">
-          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-          <div className="text-sm">
-            <p className="text-muted-foreground">
-              Tip: Tell iseep about your product for smarter ICP suggestions
-            </p>
-            <Link
-              href="/settings/product"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-1"
-            >
-              Set up product context
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
         <Link
           href="/icps"
@@ -320,9 +304,11 @@ function MainDashboard({
   icpHealth,
   latestRun,
   recentActivity,
+  hasProductContext,
 }: DashboardViewProps) {
   return (
     <div className="space-y-6">
+      {!hasProductContext && <ProductContextNudge />}
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>

@@ -65,6 +65,7 @@ export default async function ScoringResultsPage({
       stats={stats}
       clusterEvaluations={clusterEvaluations}
       hasProductContext={productCtx !== null}
+      productDescription={productCtx?.productDescription}
     />
   );
 }

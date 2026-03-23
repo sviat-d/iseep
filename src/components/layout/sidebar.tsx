@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Package,
   Target,
   Layers,
   Handshake,
@@ -11,12 +12,12 @@ import {
   MessageSquare,
   BarChart3,
   FileSearch,
-  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/settings/product", label: "Product", icon: Package },
   { href: "/icps", label: "ICPs", icon: Target },
   { href: "/segments", label: "Segments", icon: Layers },
   { href: "/deals", label: "Deals", icon: Handshake },
@@ -58,20 +59,7 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto border-t px-2 py-3">
-        <Link
-          href="/settings/product"
-          className={cn(
-            "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-            pathname === "/settings/product"
-              ? "bg-sidebar-accent text-sidebar-accent-foreground"
-              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          )}
-        >
-          <Settings className="h-4 w-4" />
-          Your product
-        </Link>
-      </div>
+      <div className="mt-auto border-t px-2 py-3" />
     </aside>
   );
 }
