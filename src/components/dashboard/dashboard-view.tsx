@@ -86,6 +86,7 @@ export type DashboardViewProps = {
   icpHealth: IcpHealthItem[];
   latestRun: LatestRun;
   recentActivity: RecentActivityItem[];
+  hasProductContext?: boolean;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ function getIcpValidationStatus(
 
 // ─── State A: Empty workspace ───────────────────────────────────────────────
 
-function EmptyState() {
+function EmptyState({ hasProductContext }: { hasProductContext?: boolean }) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
       <div className="mx-auto max-w-lg space-y-6">
@@ -181,6 +182,24 @@ function EmptyState() {
             Try sample ICP + leads
           </Link>
         </div>
+
+        {!hasProductContext && (
+          <div className="flex items-start gap-2 rounded-lg border border-dashed p-3 text-left">
+            <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <div className="text-sm">
+              <p className="text-muted-foreground">
+                Tip: Tell iseep about your product for smarter ICP suggestions
+              </p>
+              <Link
+                href="/settings/product"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-1"
+              >
+                Set up product context
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -190,8 +209,10 @@ function EmptyState() {
 
 function HasIcpsState({
   icpHealth,
+  hasProductContext,
 }: {
   icpHealth: IcpHealthItem[];
+  hasProductContext?: boolean;
 }) {
   return (
     <div className="mx-auto max-w-2xl space-y-8 py-8">
@@ -255,6 +276,24 @@ function HasIcpsState({
           </Link>
         </CardContent>
       </Card>
+
+      {!hasProductContext && (
+        <div className="flex items-start gap-2 rounded-lg border border-dashed p-3">
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <div className="text-sm">
+            <p className="text-muted-foreground">
+              Tip: Tell iseep about your product for smarter ICP suggestions
+            </p>
+            <Link
+              href="/settings/product"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-1"
+            >
+              Set up product context
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
         <Link
@@ -544,16 +583,16 @@ function MainDashboard({
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export function DashboardView(props: DashboardViewProps) {
-  const { state, icpHealth } = props;
+  const { state, icpHealth, hasProductContext } = props;
 
   // State A: empty workspace
   if (!state.hasIcps) {
-    return <EmptyState />;
+    return <EmptyState hasProductContext={hasProductContext} />;
   }
 
   // State B: has ICPs but no scoring runs
   if (!state.hasScoringRuns) {
-    return <HasIcpsState icpHealth={icpHealth} />;
+    return <HasIcpsState icpHealth={icpHealth} hasProductContext={hasProductContext} />;
   }
 
   // State C/D: has scoring runs (with or without deals)

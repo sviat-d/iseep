@@ -380,3 +380,25 @@ export const aiUsage = pgTable("ai_usage", {
   tokensUsed: integer("tokens_used"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── T. Product Context ─────────────────────────────────────────────────────
+
+export const productContext = pgTable("product_context", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull()
+    .unique(), // one per workspace
+  companyName: text("company_name"),
+  website: text("website"),
+  productDescription: text("product_description").notNull(),
+  targetCustomers: text("target_customers"),
+  coreUseCases: jsonb("core_use_cases").default([]), // string[]
+  keyValueProps: jsonb("key_value_props").default([]), // string[]
+  industriesFocus: jsonb("industries_focus").default([]), // string[]
+  geoFocus: jsonb("geo_focus").default([]), // string[]
+  pricingModel: text("pricing_model"),
+  avgTicket: text("avg_ticket"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});

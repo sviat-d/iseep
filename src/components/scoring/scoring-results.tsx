@@ -31,6 +31,7 @@ import {
   ArrowRight,
   Search,
 } from "lucide-react";
+import type { ClusterEvaluation } from "@/lib/cluster-evaluation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -409,14 +410,60 @@ function SummaryBar({ stats }: { stats: Stats }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Fit indicator helpers
+// ---------------------------------------------------------------------------
+
+function fitDotClass(level: string): string {
+  switch (level) {
+    case "high":
+      return "bg-green-500";
+    case "medium":
+      return "bg-amber-500";
+    case "low":
+      return "bg-gray-400";
+    case "none":
+      return "border border-gray-400 bg-transparent";
+    case "unknown":
+      return "bg-gray-400";
+    default:
+      return "bg-gray-400";
+  }
+}
+
+function fitLabel(level: string): string {
+  switch (level) {
+    case "high":
+      return "High";
+    case "medium":
+      return "Medium";
+    case "low":
+      return "Low";
+    case "none":
+      return "None";
+    case "unknown":
+      return "Unknown";
+    default:
+      return level;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
+
 export function ScoringResults({
   upload,
   leads,
   stats,
+  clusterEvaluations = {},
+  hasProductContext = false,
 }: {
   upload: Upload;
   leads: Lead[];
   stats: Stats;
+  clusterEvaluations?: Record<string, ClusterEvaluation>;
+  hasProductContext?: boolean;
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("best");
@@ -664,6 +711,7 @@ export function ScoringResults({
                       .map((l) => l.companyName || "Unknown")
                       .join(", ");
                     const remaining = cluster.leads.length - 3;
+                    const evaluation = clusterEvaluations[cluster.industry];
                     return (
                       <div
                         key={cluster.industry}
@@ -677,6 +725,56 @@ export function ScoringResults({
                               lead{cluster.leads.length !== 1 ? "s" : ""})
                             </p>
                           </div>
+                          <span
+                            className={`text-xs font-medium ${
+                              clusterConfidence === "High"
+                                ? "text-green-600 dark:text-green-400"
+                                : clusterConfidence === "Medium"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {clusterConfidence} confidence
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {exampleNames}
+                          {remaining > 0 && ` +${remaining} more`}
+                        </p>
+
+                        {/* Evaluation indicators */}
+                        {evaluation && (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.icpSimilarity)}`} />
+                              <span className="text-muted-foreground">
+                                ICP similarity:{" "}
+                                <span className="text-foreground font-medium">{fitLabel(evaluation.icpSimilarity)}</span>
+                                {evaluation.icpSimilarity === "none" && " -- not in current ICPs"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.productFit)}`} />
+                              <span className="text-muted-foreground">
+                                Product fit:{" "}
+                                <span className="text-foreground font-medium">{fitLabel(evaluation.productFit)}</span>
+                                {evaluation.productFit === "unknown" && (
+                                  <span> -- add product context for better suggestions</span>
+                                )}
+                                {evaluation.productFitReason && (
+                                  <span> -- {evaluation.productFitReason.toLowerCase()}</span>
+                                )}
+                              </span>
+                            </div>
+                            {evaluation.explanation && evaluation.productFit !== "unknown" && evaluation.productFit !== "none" && (
+                              <p className="text-xs italic text-muted-foreground pl-4">
+                                &ldquo;{evaluation.explanation}&rdquo;
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-1">
                           <Link
                             href={`/scoring/${upload.id}/review-cluster?industry=${encodeURIComponent(cluster.industry)}`}
                           >
@@ -686,35 +784,29 @@ export function ScoringResults({
                             </Button>
                           </Link>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {exampleNames}
-                          {remaining > 0 && ` +${remaining} more`}
-                        </p>
-                        {cluster.sharedTraits.length > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Shared traits: {cluster.sharedTraits.join(", ")}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          Confidence:{" "}
-                          <span
-                            className={
-                              clusterConfidence === "High"
-                                ? "text-green-600 dark:text-green-400"
-                                : clusterConfidence === "Medium"
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-red-600 dark:text-red-400"
-                            }
-                          >
-                            {clusterConfidence}
-                          </span>{" "}
-                          ({cluster.leads.length} lead
-                          {cluster.leads.length !== 1 ? "s" : ""})
-                        </p>
                       </div>
                     );
                   })}
                 </div>
+
+                {/* Product context prompt */}
+                {!hasProductContext && (
+                  <div className="mt-4 flex items-start gap-2 rounded-md border border-dashed p-3">
+                    <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                    <div className="text-sm">
+                      <p className="text-muted-foreground">
+                        Add product context to get smarter segment recommendations
+                      </p>
+                      <Link
+                        href="/settings/product"
+                        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-1"
+                      >
+                        Set up product context
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
