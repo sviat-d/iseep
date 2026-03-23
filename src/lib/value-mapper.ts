@@ -1,11 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { getAiConfig, callAi } from "@/lib/ai-client";
 
 export type ValueMapping = Record<string, string>; // csvValue -> icpValue
 
 export async function mapValuesToIcp(
   csvValues: string[],
   icpValues: string[],
-  category: string
+  category: string,
+  workspaceId: string
 ): Promise<ValueMapping> {
   // If no values to map or no ICP values to map to, return empty
   if (csvValues.length === 0 || icpValues.length === 0) return {};
@@ -29,15 +30,9 @@ export async function mapValuesToIcp(
   if (unmapped.length === 0) return mapping;
 
   // AI mapping for remaining values
-  const client = new Anthropic();
+  const config = await getAiConfig(workspaceId);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1000,
-    messages: [
-      {
-        role: "user",
-        content: `You are a data matching assistant. Map CSV values to the closest matching ICP (Ideal Customer Profile) values.
+  const prompt = `You are a data matching assistant. Map CSV values to the closest matching ICP (Ideal Customer Profile) values.
 
 Category: ${category}
 
@@ -53,16 +48,12 @@ Rules:
 - If no reasonable match exists, map to "NONE"
 - Examples: "Financial Technology" → "FinTech", "ecommerce" → "E-commerce", "GB" → "UK"
 
-Return ONLY valid JSON: { "mappings": { "csvValue": "icpValue or NONE" } }`,
-      },
-    ],
-  });
+Return ONLY valid JSON: { "mappings": { "csvValue": "icpValue or NONE" } }`;
 
-  const content = response.content[0];
-  if (content.type !== "text") return mapping;
+  const responseText = await callAi(config, undefined, prompt, 1000);
 
   try {
-    let jsonStr = content.text;
+    let jsonStr = responseText;
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) jsonStr = jsonMatch[1];
 

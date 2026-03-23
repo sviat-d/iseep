@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { icps, criteria, personas } from "@/db/schema";
 import { getAuthContext } from "@/lib/auth";
 import { parseIcpText, type ParsedIcp } from "@/lib/icp-parser";
-import { checkAiLimit, trackAiUsage, getMonthlyUsage } from "@/lib/ai-usage";
+import { checkAiLimit, trackAiUsage } from "@/lib/ai-usage";
 import type { ActionResult } from "@/lib/types";
 
 export async function parseIcpAction(
@@ -23,7 +23,7 @@ export async function parseIcpAction(
   }
 
   try {
-    const parsed = await parseIcpText(text);
+    const parsed = await parseIcpText(text, ctx.workspaceId);
     await trackAiUsage(ctx.workspaceId, ctx.userId, "icp_parse");
     return { success: true, parsed };
   } catch (e) {
@@ -93,8 +93,9 @@ export async function confirmImportIcps(
   return { success: true, icpIds };
 }
 
-export async function getImportUsage(): Promise<{ used: number; limit: number } | null> {
+export async function getImportUsage(): Promise<{ used: number; limit: number; hasOwnKey: boolean } | null> {
   const ctx = await getAuthContext();
   if (!ctx) return null;
-  return getMonthlyUsage(ctx.workspaceId);
+  const limit = await checkAiLimit(ctx.workspaceId);
+  return { used: limit.used, limit: limit.limit, hasOwnKey: limit.hasOwnKey };
 }

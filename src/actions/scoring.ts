@@ -80,7 +80,7 @@ export async function processUpload(
         const icpVals = icpUniqueValues[category];
         if (icpVals && icpVals.length > 0) {
           try {
-            const mapping = await mapValuesToIcp(csvVals, icpVals, category);
+            const mapping = await mapValuesToIcp(csvVals, icpVals, category, ctx.workspaceId);
             if (Object.keys(mapping).length > 0) {
               aiMappings[category] = mapping;
               aiCalled = true;

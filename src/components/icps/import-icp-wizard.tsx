@@ -97,7 +97,7 @@ export function ImportIcpWizard() {
   const [error, setError] = useState<string | null>(null);
   const [isParsing, startParseTransition] = useTransition();
   const [isCreating, startCreateTransition] = useTransition();
-  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  const [usage, setUsage] = useState<{ used: number; limit: number; hasOwnKey: boolean } | null>(null);
 
   // Load usage on mount
   useEffect(() => {
@@ -327,9 +327,17 @@ export function ImportIcpWizard() {
               {usage && (
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Sparkles className="h-3.5 w-3.5" />
-                  <span>
-                    {usage.used}/{usage.limit} AI extractions this month
-                  </span>
+                  {usage.hasOwnKey ? (
+                    <span>Unlimited — using your own API key</span>
+                  ) : (
+                    <span>
+                      {usage.used}/{usage.limit} AI extractions this month{" "}
+                      <span className="mx-0.5">&middot;</span>{" "}
+                      <Link href="/settings/ai" className="underline underline-offset-2 hover:text-foreground">
+                        Add your own API key
+                      </Link>
+                    </span>
+                  )}
                 </div>
               )}
               <div className="ml-auto">

@@ -1,7 +1,7 @@
 "use server";
 
-import Anthropic from "@anthropic-ai/sdk";
 import { getAuthContext } from "@/lib/auth";
+import { getAiConfig, callAi } from "@/lib/ai-client";
 import { checkAiLimit, trackAiUsage } from "@/lib/ai-usage";
 import { getProductContext } from "@/lib/queries/product-context";
 import type { ActionResult } from "@/lib/types";
@@ -35,14 +35,9 @@ export async function evaluateClusterWithAi(
   }
 
   try {
-    const client = new Anthropic();
+    const config = await getAiConfig(ctx.workspaceId);
 
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      messages: [{
-        role: "user",
-        content: `You are a GTM strategy analyst. Evaluate whether this market segment could be a good fit for the user's product.
+    const prompt = `You are a GTM strategy analyst. Evaluate whether this market segment could be a good fit for the user's product.
 
 PRODUCT CONTEXT:
 - Company: ${productCtx.companyName ?? "N/A"}
@@ -75,16 +70,13 @@ Return ONLY valid JSON:
   "potentialUseCases": ["string"],
   "risks": ["string"],
   "recommendation": "string"
-}`
-      }],
-    });
+}`;
+
+    const responseText = await callAi(config, undefined, prompt, 1000);
 
     await trackAiUsage(ctx.workspaceId, ctx.userId, "cluster_evaluation");
 
-    const content = response.content[0];
-    if (content.type !== "text") return { error: "Unexpected response" };
-
-    let jsonStr = content.text;
+    let jsonStr = responseText;
     const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (match) jsonStr = match[1];
 

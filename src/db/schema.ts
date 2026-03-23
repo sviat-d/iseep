@@ -6,6 +6,7 @@ import {
   integer,
   numeric,
   jsonb,
+  boolean,
   unique,
 } from "drizzle-orm/pg-core";
 
@@ -365,6 +366,22 @@ export const valueMappings = pgTable("value_mappings", {
   toValue: text("to_value").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [unique("value_mappings_workspace_category_from").on(table.workspaceId, table.category, table.fromValue)]);
+
+// ─── V. AI Keys (Bring Your Own Key) ───────────────────────────────────────
+
+export const aiKeys = pgTable("ai_keys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull()
+    .unique(), // one key config per workspace
+  provider: text("provider", { enum: ["anthropic", "openai"] }).notNull(),
+  apiKey: text("api_key").notNull(), // encrypted in production, plain for MVP
+  model: text("model"), // custom model override, e.g. "gpt-4o", "claude-sonnet-4-20250514"
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 // ─── R. AI Usage ────────────────────────────────────────────────────────────
 

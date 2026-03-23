@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { getProductContext } from "@/lib/queries/product-context";
 import { getRejectedIcps } from "@/actions/reject-icp";
@@ -30,6 +31,16 @@ export default async function ProductContextPage() {
         defaultValues={context}
         rejectedIndustries={rejectedIndustries}
       />
+
+      <div className="border-t pt-4 text-sm text-muted-foreground">
+        Looking for AI settings?{" "}
+        <Link
+          href="/settings/ai"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          Configure AI keys &rarr;
+        </Link>
+      </div>
     </div>
   );
 }

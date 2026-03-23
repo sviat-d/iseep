@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { getAiConfig, callAi } from "@/lib/ai-client";
 
 export type ParsedIcp = {
   name: string;
@@ -17,16 +17,10 @@ export type ParsedIcp = {
   }>;
 };
 
-export async function parseIcpText(text: string): Promise<ParsedIcp[]> {
-  const client = new Anthropic();
+export async function parseIcpText(text: string, workspaceId: string): Promise<ParsedIcp[]> {
+  const config = await getAiConfig(workspaceId);
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4000,
-    messages: [
-      {
-        role: "user",
-        content: `Parse the following text and extract ALL Ideal Customer Profiles (ICPs) described.
+  const prompt = `Parse the following text and extract ALL Ideal Customer Profiles (ICPs) described.
 
 If the text describes ONE ICP, return an array with one element.
 If it describes MULTIPLE distinct ICPs (different target segments), return each as a separate element.
@@ -47,18 +41,12 @@ Return ONLY valid JSON:
 { "icps": [{ "name": "...", "description": "...", "criteria": [...], "personas": [...] }] }
 
 ICP text:
-${text}`,
-      },
-    ],
-  });
+${text}`;
 
-  const content = response.content[0];
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type");
-  }
+  const responseText = await callAi(config, undefined, prompt, 4000);
 
   // Extract JSON from response (might be wrapped in markdown code blocks)
-  let jsonStr = content.text;
+  let jsonStr = responseText;
   const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (jsonMatch) {
     jsonStr = jsonMatch[1];
