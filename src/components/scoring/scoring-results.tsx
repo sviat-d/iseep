@@ -652,36 +652,68 @@ export function ScoringResults({
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {clusters.map((cluster) => (
-                    <div
-                      key={cluster.industry}
-                      className="rounded-lg border p-3 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">
-                          {cluster.industry} ({cluster.leads.length}{" "}
-                          lead{cluster.leads.length !== 1 ? "s" : ""})
-                        </p>
-                        <Link
-                          href={`/icps/new?prefill=industry:${encodeURIComponent(cluster.industry)}`}
-                        >
-                          <Button variant="outline" size="xs">
-                            Create ICP from this cluster
-                          </Button>
-                        </Link>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {cluster.leads
-                          .map((l) => l.companyName || "Unknown")
-                          .join(", ")}
-                      </p>
-                      {cluster.sharedTraits.length > 0 && (
+                  {clusters.map((cluster) => {
+                    const clusterConfidence =
+                      cluster.leads.length >= 5
+                        ? "High"
+                        : cluster.leads.length >= 3
+                          ? "Medium"
+                          : "Low";
+                    const exampleNames = cluster.leads
+                      .slice(0, 3)
+                      .map((l) => l.companyName || "Unknown")
+                      .join(", ");
+                    const remaining = cluster.leads.length - 3;
+                    return (
+                      <div
+                        key={cluster.industry}
+                        className="rounded-lg border p-3 space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Search className="h-4 w-4 text-muted-foreground" />
+                            <p className="text-sm font-medium">
+                              {cluster.industry} ({cluster.leads.length}{" "}
+                              lead{cluster.leads.length !== 1 ? "s" : ""})
+                            </p>
+                          </div>
+                          <Link
+                            href={`/scoring/${upload.id}/review-cluster?industry=${encodeURIComponent(cluster.industry)}`}
+                          >
+                            <Button variant="outline" size="xs">
+                              Review suggested ICP
+                              <ArrowRight className="ml-1 h-3 w-3" />
+                            </Button>
+                          </Link>
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                          Shared: {cluster.sharedTraits.join(" + ")}
+                          {exampleNames}
+                          {remaining > 0 && ` +${remaining} more`}
                         </p>
-                      )}
-                    </div>
-                  ))}
+                        {cluster.sharedTraits.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Shared traits: {cluster.sharedTraits.join(", ")}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Confidence:{" "}
+                          <span
+                            className={
+                              clusterConfidence === "High"
+                                ? "text-green-600 dark:text-green-400"
+                                : clusterConfidence === "Medium"
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-red-600 dark:text-red-400"
+                            }
+                          >
+                            {clusterConfidence}
+                          </span>{" "}
+                          ({cluster.leads.length} lead
+                          {cluster.leads.length !== 1 ? "s" : ""})
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
