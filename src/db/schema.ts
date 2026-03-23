@@ -16,6 +16,11 @@ export const workspaces = pgTable("workspaces", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   slug: text("slug").unique().notNull(),
+  profileShareToken: text("profile_share_token").unique(),
+  profileShareMode: text("profile_share_mode", {
+    enum: ["without_stats", "with_stats"],
+  }),
+  profileSharedIcpIds: jsonb("profile_shared_icp_ids"), // string[] | null (null = all active)
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
