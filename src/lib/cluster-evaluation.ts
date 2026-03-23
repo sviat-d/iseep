@@ -11,34 +11,96 @@ export type ClusterEvaluation = {
   productFitReason?: string;
 };
 
+// Industries that typically need payment/payout/financial infrastructure
+const PAYMENT_HEAVY_INDUSTRIES = new Set([
+  "fintech", "igaming", "i-gaming", "ecommerce", "e-commerce",
+  "payments", "crypto", "cryptocurrency", "affiliate", "affiliate networks",
+  "lending", "banking", "insurance", "marketplace", "marketplaces",
+  "creator economy", "saas", "payroll", "gambling", "betting",
+  "forex", "trading", "remittance", "neobank",
+]);
+
+// Industries that typically do mass payouts to partners/creators/affiliates
+const MASS_PAYOUT_INDUSTRIES = new Set([
+  "affiliate", "affiliate networks", "creator economy",
+  "igaming", "i-gaming", "gambling", "betting",
+  "marketplace", "marketplaces", "gig economy",
+  "payroll", "freelance", "staffing",
+]);
+
+// Keywords that signal payment/payout product relevance
+const PRODUCT_PAYMENT_KEYWORDS = [
+  "payment", "payout", "pay-out", "settlement", "transaction",
+  "billing", "subscription", "processing", "merchant", "acquiring",
+  "crypto", "blockchain", "wallet", "transfer", "remittance",
+  "disbursement", "mass payout", "mass payment", "commission",
+  "withdrawal", "deposit", "checkout", "gateway", "processor",
+];
+
+// Keywords that signal the cluster might need the product
+const INDUSTRY_NEED_SIGNALS: Record<string, string[]> = {
+  "creator economy": ["mass payouts to creators", "cross-border payments", "multi-currency disbursements"],
+  "affiliate networks": ["mass commission payouts", "partner payments at scale", "cross-border settlements"],
+  "igaming": ["player withdrawals", "mass payouts", "multi-currency processing", "high-risk payment processing"],
+  "i-gaming": ["player withdrawals", "mass payouts", "multi-currency processing"],
+  "gambling": ["player withdrawals", "mass payouts", "regulatory compliance for payments"],
+  "betting": ["mass payouts", "fast withdrawals", "multi-currency"],
+  "ecommerce": ["merchant settlements", "cross-border payments", "multi-currency checkout"],
+  "e-commerce": ["merchant settlements", "cross-border payments", "multi-currency checkout"],
+  "marketplace": ["seller payouts", "escrow", "split payments", "mass disbursements"],
+  "marketplaces": ["seller payouts", "escrow", "split payments", "mass disbursements"],
+  "fintech": ["payment infrastructure", "API integrations", "compliance"],
+  "saas": ["subscription billing", "recurring payments", "usage-based billing"],
+  "payroll": ["mass salary payments", "cross-border payroll", "multi-currency disbursements"],
+  "crypto": ["fiat on/off ramps", "crypto settlements", "stablecoin payments"],
+  "lending": ["loan disbursements", "repayment processing", "collections"],
+  "freelance": ["freelancer payouts", "cross-border payments", "multi-currency"],
+};
+
+function norm(s: string): string {
+  return s.toLowerCase().trim();
+}
+
+function textContainsAny(text: string, keywords: string[]): boolean {
+  const t = norm(text);
+  return keywords.some((kw) => t.includes(norm(kw)));
+}
+
+function wordsOverlap(text1: string, text2: string): number {
+  const words1 = new Set(norm(text1).split(/\s+/).filter((w) => w.length > 3));
+  const words2 = new Set(norm(text2).split(/\s+/).filter((w) => w.length > 3));
+  let overlap = 0;
+  for (const w of words1) {
+    if (words2.has(w)) overlap++;
+  }
+  return overlap;
+}
+
 export function evaluateCluster(
   clusterIndustry: string,
   clusterCountries: string[],
   existingCriteria: Criterion[],
   productCtx: ProductCtx | null
 ): ClusterEvaluation {
+  const clusterLower = norm(clusterIndustry);
+  const clusterCountriesLower = clusterCountries.map(norm);
+
   // --- ICP Similarity ---
   const industryValues = existingCriteria
     .filter((c) => c.category === "industry" && c.intent === "qualify")
-    .flatMap((c) => c.value.split(",").map((v) => v.trim().toLowerCase()));
+    .flatMap((c) => c.value.split(",").map(norm));
 
   const regionValues = existingCriteria
     .filter((c) => (c.category === "region" || c.category === "country") && c.intent === "qualify")
-    .flatMap((c) => c.value.split(",").map((v) => v.trim().toLowerCase()));
-
-  const clusterLower = clusterIndustry.toLowerCase();
-  const clusterCountriesLower = clusterCountries.map((c) => c.toLowerCase());
+    .flatMap((c) => c.value.split(",").map(norm));
 
   let icpScore = 0;
-  // Industry overlap
   if (industryValues.some((v) => v.includes(clusterLower) || clusterLower.includes(v))) {
     icpScore += 3;
   }
-  // Geo overlap
-  const geoOverlap = clusterCountriesLower.some((c) =>
-    regionValues.some((r) => r.includes(c) || c.includes(r))
-  );
-  if (geoOverlap) icpScore += 2;
+  if (clusterCountriesLower.some((c) => regionValues.some((r) => r.includes(c) || c.includes(r)))) {
+    icpScore += 2;
+  }
 
   let icpSimilarity: ClusterEvaluation["icpSimilarity"];
   if (icpScore >= 4) icpSimilarity = "high";
@@ -58,50 +120,83 @@ export function evaluateCluster(
   let productScore = 0;
   const productReasons: string[] = [];
 
-  const productDesc = productCtx.productDescription.toLowerCase();
-  const targetDesc = (productCtx.targetCustomers ?? "").toLowerCase();
-  const useCases = ((productCtx.coreUseCases ?? []) as string[]).map((s) => s.toLowerCase());
-  const focusIndustries = ((productCtx.industriesFocus ?? []) as string[]).map((s) => s.toLowerCase());
-  const focusGeo = ((productCtx.geoFocus ?? []) as string[]).map((s) => s.toLowerCase());
+  const productDesc = norm(productCtx.productDescription);
+  const targetDesc = norm(productCtx.targetCustomers ?? "");
+  const allProductText = productDesc + " " + targetDesc;
+  const useCases = ((productCtx.coreUseCases ?? []) as string[]).map(norm);
+  const valueProps = ((productCtx.keyValueProps ?? []) as string[]).map(norm);
+  const focusIndustries = ((productCtx.industriesFocus ?? []) as string[]).map(norm);
+  const focusGeo = ((productCtx.geoFocus ?? []) as string[]).map(norm);
 
-  // Industry in focus
+  // 1. Direct industry match in focus list
   if (focusIndustries.some((fi) => fi.includes(clusterLower) || clusterLower.includes(fi))) {
-    productScore += 3;
-    productReasons.push(`${clusterIndustry} is in your focus industries`);
+    productScore += 4;
+    productReasons.push(`"${clusterIndustry}" is in your focus industries`);
   }
 
-  // Industry mentioned in product/target description
-  if (productDesc.includes(clusterLower) || targetDesc.includes(clusterLower)) {
+  // 2. Industry mentioned in product/target description
+  if (allProductText.includes(clusterLower)) {
     productScore += 2;
-    productReasons.push(`${clusterIndustry} appears in your product description`);
+    productReasons.push(`"${clusterIndustry}" mentioned in your product description`);
   }
 
-  // Geo overlap
+  // 3. Product is payment/payout related AND cluster is payment-heavy industry
+  const productIsPaymentRelated = textContainsAny(allProductText, PRODUCT_PAYMENT_KEYWORDS)
+    || useCases.some((uc) => textContainsAny(uc, PRODUCT_PAYMENT_KEYWORDS))
+    || valueProps.some((vp) => textContainsAny(vp, PRODUCT_PAYMENT_KEYWORDS));
+
+  if (productIsPaymentRelated && PAYMENT_HEAVY_INDUSTRIES.has(clusterLower)) {
+    productScore += 3;
+    productReasons.push(`${clusterIndustry} companies typically need payment/payout infrastructure`);
+  }
+
+  // 4. Mass payout signal — extra boost if product does payouts AND cluster is mass-payout industry
+  const productDoesMassPayouts = textContainsAny(
+    allProductText + " " + useCases.join(" ") + " " + valueProps.join(" "),
+    ["mass payout", "mass payment", "bulk payout", "disbursement", "payout", "commission", "withdrawal"]
+  );
+
+  if (productDoesMassPayouts && MASS_PAYOUT_INDUSTRIES.has(clusterLower)) {
+    productScore += 3;
+    const needSignals = INDUSTRY_NEED_SIGNALS[clusterLower];
+    if (needSignals) {
+      productReasons.push(`${clusterIndustry} companies need: ${needSignals.slice(0, 2).join(", ")}`);
+    } else {
+      productReasons.push(`${clusterIndustry} companies typically require mass payouts`);
+    }
+  }
+
+  // 5. Word overlap between product description and industry need signals
+  const needSignals = INDUSTRY_NEED_SIGNALS[clusterLower];
+  if (needSignals) {
+    const needText = needSignals.join(" ");
+    const overlap = wordsOverlap(allProductText + " " + useCases.join(" "), needText);
+    if (overlap >= 3) {
+      productScore += 2;
+      productReasons.push("Strong keyword overlap between your product and this industry's needs");
+    } else if (overlap >= 1) {
+      productScore += 1;
+    }
+  }
+
+  // 6. Geo overlap
   if (focusGeo.length > 0 && clusterCountriesLower.some((c) =>
-    focusGeo.some((g) => g.includes(c) || c.includes(g))
+    focusGeo.some((g) => g.includes(c) || c.includes(g) || g === "global")
   )) {
     productScore += 1;
     productReasons.push("Geographic overlap with your focus regions");
   }
 
-  // Use case heuristics
-  const paymentKeywords = ["payment", "payout", "settlement", "transaction", "billing", "subscription"];
-  const hasPaymentUseCase = useCases.some((uc) => paymentKeywords.some((kw) => uc.includes(kw)));
-  const clusterSuggestsPayments = ["fintech", "igaming", "ecommerce", "e-commerce", "payments", "crypto", "affiliate", "lending", "banking"].includes(clusterLower);
-  if (hasPaymentUseCase && clusterSuggestsPayments) {
-    productScore += 2;
-    productReasons.push("Industry typically has strong payment/payout needs");
-  }
-
+  // Determine product fit level
   let productFit: ClusterEvaluation["productFit"];
-  if (productScore >= 5) productFit = "high";
-  else if (productScore >= 3) productFit = "medium";
-  else if (productScore >= 1) productFit = "low";
+  if (productScore >= 7) productFit = "high";
+  else if (productScore >= 4) productFit = "medium";
+  else if (productScore >= 2) productFit = "low";
   else productFit = "none";
 
   const explanation = productReasons.length > 0
     ? productReasons.join(". ") + "."
-    : `${clusterIndustry} companies not in your ICPs -- no clear product-fit signals detected.`;
+    : `${clusterIndustry} — no clear product-fit signals detected.`;
 
   return {
     icpSimilarity,
