@@ -133,6 +133,21 @@ function fitBadgeClassName(level: string): string {
   }
 }
 
+function isAdoptedLead(lead: { matchReasons: unknown }): boolean {
+  if (!Array.isArray(lead.matchReasons)) return false;
+  return (lead.matchReasons as Record<string, unknown>[]).some(
+    (r) => r.matchType === "adopted"
+  );
+}
+
+function getAdoptedNote(lead: { matchReasons: unknown }): string | null {
+  if (!Array.isArray(lead.matchReasons)) return null;
+  const adopted = (lead.matchReasons as Record<string, unknown>[]).find(
+    (r) => r.matchType === "adopted"
+  );
+  return adopted ? (adopted.note as string) ?? null : null;
+}
+
 function confidenceColor(confidence: number): string {
   if (confidence >= 70) return "text-green-600 dark:text-green-400";
   if (confidence >= 40) return "text-amber-600 dark:text-amber-400";
@@ -1216,15 +1231,22 @@ function LeadRow({
           </span>
         </TableCell>
         <TableCell>
-          {customBadgeClass ? (
-            <Badge variant="outline" className={customBadgeClass}>
-              {fitBadgeLabel(lead.fitLevel)}
-            </Badge>
-          ) : (
-            <Badge variant={fitBadgeVariant(lead.fitLevel)}>
-              {fitBadgeLabel(lead.fitLevel)}
-            </Badge>
-          )}
+          <div className="flex items-center gap-1.5">
+            {customBadgeClass ? (
+              <Badge variant="outline" className={customBadgeClass}>
+                {fitBadgeLabel(lead.fitLevel)}
+              </Badge>
+            ) : (
+              <Badge variant={fitBadgeVariant(lead.fitLevel)}>
+                {fitBadgeLabel(lead.fitLevel)}
+              </Badge>
+            )}
+            {isAdoptedLead(lead) && (
+              <Badge variant="outline" className="border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-400 text-[10px]">
+                Adopted
+              </Badge>
+            )}
+          </div>
         </TableCell>
       </TableRow>
       {isExpanded && (

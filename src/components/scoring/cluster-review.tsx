@@ -203,6 +203,8 @@ export function ClusterReview({
         description,
         draftCriteria,
         draftPersonas,
+        uploadId,
+        clusterIndustry,
       );
       if (result.error) {
         setError(result.error);
