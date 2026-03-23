@@ -38,6 +38,7 @@ import {
   ListChecks,
   FileText,
 } from "lucide-react";
+import { RejectIcpDialog } from "@/components/scoring/reject-icp-dialog";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -132,11 +133,13 @@ export function ClusterReview({
   uploadId,
   uploadName,
   evaluation,
+  clusterIndustry,
 }: {
   draft: ClusterDraft;
   uploadId: string;
   uploadName: string;
   evaluation?: ClusterEvaluation;
+  clusterIndustry?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -529,6 +532,12 @@ export function ClusterReview({
             <Link href={`/scoring/${uploadId}`}>
               <Button variant="outline">Back to results</Button>
             </Link>
+            {clusterIndustry && (
+              <RejectIcpDialog
+                industry={clusterIndustry}
+                onRejected={() => router.push(`/scoring/${uploadId}`)}
+              />
+            )}
           </div>
         </CardContent>
       </Card>

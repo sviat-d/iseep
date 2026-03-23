@@ -9,6 +9,8 @@ export type ClusterEvaluation = {
   productFit: "high" | "medium" | "low" | "none" | "unknown";
   explanation: string;
   productFitReason?: string;
+  isExcluded?: boolean;
+  confidence: "high" | "medium" | "low";
 };
 
 // Industries that typically need payment/payout/financial infrastructure
@@ -79,9 +81,23 @@ function wordsOverlap(text1: string, text2: string): number {
 export function evaluateCluster(
   clusterIndustry: string,
   clusterCountries: string[],
+  clusterLeadCount: number,
   existingCriteria: Criterion[],
-  productCtx: ProductCtx | null
+  productCtx: ProductCtx | null,
+  excludedIndustries?: string[]
 ): ClusterEvaluation {
+  // Check if industry is excluded
+  if (excludedIndustries?.some(e => norm(e) === norm(clusterIndustry))) {
+    return {
+      icpSimilarity: "none",
+      productFit: "none",
+      explanation: `"${clusterIndustry}" was previously marked as not a fit for your business.`,
+      productFitReason: "Excluded by your feedback",
+      isExcluded: true,
+      confidence: "high",
+    };
+  }
+
   const clusterLower = norm(clusterIndustry);
   const clusterCountriesLower = clusterCountries.map(norm);
 
@@ -110,10 +126,21 @@ export function evaluateCluster(
 
   // --- Product Fit ---
   if (!productCtx) {
+    // Confidence without product context — only lead count + ICP similarity
+    let noCtxConfScore = 0;
+    if (clusterLeadCount >= 5) noCtxConfScore += 2;
+    else if (clusterLeadCount >= 3) noCtxConfScore += 1;
+    if (icpSimilarity === "high") noCtxConfScore += 1;
+    else if (icpSimilarity === "medium") noCtxConfScore += 0.5;
+    let noCtxConfidence: "high" | "medium" | "low" = "low";
+    if (noCtxConfScore >= 4) noCtxConfidence = "high";
+    else if (noCtxConfScore >= 2) noCtxConfidence = "medium";
+
     return {
       icpSimilarity,
       productFit: "unknown",
       explanation: `${clusterCountries.length > 0 ? clusterCountries.slice(0, 2).join(", ") + " " : ""}${clusterIndustry} companies not in your current ICPs.`,
+      confidence: noCtxConfidence,
     };
   }
 
@@ -198,10 +225,24 @@ export function evaluateCluster(
     ? productReasons.join(". ") + "."
     : `${clusterIndustry} — no clear product-fit signals detected.`;
 
+  // --- Confidence (factors: lead count + product fit + ICP similarity) ---
+  let confScore = 0;
+  if (clusterLeadCount >= 5) confScore += 2;
+  else if (clusterLeadCount >= 3) confScore += 1;
+  if (productFit === "high") confScore += 2;
+  else if (productFit === "medium") confScore += 1;
+  if (icpSimilarity === "high") confScore += 1;
+  else if (icpSimilarity === "medium") confScore += 0.5;
+
+  let confidence: "high" | "medium" | "low" = "low";
+  if (confScore >= 4) confidence = "high";
+  else if (confScore >= 2) confidence = "medium";
+
   return {
     icpSimilarity,
     productFit,
     explanation,
     productFitReason: productReasons.length > 0 ? productReasons[0] : undefined,
+    confidence,
   };
 }

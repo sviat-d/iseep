@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth";
 import { getScoredUpload, getScoredLeads } from "@/lib/queries/scoring";
 import { getIcpsForSelect } from "@/lib/queries/icps";
 import { getProductContext } from "@/lib/queries/product-context";
+import { getRejectedIcps } from "@/actions/reject-icp";
 import { generateClusterDraft } from "@/lib/cluster-draft";
 import { evaluateCluster } from "@/lib/cluster-evaluation";
 import { db } from "@/db";
@@ -26,12 +27,19 @@ export default async function ReviewClusterPage({
   const upload = await getScoredUpload(id, ctx.workspaceId);
   if (!upload) notFound();
 
-  const [allLeads, existingIcps, productCtx, allCriteria] = await Promise.all([
+  const [allLeads, existingIcps, productCtx, allCriteria, rejected] = await Promise.all([
     getScoredLeads(id, ctx.workspaceId),
     getIcpsForSelect(ctx.workspaceId),
     getProductContext(ctx.workspaceId),
     db.select().from(criteria).where(eq(criteria.workspaceId, ctx.workspaceId)),
+    getRejectedIcps(ctx.workspaceId),
   ]);
+
+  // Build excluded industries list
+  const excludedIndustries = [
+    ...((productCtx?.excludedIndustries as string[] | null) ?? []),
+    ...rejected.map(r => r.industry),
+  ];
 
   const clusterLeads = allLeads.filter(
     (l) =>
@@ -66,8 +74,10 @@ export default async function ReviewClusterPage({
   const evaluation = evaluateCluster(
     industry,
     clusterCountries,
+    clusterLeads.length,
     allCriteria,
     productCtx,
+    excludedIndustries,
   );
 
   return (
@@ -77,6 +87,7 @@ export default async function ReviewClusterPage({
         uploadId={id}
         uploadName={upload.fileName}
         evaluation={evaluation}
+        clusterIndustry={industry}
       />
     </div>
   );

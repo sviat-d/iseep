@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Ban } from "lucide-react";
 import type { ActionResult } from "@/lib/types";
 
 type ProductContextDefaults = {
@@ -22,6 +23,11 @@ type ProductContextDefaults = {
   avgTicket: string | null;
 } | null;
 
+type RejectedIndustry = {
+  industry: string;
+  reason: string;
+};
+
 function joinArray(value: unknown): string {
   if (Array.isArray(value)) return value.join(", ");
   return "";
@@ -29,8 +35,10 @@ function joinArray(value: unknown): string {
 
 export function ProductContextForm({
   defaultValues,
+  rejectedIndustries = [],
 }: {
   defaultValues: ProductContextDefaults;
+  rejectedIndustries?: RejectedIndustry[];
 }) {
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
@@ -169,6 +177,33 @@ export function ProductContextForm({
             {isPending ? "Saving..." : "Save"}
           </Button>
         </form>
+      </CardContent>
+
+      {/* Excluded industries section */}
+      <CardContent className="border-t pt-6">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Ban className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-base font-semibold">Industries marked as not a fit</Label>
+          </div>
+          {rejectedIndustries.length > 0 ? (
+            <ul className="space-y-1.5">
+              {rejectedIndustries.map((r, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground" />
+                  <span>
+                    <span className="font-medium">{r.industry}</span>
+                    <span className="text-muted-foreground"> &mdash; {r.reason}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No industries excluded yet. iseep will learn from your feedback as you review suggested ICPs.
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

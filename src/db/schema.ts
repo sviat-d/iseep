@@ -399,6 +399,20 @@ export const productContext = pgTable("product_context", {
   geoFocus: jsonb("geo_focus").default([]), // string[]
   pricingModel: text("pricing_model"),
   avgTicket: text("avg_ticket"),
+  excludedIndustries: jsonb("excluded_industries").default([]), // string[] — industries explicitly marked as not a fit
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── U. Rejected ICPs (learning from user feedback) ────────────────────────
+
+export const rejectedIcps = pgTable("rejected_icps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  industry: text("industry").notNull(),
+  reason: text("reason").notNull(),
+  details: text("details"), // additional context
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });

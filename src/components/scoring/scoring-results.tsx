@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ArrowLeft,
+  Ban,
   Bot,
   ChevronDown,
   ChevronRight,
@@ -37,6 +38,7 @@ import {
   Search,
 } from "lucide-react";
 import type { ClusterEvaluation } from "@/lib/cluster-evaluation";
+import { RejectIcpDialog } from "@/components/scoring/reject-icp-dialog";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -457,6 +459,15 @@ function fitLabel(level: string): string {
 // Main Component
 // ---------------------------------------------------------------------------
 
+// Product fit sort order: high first, then medium, low, none/unknown last
+const FIT_SORT_ORDER: Record<string, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+  none: 3,
+  unknown: 4,
+};
+
 export function ScoringResults({
   upload,
   leads,
@@ -464,6 +475,7 @@ export function ScoringResults({
   clusterEvaluations = {},
   hasProductContext = false,
   productDescription,
+  excludedIndustries = [],
 }: {
   upload: Upload;
   leads: Lead[];
@@ -471,11 +483,15 @@ export function ScoringResults({
   clusterEvaluations?: Record<string, ClusterEvaluation>;
   hasProductContext?: boolean;
   productDescription?: string;
+  excludedIndustries?: string[];
 }) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState("best");
   const [aiEvaluations, setAiEvaluations] = useState<Record<string, AiEvaluation>>({});
   const [aiErrors, setAiErrors] = useState<Record<string, string>>({});
+  const [rejectedSet, setRejectedSet] = useState<Set<string>>(
+    new Set(excludedIndustries.map(s => s.toLowerCase()))
+  );
 
   // Detect AI mapping usage
   const aiMappingUsed = leads.some((lead) => {
@@ -496,8 +512,21 @@ export function ScoringResults({
   // Insights
   const insights = generateInsights(leads);
 
-  // Clusters for unmatched
-  const clusters = clusterUnmatchedLeads(leads);
+  // Clusters for unmatched — sorted by product fit and filtered
+  const allClusters = clusterUnmatchedLeads(leads);
+  const activeClusters = allClusters
+    .filter(c => !rejectedSet.has(c.industry.toLowerCase()))
+    .sort((a, b) => {
+      const evalA = clusterEvaluations[a.industry];
+      const evalB = clusterEvaluations[b.industry];
+      const fitA = evalA ? (FIT_SORT_ORDER[evalA.productFit] ?? 4) : 4;
+      const fitB = evalB ? (FIT_SORT_ORDER[evalB.productFit] ?? 4) : 4;
+      if (fitA !== fitB) return fitA - fitB;
+      return b.leads.length - a.leads.length; // secondary: lead count desc
+    });
+  const excludedClusters = allClusters.filter(
+    c => rejectedSet.has(c.industry.toLowerCase())
+  );
 
   function toggleRow(id: string) {
     setExpandedRows((prev) => {
@@ -710,7 +739,7 @@ export function ScoringResults({
           </p>
 
           {/* Cluster display */}
-          {clusters.length > 0 && (
+          {allClusters.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -720,7 +749,7 @@ export function ScoringResults({
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {clusters.map((cluster) => (
+                  {activeClusters.map((cluster) => (
                     <ClusterCard
                       key={cluster.industry}
                       cluster={cluster}
@@ -735,9 +764,36 @@ export function ScoringResults({
                       onAiError={(industry, error) => {
                         setAiErrors((prev) => ({ ...prev, [industry]: error }));
                       }}
+                      onRejected={(industry) => {
+                        setRejectedSet((prev) => new Set([...prev, industry.toLowerCase()]));
+                      }}
                     />
                   ))}
                 </div>
+
+                {/* Excluded clusters — greyed out at bottom */}
+                {excludedClusters.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Previously rejected
+                    </p>
+                    {excludedClusters.map((cluster) => (
+                      <div
+                        key={cluster.industry}
+                        className="rounded-lg border border-dashed p-3 opacity-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Ban className="h-3.5 w-3.5 text-muted-foreground" />
+                          <p className="text-sm text-muted-foreground">
+                            {cluster.industry} ({cluster.leads.length}{" "}
+                            lead{cluster.leads.length !== 1 ? "s" : ""})
+                            {" -- "}marked as not a fit
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Product context prompt */}
                 {!hasProductContext && (
@@ -907,6 +963,7 @@ function ClusterCard({
   hasProductContext,
   onAiEvaluation,
   onAiError,
+  onRejected,
 }: {
   cluster: Cluster;
   uploadId: string;
@@ -916,11 +973,13 @@ function ClusterCard({
   hasProductContext: boolean;
   onAiEvaluation: (industry: string, evaluation: AiEvaluation) => void;
   onAiError: (industry: string, error: string) => void;
+  onRejected?: (industry: string) => void;
 }) {
   const [isPending, startTransition] = useTransition();
 
-  const clusterConfidence =
-    cluster.leads.length >= 5
+  const clusterConfidence = evaluation?.confidence
+    ? evaluation.confidence.charAt(0).toUpperCase() + evaluation.confidence.slice(1)
+    : cluster.leads.length >= 5
       ? "High"
       : cluster.leads.length >= 3
         ? "Medium"
@@ -1101,6 +1160,10 @@ function ClusterCard({
             )}
           </Button>
         )}
+        <RejectIcpDialog
+          industry={cluster.industry}
+          onRejected={() => onRejected?.(cluster.industry)}
+        />
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import {
   getScoredLeadStats,
 } from "@/lib/queries/scoring";
 import { getProductContext } from "@/lib/queries/product-context";
+import { getRejectedIcps } from "@/actions/reject-icp";
 import { db } from "@/db";
 import { criteria } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -25,12 +26,27 @@ export default async function ScoringResultsPage({
   const upload = await getScoredUpload(id, ctx.workspaceId);
   if (!upload) notFound();
 
-  const [leads, stats, productCtx, allCriteria] = await Promise.all([
+  const [leads, stats, productCtx, allCriteria, rejected] = await Promise.all([
     getScoredLeads(id, ctx.workspaceId),
     getScoredLeadStats(id, ctx.workspaceId),
     getProductContext(ctx.workspaceId),
     db.select().from(criteria).where(eq(criteria.workspaceId, ctx.workspaceId)),
+    getRejectedIcps(ctx.workspaceId),
   ]);
+
+  // Build excluded industries list
+  const excludedIndustries = [
+    ...((productCtx?.excludedIndustries as string[] | null) ?? []),
+    ...rejected.map(r => r.industry),
+  ];
+  // Deduplicate (case-insensitive)
+  const seen = new Set<string>();
+  const uniqueExcluded = excludedIndustries.filter(i => {
+    const lower = i.toLowerCase();
+    if (seen.has(lower)) return false;
+    seen.add(lower);
+    return true;
+  });
 
   // Compute cluster evaluations server-side
   const unmatchedLeads = leads.filter((l) => l.fitLevel === "none");
@@ -53,8 +69,10 @@ export default async function ScoringResultsPage({
     clusterEvaluations[industry] = evaluateCluster(
       industry,
       countries,
+      clusterLeads.length,
       allCriteria,
       productCtx,
+      uniqueExcluded,
     );
   }
 
@@ -66,6 +84,7 @@ export default async function ScoringResultsPage({
       clusterEvaluations={clusterEvaluations}
       hasProductContext={productCtx !== null}
       productDescription={productCtx?.productDescription}
+      excludedIndustries={uniqueExcluded}
     />
   );
 }

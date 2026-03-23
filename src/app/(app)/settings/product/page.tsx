@@ -1,13 +1,22 @@
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getProductContext } from "@/lib/queries/product-context";
+import { getRejectedIcps } from "@/actions/reject-icp";
 import { ProductContextForm } from "@/components/settings/product-context-form";
 
 export default async function ProductContextPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const context = await getProductContext(ctx.workspaceId);
+  const [context, rejected] = await Promise.all([
+    getProductContext(ctx.workspaceId),
+    getRejectedIcps(ctx.workspaceId),
+  ]);
+
+  const rejectedIndustries = rejected.map(r => ({
+    industry: r.industry,
+    reason: r.reason,
+  }));
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -17,7 +26,10 @@ export default async function ProductContextPage() {
           Help iseep understand what you sell so it can suggest better ICPs and segments
         </p>
       </div>
-      <ProductContextForm defaultValues={context} />
+      <ProductContextForm
+        defaultValues={context}
+        rejectedIndustries={rejectedIndustries}
+      />
     </div>
   );
 }
