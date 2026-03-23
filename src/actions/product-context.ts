@@ -43,6 +43,7 @@ export async function saveProductContext(formData: FormData): Promise<ActionResu
 
   revalidatePath("/settings/product");
   revalidatePath("/dashboard");
+  revalidatePath("/scoring");
   return { success: true };
 }
 

@@ -2,7 +2,12 @@ import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getScoredUpload, getScoredLeads } from "@/lib/queries/scoring";
 import { getIcpsForSelect } from "@/lib/queries/icps";
+import { getProductContext } from "@/lib/queries/product-context";
 import { generateClusterDraft } from "@/lib/cluster-draft";
+import { evaluateCluster } from "@/lib/cluster-evaluation";
+import { db } from "@/db";
+import { criteria } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { ClusterReview } from "@/components/scoring/cluster-review";
 
 export default async function ReviewClusterPage({
@@ -21,7 +26,13 @@ export default async function ReviewClusterPage({
   const upload = await getScoredUpload(id, ctx.workspaceId);
   if (!upload) notFound();
 
-  const allLeads = await getScoredLeads(id, ctx.workspaceId);
+  const [allLeads, existingIcps, productCtx, allCriteria] = await Promise.all([
+    getScoredLeads(id, ctx.workspaceId),
+    getIcpsForSelect(ctx.workspaceId),
+    getProductContext(ctx.workspaceId),
+    db.select().from(criteria).where(eq(criteria.workspaceId, ctx.workspaceId)),
+  ]);
+
   const clusterLeads = allLeads.filter(
     (l) =>
       l.fitLevel === "none" &&
@@ -29,8 +40,6 @@ export default async function ReviewClusterPage({
   );
 
   if (clusterLeads.length === 0) notFound();
-
-  const existingIcps = await getIcpsForSelect(ctx.workspaceId);
 
   const draft = generateClusterDraft(
     industry,
@@ -46,12 +55,28 @@ export default async function ReviewClusterPage({
     existingIcps.map((i) => i.name),
   );
 
+  // Compute product fit evaluation
+  const clusterCountries = [
+    ...new Set(
+      clusterLeads
+        .map((l) => l.country)
+        .filter((c): c is string => Boolean(c?.trim()))
+    ),
+  ];
+  const evaluation = evaluateCluster(
+    industry,
+    clusterCountries,
+    allCriteria,
+    productCtx,
+  );
+
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-12">
       <ClusterReview
         draft={draft}
         uploadId={id}
         uploadName={upload.fileName}
+        evaluation={evaluation}
       />
     </div>
   );

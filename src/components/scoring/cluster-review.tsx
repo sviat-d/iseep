@@ -25,8 +25,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import type { ClusterEvaluation } from "@/lib/cluster-evaluation";
 import {
   ArrowLeft,
+  BarChart3,
   Lightbulb,
   Plus,
   Save,
@@ -91,14 +93,50 @@ function intentLabel(intent: string): string {
 // Main Component
 // ---------------------------------------------------------------------------
 
+function fitDotClass(level: string): string {
+  switch (level) {
+    case "high":
+      return "bg-green-500";
+    case "medium":
+      return "bg-amber-500";
+    case "low":
+      return "bg-gray-400";
+    case "none":
+      return "border border-gray-400 bg-transparent";
+    case "unknown":
+      return "bg-gray-400";
+    default:
+      return "bg-gray-400";
+  }
+}
+
+function fitLevelLabel(level: string): string {
+  switch (level) {
+    case "high":
+      return "High";
+    case "medium":
+      return "Medium";
+    case "low":
+      return "Low";
+    case "none":
+      return "None";
+    case "unknown":
+      return "Unknown";
+    default:
+      return level;
+  }
+}
+
 export function ClusterReview({
   draft,
   uploadId,
   uploadName,
+  evaluation,
 }: {
   draft: ClusterDraft;
   uploadId: string;
   uploadName: string;
+  evaluation?: ClusterEvaluation;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -213,6 +251,42 @@ export function ClusterReview({
           </div>
         </CardContent>
       </Card>
+
+      {/* Section 1b: Product Fit Analysis */}
+      {evaluation && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              Product Fit Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.icpSimilarity)}`} />
+                <span className="text-muted-foreground">
+                  ICP similarity:{" "}
+                  <span className="text-foreground font-medium">{fitLevelLabel(evaluation.icpSimilarity)}</span>
+                </span>
+              </div>
+              <span className="text-muted-foreground">&middot;</span>
+              <div className="flex items-center gap-1.5">
+                <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${fitDotClass(evaluation.productFit)}`} />
+                <span className="text-muted-foreground">
+                  Product fit:{" "}
+                  <span className="text-foreground font-medium">{fitLevelLabel(evaluation.productFit)}</span>
+                </span>
+              </div>
+            </div>
+            {evaluation.explanation && (
+              <p className="text-sm italic text-muted-foreground">
+                &ldquo;{evaluation.explanation}&rdquo;
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Section 2: Example companies */}
       <Card>
