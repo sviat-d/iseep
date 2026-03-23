@@ -216,14 +216,14 @@ function HasIcpsState({
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2">
           <Link
-            href="/scoring"
-            className="flex items-start gap-3 rounded-lg border border-border bg-background p-4 transition-colors hover:bg-muted"
+            href="/scoring/upload"
+            className="flex items-start gap-3 rounded-lg border-2 border-primary/20 bg-primary/5 p-4 transition-colors hover:bg-primary/10"
           >
             <Upload className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <div>
-              <p className="font-medium">Score a lead list</p>
+              <p className="font-medium">Upload your lead list</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Upload CSV and see how your leads match
+                Upload a CSV (conference attendees, scraped leads, outbound list) and instantly see which ones match your ICP
               </p>
             </div>
           </Link>
@@ -232,11 +232,11 @@ function HasIcpsState({
             href="/scoring?mode=sample"
             className="flex items-start gap-3 rounded-lg border border-border bg-background p-4 transition-colors hover:bg-muted"
           >
-            <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <ClipboardList className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
             <div>
-              <p className="font-medium">Try sample data</p>
+              <p className="font-medium text-muted-foreground">No CSV yet? Try sample data</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Test scoring with example leads
+                Instantly score 20 example companies to see how scoring works
               </p>
             </div>
           </Link>
