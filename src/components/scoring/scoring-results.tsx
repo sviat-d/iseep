@@ -374,15 +374,15 @@ function SummaryBar({ stats }: { stats: Stats }) {
   const segments = [
     {
       label: "High fit",
-      count: stats.high + stats.medium,
+      count: stats.high,
       color: "bg-green-500",
-      pctLabel: pct(stats.high + stats.medium, stats.total),
+      pctLabel: pct(stats.high, stats.total),
     },
     {
       label: "Borderline",
-      count: stats.low + stats.risk,
+      count: stats.medium + stats.low + stats.risk,
       color: "bg-amber-500",
-      pctLabel: pct(stats.low + stats.risk, stats.total),
+      pctLabel: pct(stats.medium + stats.low + stats.risk, stats.total),
     },
     {
       label: "Blocked",
@@ -516,10 +516,10 @@ export function ScoringResults({
 
   // Pre-compute tab lead groups
   const bestFitLeads = leads.filter(
-    (l) => l.fitLevel === "high" || l.fitLevel === "medium",
+    (l) => l.fitLevel === "high",
   );
   const borderlineLeads = leads.filter(
-    (l) => l.fitLevel === "low" || l.fitLevel === "risk",
+    (l) => l.fitLevel === "medium" || l.fitLevel === "low" || l.fitLevel === "risk",
   );
   const blockedLeads = leads.filter((l) => l.fitLevel === "blocked");
   const unmatchedLeads = leads.filter((l) => l.fitLevel === "none");

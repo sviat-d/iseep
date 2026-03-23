@@ -342,22 +342,10 @@ function MainDashboard({
                   {latestRun.stats.high} High fit
                 </span>
               )}
-              {latestRun.stats.medium > 0 && (
+              {(latestRun.stats.medium + latestRun.stats.low + latestRun.stats.risk) > 0 && (
                 <span className="inline-flex items-center gap-1.5 text-sm">
                   <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-500" />
-                  {latestRun.stats.medium} Medium
-                </span>
-              )}
-              {latestRun.stats.low > 0 && (
-                <span className="inline-flex items-center gap-1.5 text-sm">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-orange-400" />
-                  {latestRun.stats.low} Low
-                </span>
-              )}
-              {latestRun.stats.risk > 0 && (
-                <span className="inline-flex items-center gap-1.5 text-sm">
-                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-rose-400" />
-                  {latestRun.stats.risk} Risk
+                  {latestRun.stats.medium + latestRun.stats.low + latestRun.stats.risk} Borderline
                 </span>
               )}
               {latestRun.stats.blocked > 0 && (
