@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { getScoredUploads, getBulkUploadStats } from "@/lib/queries/scoring";
 import { ScoringList } from "@/components/scoring/scoring-list";
+import { SampleDataTrigger } from "@/components/scoring/sample-data-trigger";
 import { Upload } from "lucide-react";
 
 export default async function ScoringPage() {
@@ -18,9 +20,12 @@ export default async function ScoringPage() {
 
   return (
     <div className="space-y-6">
+      <Suspense>
+        <SampleDataTrigger />
+      </Suspense>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">ICP Scoring</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Score Leads</h1>
           <p className="text-muted-foreground">
             Upload a lead list and score it against your ICPs
           </p>
