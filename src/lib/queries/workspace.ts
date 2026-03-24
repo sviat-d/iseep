@@ -14,3 +14,11 @@ export async function getWorkspaceShareInfo(workspaceId: string) {
 
   return ws ?? null;
 }
+
+export async function getWorkspaceName(workspaceId: string): Promise<string> {
+  const [ws] = await db
+    .select({ name: workspaces.name })
+    .from(workspaces)
+    .where(eq(workspaces.id, workspaceId));
+  return ws?.name ?? "Workspace";
+}
