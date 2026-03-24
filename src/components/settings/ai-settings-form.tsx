@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -29,12 +30,17 @@ import {
   Trash2,
   Key,
   Zap,
+  FileText,
+  Search,
+  Lightbulb,
+  BarChart3,
+  Sparkles,
 } from "lucide-react";
 
-type ExistingKey = {
+type SafeKey = {
   id: string;
   provider: "anthropic" | "openai";
-  apiKey: string;
+  maskedKey: string;
   model: string | null;
   isActive: boolean;
 } | null;
@@ -44,23 +50,42 @@ type Usage = {
   limit: number;
 };
 
-const ANTHROPIC_MODELS = ["claude-sonnet-4-20250514", "claude-haiku-4-5-20251001"];
+const ANTHROPIC_MODELS = [
+  "claude-sonnet-4-20250514",
+  "claude-haiku-4-5-20251001",
+];
 const OPENAI_MODELS = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"];
 
-function maskKey(key: string): string {
-  if (key.length <= 10) return key.slice(0, 4) + "****";
-  return key.slice(0, 10) + "****";
-}
+const AI_FEATURES = [
+  {
+    icon: FileText,
+    name: "ICP Import",
+    description: "Parse text descriptions into structured ICPs with criteria and personas",
+    path: "/icps/import",
+  },
+  {
+    icon: Search,
+    name: "Smart Lead Matching",
+    description: "Fuzzy-match CSV lead values to ICP criteria when exact matching fails",
+    path: "/scoring",
+  },
+  {
+    icon: Lightbulb,
+    name: "Cluster Evaluation",
+    description: "Analyze unmatched lead clusters for product fit and market opportunity",
+    path: "/scoring",
+  },
+];
 
 export function AiSettingsForm({
   existingKey,
   usage,
 }: {
-  existingKey: ExistingKey;
+  existingKey: SafeKey;
   usage: Usage;
 }) {
   const [provider, setProvider] = useState<"anthropic" | "openai">(
-    existingKey?.provider ?? "anthropic"
+    existingKey?.provider ?? "anthropic",
   );
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState(existingKey?.model ?? "");
@@ -76,17 +101,21 @@ export function AiSettingsForm({
   const [isTesting, startTestTransition] = useTransition();
 
   const hasExistingKey = existingKey !== null;
-  const modelSuggestions = provider === "anthropic" ? ANTHROPIC_MODELS : OPENAI_MODELS;
+  const modelSuggestions =
+    provider === "anthropic" ? ANTHROPIC_MODELS : OPENAI_MODELS;
 
   function handleSave() {
     setMessage(null);
-    const keyToSave = apiKey.trim() || (hasExistingKey ? existingKey.apiKey : "");
-    if (!keyToSave) {
+    if (!apiKey.trim() && !hasExistingKey) {
       setMessage({ type: "error", text: "API key is required" });
       return;
     }
     startSaveTransition(async () => {
-      const result = await saveAiKey(provider, keyToSave, model || undefined);
+      const result = await saveAiKey(
+        provider,
+        apiKey.trim() || "__EXISTING__",
+        model || undefined,
+      );
       if (result.error) {
         setMessage({ type: "error", text: result.error });
       } else {
@@ -103,7 +132,10 @@ export function AiSettingsForm({
       if (result.error) {
         setMessage({ type: "error", text: result.error });
       } else {
-        setMessage({ type: "success", text: "API key removed. Using platform AI." });
+        setMessage({
+          type: "success",
+          text: "API key removed. Using platform AI.",
+        });
         setApiKey("");
         setModel("");
       }
@@ -112,17 +144,24 @@ export function AiSettingsForm({
 
   function handleTest() {
     setMessage(null);
-    const keyToTest = apiKey.trim() || (hasExistingKey ? existingKey.apiKey : "");
-    if (!keyToTest) {
+    if (!apiKey.trim() && !hasExistingKey) {
       setMessage({ type: "error", text: "Enter an API key first" });
       return;
     }
     startTestTransition(async () => {
-      const result = await testAiKey(provider, keyToTest, model || undefined);
+      // Pass new key if entered, null to test existing
+      const result = await testAiKey(
+        provider,
+        apiKey.trim() || null,
+        model || undefined,
+      );
       if (result.error) {
         setMessage({ type: "error", text: result.error });
       } else {
-        setMessage({ type: "success", text: "Connection successful! Key is valid." });
+        setMessage({
+          type: "success",
+          text: "Connection successful! Key is valid.",
+        });
       }
     });
   }
@@ -133,48 +172,102 @@ export function AiSettingsForm({
 
   return (
     <div className="space-y-4">
-      {/* Usage card */}
+      {/* Status card — connected or not */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
             <Zap className="h-4 w-4" />
-            AI Usage This Month
+            AI Status
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent>
           {hasExistingKey ? (
-            <div className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span>Unlimited — using your own API key</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="font-medium">Connected</span>
+                <Badge variant="secondary" className="text-xs">
+                  {existingKey.provider === "anthropic"
+                    ? "Anthropic"
+                    : "OpenAI"}
+                </Badge>
+                {existingKey.model && (
+                  <Badge variant="outline" className="text-xs">
+                    {existingKey.model}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Key: {existingKey.maskedKey} — Unlimited AI operations
+              </p>
             </div>
           ) : (
-            <>
-              <div className="flex items-center justify-between text-sm">
-                <span>
-                  {usage.used} / {usage.limit} operations used
-                </span>
-                <span className="text-muted-foreground">{usagePercent}%</span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <span>Using iseep built-in AI</span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>
+                  {usage.used} / {usage.limit} operations this month
+                </span>
+                <span>{usagePercent}%</span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full rounded-full bg-primary transition-all"
                   style={{ width: `${usagePercent}%` }}
                 />
               </div>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* API Key card */}
+      {/* Where AI is used */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            Use your own API key
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BarChart3 className="h-4 w-4" />
+            Where AI is used
           </CardTitle>
           <CardDescription>
-            Using your own key removes the monthly limit. Your key is stored securely and never shared.
+            AI assists these features. Core scoring remains deterministic — AI
+            enhances it, never replaces it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {AI_FEATURES.map((feat) => (
+              <Link
+                key={feat.name}
+                href={feat.path}
+                className="flex items-start gap-3 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted/50"
+              >
+                <feat.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">{feat.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {feat.description}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API Key management */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Key className="h-4 w-4" />
+            {hasExistingKey ? "Manage API Key" : "Connect your own API key"}
+          </CardTitle>
+          <CardDescription>
+            {hasExistingKey
+              ? "Update provider, model, or replace your key."
+              : "Get unlimited AI operations, use your preferred provider, and keep full control over your data."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -219,7 +312,9 @@ export function AiSettingsForm({
 
           {/* API Key */}
           <div className="space-y-2">
-            <Label htmlFor="apiKey">API Key</Label>
+            <Label htmlFor="apiKey">
+              {hasExistingKey ? "Replace API Key" : "API Key"}
+            </Label>
             <div className="flex gap-2">
               <div className="relative flex-1">
                 <Input
@@ -229,7 +324,7 @@ export function AiSettingsForm({
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder={
                     hasExistingKey
-                      ? maskKey(existingKey.apiKey)
+                      ? existingKey.maskedKey
                       : provider === "anthropic"
                         ? "sk-ant-..."
                         : "sk-..."

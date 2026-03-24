@@ -6,6 +6,11 @@ import { aiKeys } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getMonthlyUsage } from "@/lib/ai-usage";
 
+function maskKey(key: string): string {
+  if (key.length <= 8) return "****";
+  return key.slice(0, 7) + "..." + key.slice(-4);
+}
+
 export default async function AiSettingsPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
@@ -17,6 +22,17 @@ export default async function AiSettingsPage() {
 
   const usage = await getMonthlyUsage(ctx.workspaceId);
 
+  // Never send raw API key to client — mask it
+  const safeKey = existingKey
+    ? {
+        id: existingKey.id,
+        provider: existingKey.provider,
+        maskedKey: maskKey(existingKey.apiKey),
+        model: existingKey.model,
+        isActive: existingKey.isActive,
+      }
+    : null;
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
@@ -25,7 +41,7 @@ export default async function AiSettingsPage() {
           Use your own API key for unlimited AI operations, or use iseep&apos;s built-in AI
         </p>
       </div>
-      <AiSettingsForm existingKey={existingKey ?? null} usage={usage} />
+      <AiSettingsForm existingKey={safeKey} usage={usage} />
     </div>
   );
 }

@@ -16,20 +16,28 @@ export async function saveAiKey(
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
 
-  if (!apiKey.trim()) return { error: "API key is required" };
-
   // Upsert
   const [existing] = await db
     .select()
     .from(aiKeys)
     .where(eq(aiKeys.workspaceId, ctx.workspaceId));
 
+  // "__EXISTING__" means keep existing key, only update provider/model
+  const isKeepExisting = apiKey === "__EXISTING__";
+
+  if (isKeepExisting && !existing) {
+    return { error: "API key is required" };
+  }
+
+  const keyToStore = isKeepExisting ? existing!.apiKey : apiKey.trim();
+  if (!keyToStore) return { error: "API key is required" };
+
   if (existing) {
     await db
       .update(aiKeys)
       .set({
         provider,
-        apiKey: apiKey.trim(),
+        apiKey: keyToStore,
         model: model?.trim() || null,
         isActive: true,
         updatedAt: new Date(),
@@ -39,7 +47,7 @@ export async function saveAiKey(
     await db.insert(aiKeys).values({
       workspaceId: ctx.workspaceId,
       provider,
-      apiKey: apiKey.trim(),
+      apiKey: keyToStore,
       model: model?.trim() || null,
     });
   }
@@ -59,13 +67,27 @@ export async function removeAiKey(): Promise<ActionResult> {
 
 export async function testAiKey(
   provider: "anthropic" | "openai",
-  apiKey: string,
+  apiKey: string | null,
   model?: string
 ): Promise<ActionResult> {
+  const ctx = await getAuthContext();
+  if (!ctx) return { error: "Unauthorized" };
+
+  // If no key provided, use existing key from DB
+  let keyToTest = apiKey?.trim() || "";
+  if (!keyToTest) {
+    const [existing] = await db
+      .select()
+      .from(aiKeys)
+      .where(eq(aiKeys.workspaceId, ctx.workspaceId));
+    if (!existing) return { error: "No API key to test. Enter a key first." };
+    keyToTest = existing.apiKey;
+  }
+
   try {
     const config = {
       provider,
-      apiKey,
+      apiKey: keyToTest,
       model:
         model ||
         (provider === "anthropic" ? "claude-sonnet-4-20250514" : "gpt-4o"),

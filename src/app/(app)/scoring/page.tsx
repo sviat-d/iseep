@@ -3,15 +3,20 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { getAuthContext } from "@/lib/auth";
 import { getScoredUploads, getBulkUploadStats } from "@/lib/queries/scoring";
+import { checkAiLimit } from "@/lib/ai-usage";
 import { ScoringList } from "@/components/scoring/scoring-list";
 import { SampleDataTrigger } from "@/components/scoring/sample-data-trigger";
+import { AiNudge } from "@/components/shared/ai-nudge";
 import { Upload } from "lucide-react";
 
 export default async function ScoringPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const uploads = await getScoredUploads(ctx.workspaceId);
+  const [uploads, aiLimit] = await Promise.all([
+    getScoredUploads(ctx.workspaceId),
+    checkAiLimit(ctx.workspaceId).catch(() => ({ hasOwnKey: false, allowed: true, used: 0, limit: 20 })),
+  ]);
 
   const uploadStats = await getBulkUploadStats(
     uploads.map((u) => u.id),
@@ -20,6 +25,9 @@ export default async function ScoringPage() {
 
   return (
     <div className="space-y-6">
+      {!aiLimit.hasOwnKey && (
+        <AiNudge message="Get smarter lead matching with AI-assisted value mapping" />
+      )}
       <Suspense>
         <SampleDataTrigger />
       </Suspense>

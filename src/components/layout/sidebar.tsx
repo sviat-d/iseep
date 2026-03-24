@@ -12,6 +12,7 @@ import {
   MessageSquare,
   BarChart3,
   FileSearch,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/requests", label: "Requests", icon: MessageSquare },
   { href: "/insights", label: "Insights", icon: BarChart3 },
   { href: "/scoring", label: "Score Leads", icon: FileSearch },
+  { href: "/settings/ai", label: "AI Settings", icon: Sparkles },
 ];
 
 export function Sidebar() {
