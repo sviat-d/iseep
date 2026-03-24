@@ -14,28 +14,65 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AlertCircle, ArrowRight, KeyRound } from "lucide-react";
 
 export default function SignUpPage() {
-  const [state, action, isPending] = useActionState<AuthResult | null, FormData>(
-    async (_prev, formData) => signUp(formData),
-    null
-  );
+  const [state, action, isPending] = useActionState<
+    AuthResult | null,
+    FormData
+  >(async (_prev, formData) => signUp(formData), null);
 
   return (
     <Card>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-bold">Create your account</CardTitle>
+        <CardTitle className="text-2xl font-bold">
+          Create your account
+        </CardTitle>
         <CardDescription>
           Get started with iseep — set up your workspace
         </CardDescription>
       </CardHeader>
       <form action={action}>
         <CardContent className="space-y-4">
-          {state?.error && (
+          {/* Email already exists — special UX */}
+          {state?.code === "email_exists" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                    An account with this email already exists
+                  </p>
+                  <p className="text-xs text-amber-800/80 dark:text-amber-300/70">
+                    Try signing in instead, or reset your password if you forgot
+                    it.
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Link href="/sign-in">
+                      <Button size="sm" variant="outline" type="button">
+                        <ArrowRight className="mr-1.5 h-3.5 w-3.5" />
+                        Sign in
+                      </Button>
+                    </Link>
+                    <Link href="/forgot-password">
+                      <Button size="sm" variant="ghost" type="button">
+                        <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                        Reset password
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Generic errors */}
+          {state?.error && state?.code !== "email_exists" && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {state.error}
             </div>
           )}
+
           <div className="space-y-2">
             <Label htmlFor="fullName">Full name</Label>
             <Input
@@ -82,7 +119,10 @@ export default function SignUpPage() {
           </Button>
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/sign-in" className="font-medium text-primary hover:underline">
+            <Link
+              href="/sign-in"
+              className="font-medium text-primary hover:underline"
+            >
               Sign in
             </Link>
           </p>

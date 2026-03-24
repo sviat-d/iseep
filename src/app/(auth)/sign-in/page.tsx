@@ -16,10 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function SignInPage() {
-  const [state, action, isPending] = useActionState<AuthResult | null, FormData>(
-    async (_prev, formData) => signIn(formData),
-    null
-  );
+  const [state, action, isPending] = useActionState<
+    AuthResult | null,
+    FormData
+  >(async (_prev, formData) => signIn(formData), null);
 
   return (
     <Card>
@@ -45,7 +45,15 @@ export default function SignInPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs text-muted-foreground hover:text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <Input
               id="password"
               name="password"
@@ -61,7 +69,10 @@ export default function SignInPage() {
           </Button>
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link href="/sign-up" className="font-medium text-primary hover:underline">
+            <Link
+              href="/sign-up"
+              className="font-medium text-primary hover:underline"
+            >
               Sign up
             </Link>
           </p>
