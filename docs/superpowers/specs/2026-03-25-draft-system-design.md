@@ -24,13 +24,14 @@ CREATE TABLE drafts (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id    uuid NOT NULL REFERENCES workspaces(id),
   source          text NOT NULL,          -- "claude" | "manual" | "system"
-  target_type     text NOT NULL,          -- "create_icp" | "update_product" | "update_icp" | "create_segment" | "create_note"
+  target_type     text NOT NULL,          -- "create_icp" | "update_product" | "update_icp" | "create_segment"
   target_id       uuid,                   -- null for create actions, entity id for updates
   payload         jsonb NOT NULL,          -- proposed data, shape depends on target_type
   summary         text NOT NULL,           -- human-readable: "Add ICP for Creator Economy"
   reasoning       text,                    -- why Claude suggests this
-  status          text NOT NULL DEFAULT 'pending',  -- "pending" | "approved" | "rejected" | "applied"
+  status          text NOT NULL DEFAULT 'pending',  -- "pending" | "rejected" | "applied"
   created_by      uuid REFERENCES users(id),
+  reviewed_by     uuid REFERENCES users(id),
   created_at      timestamp with time zone NOT NULL DEFAULT now(),
   reviewed_at     timestamp with time zone,
   applied_at      timestamp with time zone
@@ -45,7 +46,7 @@ ALTER TABLE workspaces ADD COLUMN api_token text UNIQUE;
 
 Used for bearer auth on the API endpoint. One token per workspace. Generated from AI Settings page.
 
-## 4. Supported Draft Types
+## 4. Supported Draft Types (4 types in v1)
 
 ### `create_icp`
 
@@ -61,7 +62,8 @@ Payload shape:
     category: string;
     value: string;
     intent: "qualify" | "risk" | "exclude";
-    importance?: number;
+    importance?: number;  // Maps to DB "weight" column. Default 5 for qualify, null for risk/exclude.
+    note?: string;
   }>;
   personas: Array<{
     name: string;
@@ -70,11 +72,11 @@ Payload shape:
 }
 ```
 
-Apply: inserts ICP (status: draft) + criteria + personas. Same logic as `confirmImportIcps`.
+Apply: inserts ICP (status: draft) + criteria + personas. Follows the `confirmImportIcps` pattern from `src/actions/import-icp.ts`. The `importance` field maps to DB `weight`. The `operator` column defaults to `"equals"`.
 
 ### `update_product`
 
-Updates product context fields. Only non-null fields in payload overwrite current values.
+Updates product context fields. Only provided fields overwrite current values. **Requires that product context already exists** (cannot create from scratch via draft).
 
 Payload shape:
 ```typescript
@@ -87,6 +89,8 @@ Payload shape:
   keyValueProps?: string[];
   industriesFocus?: string[];
   geoFocus?: string[];
+  pricingModel?: string;
+  avgTicket?: string;
 }
 ```
 
@@ -95,6 +99,8 @@ Apply: merge payload fields over current product context. Fields not in payload 
 ### `update_icp`
 
 Modifies an existing ICP's criteria and/or personas. Requires `target_id` pointing to the ICP.
+
+Criteria and persona removal uses **match-by-value**, not UUIDs, because external agents (Claude) don't have access to internal IDs. The context export system does not include entity UUIDs.
 
 Payload shape:
 ```typescript
@@ -107,17 +113,23 @@ Payload shape:
     value: string;
     intent: "qualify" | "risk" | "exclude";
     importance?: number;
+    note?: string;
   }>;
-  removeCriteriaIds?: string[];
+  removeCriteria?: Array<{
+    category: string;
+    value: string;
+  }>;  // Matched by (category + value), NOT by UUID
   addPersonas?: Array<{
     name: string;
     description?: string;
   }>;
-  removePersonaIds?: string[];
+  removePersonas?: Array<{
+    name: string;
+  }>;  // Matched by name, NOT by UUID
 }
 ```
 
-Apply: adds new criteria/personas, removes specified ones by ID. Bumps ICP version. Creates ICP snapshot for history.
+Apply: adds new criteria/personas, removes matching ones by value. Bumps ICP version. Creates ICP snapshot (using existing `IcpSnapshotData` type from `src/lib/types.ts`). Note: snapshot creation is new functionality — there is no existing action that does this, implementer must build it.
 
 ### `create_segment`
 
@@ -130,35 +142,26 @@ Payload shape:
   description?: string;
   icpId: string;
   logicJson?: object;
+  priorityScore?: number;  // Default: 5
 }
 ```
 
-Apply: inserts segment record with status "draft".
+Apply: inserts segment record with status "draft", `priorityScore` defaults to 5.
 
-### `create_note`
+### Deferred: `create_note`
 
-Attaches a free-form note to an entity.
-
-Payload shape:
-```typescript
-{
-  content: string;
-  targetType?: "icp" | "company" | "deal";
-  targetId?: string;
-}
-```
-
-Apply: stores note. V1 stores as a simple record. Can be extended to attach to specific entities.
+Not in v1. No backing `notes` table exists. Can be added later when a general-purpose notes system is built.
 
 ## 5. Payload Validation
 
 Each `target_type` has a Zod schema in `src/lib/drafts/types.ts`. The parser validates payload against the correct schema based on `target_type`. Invalid payloads are rejected with field-level error messages.
 
-Common validation:
-- `target_type` must be one of the 5 supported values
+Common validation (use Zod from `zod/v4` per project convention):
+- `target_type` must be one of the 4 supported values
 - `summary` is required and non-empty
 - `payload` must pass the type-specific Zod schema
-- For update types: `target_id` is required
+- For update types (`update_product`, `update_icp`): `target_id` is required
+- `update_product` apply will fail if product context does not exist yet
 
 ## 6. Structured Input Format
 
@@ -245,7 +248,7 @@ Sidebar item: "Suggestions" with `Inbox` lucide icon, between "Export" and "AI S
 
 Page layout:
 - Header: "Suggestions" + subtitle
-- Filter tabs: Pending | Approved | Rejected | All
+- Filter tabs: Pending | Applied | Rejected | All
 - List of draft cards, each showing:
   - Target type badge (color-coded: ICP=blue, Product=green, Segment=purple, Note=gray)
   - Summary text
@@ -279,34 +282,41 @@ Page layout:
 
 **`create_segment`:** Preview card with name, description, linked ICP name.
 
-**`create_note`:** Content text with target entity reference if present.
+### Array diff rendering
+
+For `update_product`, array fields (`coreUseCases`, `keyValueProps`, etc.) show the complete proposed array vs the current array. The `draft-diff.tsx` component renders arrays as comma-joined strings with "Current: X, Y" → "Proposed: X, Y, Z" format. No per-item add/remove highlighting in v1.
 
 ### Actions
 
-- **"Approve & Apply"** (primary button) — applies the draft, creates/updates entity, sets status to `applied`, sets `applied_at`
-- **"Reject"** (destructive outline button) — sets status to `rejected`, sets `reviewed_at`
+- **"Approve & Apply"** (primary button) — single action: validates, applies the change, sets status to `applied`, sets `applied_at` + `reviewed_at` + `reviewed_by`
+- **"Reject"** (destructive outline button) — sets status to `rejected`, sets `reviewed_at` + `reviewed_by`
 - **"Back to suggestions"** (ghost link)
+
+No `approved` status exists — "Approve & Apply" is atomic (pending → applied). This avoids ambiguous intermediate states.
 
 No inline editing in v1. User can reject and recreate manually, or approve as-is.
 
 ## 11. Apply Logic
 
-Server action `applyDraft(draftId)`:
+Server action `approveDraft(draftId)` (single function for approve + apply):
 
-1. Load draft, verify status is `pending`
-2. Load current entity data (for updates)
-3. Execute based on `target_type`:
+1. Auth check (`getAuthContext`), verify draft belongs to workspace
+2. Load draft, verify status is `pending`
+3. Load current entity data (for update types)
+4. Execute in try/catch based on `target_type`:
 
 | Type | Action | Reuses |
 |------|--------|--------|
-| `create_icp` | Insert ICP + criteria + personas (status: draft) | `confirmImportIcps` pattern |
-| `update_product` | Merge payload over current product_context | `saveProductContext` pattern |
-| `update_icp` | Add/remove criteria/personas, bump version, create snapshot | Existing ICP update patterns |
-| `create_segment` | Insert segment (status: draft) | Existing segment create |
-| `create_note` | Insert note record | Simple insert |
+| `create_icp` | Insert ICP + criteria + personas (status: draft) | `confirmImportIcps` pattern from `src/actions/import-icp.ts` |
+| `update_product` | Merge payload over current product_context | `saveProductContext` pattern. Fails if no product context exists. |
+| `update_icp` | Add/remove criteria/personas by value match, bump version, create snapshot | New: snapshot creation built from `IcpSnapshotData` type |
+| `create_segment` | Insert segment (status: draft, priorityScore defaults to 5) | Existing segment create pattern |
 
-4. Update draft: `status → "applied"`, `applied_at → now()`
-5. `revalidatePath` for affected pages
+5. On success: update draft `status → "applied"`, `applied_at → now()`, `reviewed_at → now()`, `reviewed_by → userId`
+6. On failure: return `{ error: "Failed to apply: {message}" }`. Draft remains `pending`. User can retry or reject.
+7. `revalidatePath` for affected pages
+
+**Note:** This is an intentional exception to the "server actions only" convention. The API route (`POST /api/drafts`) exists specifically for external agent access. All internal UI mutations still use server actions (`approveDraft`, `rejectDraft`, `createDrafts`).
 
 ## 12. API Token Management
 
@@ -370,7 +380,8 @@ src/components/settings/ai-settings-form.tsx — add API token card
 The `drafts` table itself is the audit trail:
 - `source`: who proposed (claude/manual/system)
 - `created_by`: which user imported the suggestion
-- `status` transitions: pending → applied or rejected
+- `reviewed_by`: which user approved or rejected
+- Status transitions: `pending → applied` or `pending → rejected` (no intermediate states)
 - `created_at`, `reviewed_at`, `applied_at` timestamps
 - `payload` preserved even after apply — can always see what was proposed
 - Rejected drafts remain in inbox as history
