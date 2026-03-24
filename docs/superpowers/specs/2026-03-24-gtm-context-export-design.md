@@ -97,8 +97,8 @@ type ExportModules = {
 
 Reuses existing queries:
 - `getProductContext(workspaceId)` for product section
-- `getIcps(workspaceId)` + criteria/personas queries for ICPs section
-- `getScoredUploads(workspaceId)` + `getScoredLeadStats()` for scoring section
+- `getIcps(workspaceId)` + criteria/personas queries for ICPs section — **only active ICPs** are included (draft/archived excluded)
+- Scoring section: first calls `getScoredUploads(workspaceId)` to get uploads sorted by date, picks the latest, then calls `getScoredLeadStats(latestUploadId, workspaceId)` for the breakdown. The DB field `none` is mapped to `unmatched` in the output. `totalLeads` uses `scored_uploads.totalRows` (CSV row count).
 
 ### `buildProductContext(workspaceId)`
 
@@ -106,7 +106,7 @@ Returns `GtmContextPackage` with only the product module populated. Convenience 
 
 ### `buildIcpContext(workspaceId, icpId)`
 
-Returns `GtmContextPackage` with product context + a single ICP. Loads product for surrounding context, then one ICP with its criteria and personas.
+Returns `GtmContextPackage` with product context + a single ICP (regardless of status — user explicitly chose to export this ICP). Loads product for surrounding context, then one ICP with its criteria and personas.
 
 ## 5. Formatters
 
@@ -172,13 +172,44 @@ Latest run: {fileName} ({totalLeads} leads, {scoredAt})
 
 ### `toClipboardText(pkg)`
 
-Compact version of markdown without tables or heavy formatting. Optimized for AI context windows — maximum information density, minimum visual noise. Uses plain lists and inline key-value pairs.
+Compact version of markdown without tables or heavy formatting. Optimized for AI context windows — maximum information density, minimum visual noise.
+
+Example output:
+```
+COMPANY: INXY Payments (inxy.io)
+Multi-currency crypto payment gateway for B2B cross-border payouts.
+Target: B2B companies needing compliant, low-fee cross-border payments at scale.
+Industries: FinTech, iGaming, E-commerce, AdTech
+Regions: Western Europe, North America, MENA
+
+Use cases: High-volume cross-border payouts, Recurring billing, Stablecoin settlement
+Value props: Low fees, Fast settlement, Multi-currency support
+
+---
+ICP: Affiliate Networks [active, v1]
+Companies running affiliate/publisher payout programs at scale.
+Criteria (qualify): industry=Affiliate Marketing (9), region=EU, US (6), company_size=50-500 (4)
+Criteria (exclude): business_type=Crypto exchange
+Personas: Head of Finance, COO/Operations Lead
+
+---
+SCORING: leads-websummit.csv (450 leads, 2026-03-22)
+High: 45 | Borderline: 120 | Blocked: 30 | Unmatched: 255
+```
+
+### Formatter rules for empty data
+
+All formatters **omit sections entirely** when the underlying array is empty or the module is undefined. For example: if `coreUseCases` is `[]`, the "Use Cases" section is not rendered. If `scoring` is undefined, no scoring section appears. No placeholders or "N/A" blocks.
+
+### Criteria grouping in formatters
+
+Both `toMarkdown` and `toClipboardText` must group criteria by intent: "qualify" criteria go into the Qualifying section (table in markdown, inline in clipboard), "risk" criteria into Risk Signals, "exclude" criteria into Exclusions. The `intent` field on each criterion in `GtmContextPackage` drives this grouping.
 
 ## 6. Central Export Page
 
 ### Route
 
-`/export` — new sidebar item "Export" with Download icon, positioned after "Score Leads" and before "AI Settings".
+`/export` — new sidebar item "Export" with `FileDown` lucide icon, positioned after "Score Leads" and before "AI Settings".
 
 ### Page Structure
 
@@ -238,7 +269,7 @@ Context is built server-side in each page.tsx and passed as serialized prop. No 
 
 ```
 src/lib/context-export/
-  types.ts              — GtmContextPackage, ExportModules, ExportFormat types
+  types.ts              — GtmContextPackage, ExportModules, ExportFormat ("json" | "markdown" | "clipboard") types
   builders.ts           — buildFullContext(), buildProductContext(), buildIcpContext()
   formatters.ts         — toJson(), toMarkdown(), toClipboardText()
 
