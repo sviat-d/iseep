@@ -6,6 +6,8 @@ import { IcpDeleteDialog } from "@/components/icps/icp-delete-dialog";
 import { IcpEditDialog } from "@/components/icps/icp-edit-dialog";
 import { IcpShareDialog } from "@/components/icps/icp-share-dialog";
 import { Badge } from "@/components/ui/badge";
+import { buildIcpContext } from "@/lib/context-export/builders";
+import { ContextExportButton } from "@/components/shared/context-export-button";
 
 export default async function IcpDetailPage({
   params,
@@ -20,6 +22,7 @@ export default async function IcpDetailPage({
   if (!icp) notFound();
 
   const snapshots = await getIcpSnapshots(id, ctx.workspaceId);
+  const exportContext = await buildIcpContext(ctx.workspaceId, id);
 
   return (
     <div className="space-y-6">
@@ -35,6 +38,7 @@ export default async function IcpDetailPage({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <ContextExportButton context={exportContext} label="Copy ICP" />
           <IcpShareDialog icp={{ id: icp.id, shareToken: icp.shareToken, shareMode: icp.shareMode }} />
           <IcpEditDialog icp={icp} />
           <IcpDeleteDialog icpId={icp.id} icpName={icp.name} />

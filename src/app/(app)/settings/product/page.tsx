@@ -4,14 +4,17 @@ import { getAuthContext } from "@/lib/auth";
 import { getProductContext } from "@/lib/queries/product-context";
 import { getRejectedIcps } from "@/actions/reject-icp";
 import { ProductContextForm } from "@/components/settings/product-context-form";
+import { buildProductContext } from "@/lib/context-export/builders";
+import { ContextExportButton } from "@/components/shared/context-export-button";
 
 export default async function ProductContextPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [context, rejected] = await Promise.all([
+  const [context, rejected, exportContext] = await Promise.all([
     getProductContext(ctx.workspaceId),
     getRejectedIcps(ctx.workspaceId),
+    buildProductContext(ctx.workspaceId),
   ]);
 
   const rejectedIndustries = rejected.map(r => ({
@@ -21,11 +24,14 @@ export default async function ProductContextPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">About your product</h1>
-        <p className="text-muted-foreground">
-          Help iseep understand what you sell so it can suggest better ICPs and segments
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">About your product</h1>
+          <p className="text-muted-foreground">
+            Help iseep understand what you sell so it can suggest better ICPs and segments
+          </p>
+        </div>
+        {context && <ContextExportButton context={exportContext} label="Copy product context" />}
       </div>
       <ProductContextForm
         defaultValues={context}

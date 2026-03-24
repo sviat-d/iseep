@@ -8,15 +8,18 @@ import { IcpListView } from "@/components/icps/icp-list-view";
 import { ProductContextNudge } from "@/components/shared/product-context-nudge";
 import { CompanyShareBanner } from "@/components/shared/company-share-dialog";
 import { Plus, FileText } from "lucide-react";
+import { buildFullContext } from "@/lib/context-export/builders";
+import { ContextExportButton } from "@/components/shared/context-export-button";
 
 export default async function IcpsPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icps, productCtx, wsShare] = await Promise.all([
+  const [icps, productCtx, wsShare, exportContext] = await Promise.all([
     getIcps(ctx.workspaceId),
     getProductContext(ctx.workspaceId),
     getWorkspaceShareInfo(ctx.workspaceId),
+    buildFullContext(ctx.workspaceId, { product: true, icps: true, scoring: false }),
   ]);
 
   return (
@@ -45,6 +48,7 @@ export default async function IcpsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ContextExportButton context={exportContext} label="Copy all ICPs" />
           <Link
             href="/icps/import"
             className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium border border-border bg-background hover:bg-muted hover:text-foreground transition-colors"
