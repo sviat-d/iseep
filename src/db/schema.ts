@@ -22,6 +22,7 @@ export const workspaces = pgTable("workspaces", {
   }),
   profileSharedIcpIds: jsonb("profile_shared_icp_ids"), // string[] | null (null = all active)
   apiToken: text("api_token").unique(),
+  onboardingStep: integer("onboarding_step").notNull().default(4), // 0-3 = wizard in progress, 4 = completed
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

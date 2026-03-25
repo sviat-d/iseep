@@ -109,6 +109,7 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
       .values({
         name: parsed.data.workspaceName,
         slug: `${slug}-${authData.user.id.slice(0, 8)}`,
+        onboardingStep: 0,
       })
       .returning();
 
