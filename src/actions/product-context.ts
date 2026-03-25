@@ -41,6 +41,13 @@ export async function saveProductContext(formData: FormData): Promise<ActionResu
     await db.insert(productContext).values(data);
   }
 
+  const { logActivity } = await import("@/lib/activity");
+  await logActivity(ctx.workspaceId, ctx.userId, {
+    eventType: "product_updated",
+    entityType: "product",
+    summary: "Updated product context",
+  });
+
   revalidatePath("/settings/product");
   revalidatePath("/dashboard");
   revalidatePath("/scoring");

@@ -51,6 +51,13 @@ export async function createDrafts(
     ids.push(row.id);
   }
 
+  const { logActivity } = await import("@/lib/activity");
+  await logActivity(ctx.workspaceId, ctx.userId, {
+    eventType: "draft_submitted",
+    entityType: "draft",
+    summary: `Submitted ${ids.length} suggestion(s)`,
+  });
+
   revalidatePath("/drafts");
   return { success: true, ids };
 }
@@ -104,6 +111,14 @@ export async function approveDraft(
       })
       .where(eq(drafts.id, draftId));
 
+    const { logActivity } = await import("@/lib/activity");
+    await logActivity(ctx.workspaceId, ctx.userId, {
+      eventType: "draft_approved",
+      entityType: "draft",
+      entityId: draftId,
+      summary: `Approved suggestion: ${draft.summary}`,
+    });
+
     revalidatePath("/drafts");
     return { success: true };
   } catch (e) {
@@ -134,6 +149,14 @@ export async function rejectDraft(
       reviewedAt: new Date(),
     })
     .where(eq(drafts.id, draftId));
+
+  const { logActivity } = await import("@/lib/activity");
+  await logActivity(ctx.workspaceId, ctx.userId, {
+    eventType: "draft_rejected",
+    entityType: "draft",
+    entityId: draftId,
+    summary: `Rejected suggestion: ${draft.summary}`,
+  });
 
   revalidatePath("/drafts");
   return { success: true };

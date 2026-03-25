@@ -21,6 +21,7 @@ import {
   Lightbulb,
 } from "lucide-react";
 import { ProductContextNudge } from "@/components/shared/product-context-nudge";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,17 @@ type RecentActivityItem = {
   updatedAt: Date;
 };
 
+type ActivityEvent = {
+  id: string;
+  eventType: string;
+  entityType: string | null;
+  entityId: string | null;
+  summary: string;
+  createdAt: Date;
+  userId: string | null;
+  userName: string | null;
+};
+
 export type DashboardViewProps = {
   state: DashboardState;
   stats: DashboardStats;
@@ -88,6 +100,8 @@ export type DashboardViewProps = {
   latestRun: LatestRun;
   recentActivity: RecentActivityItem[];
   hasProductContext?: boolean;
+  activityEvents?: ActivityEvent[];
+  currentUserId?: string;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -305,6 +319,8 @@ function MainDashboard({
   latestRun,
   recentActivity,
   hasProductContext,
+  activityEvents,
+  currentUserId,
 }: DashboardViewProps) {
   return (
     <div className="space-y-6">
@@ -550,6 +566,11 @@ function MainDashboard({
           </CardContent>
         </Card>
       </div>
+
+      {/* Activity Feed */}
+      {activityEvents && activityEvents.length > 0 && currentUserId && (
+        <ActivityFeed events={activityEvents} currentUserId={currentUserId} />
+      )}
     </div>
   );
 }

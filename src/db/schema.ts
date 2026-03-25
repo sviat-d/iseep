@@ -53,10 +53,47 @@ export const memberships = pgTable(
     role: text("role", { enum: ["owner", "admin", "member"] })
       .default("member")
       .notNull(),
+    invitedBy: uuid("invited_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [unique("memberships_workspace_user").on(table.workspaceId, table.userId)]
 );
+
+// ─── C2. Invites ────────────────────────────────────────────────────────────
+
+export const invites = pgTable("invites", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  email: text("email").notNull(),
+  role: text("role", { enum: ["member"] }).default("member").notNull(),
+  invitedBy: uuid("invited_by")
+    .references(() => users.id)
+    .notNull(),
+  token: text("token").unique().notNull(),
+  status: text("status", { enum: ["pending", "accepted", "expired"] })
+    .default("pending")
+    .notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+});
+
+// ─── C3. Activity Events ────────────────────────────────────────────────────
+
+export const activityEvents = pgTable("activity_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  userId: uuid("user_id").references(() => users.id),
+  eventType: text("event_type").notNull(),
+  entityType: text("entity_type"), // "icp" | "upload" | "draft" | "product" | "member"
+  entityId: uuid("entity_id"),
+  summary: text("summary").notNull(),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
 
 // ─── D. ICPs ─────────────────────────────────────────────────────────────────
 

@@ -15,6 +15,7 @@ import {
   Sparkles,
   FileDown,
   Inbox,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/export", label: "Export", icon: FileDown },
   { href: "/drafts", label: "Suggestions", icon: Inbox },
   { href: "/settings/ai", label: "AI Settings", icon: Sparkles },
+  { href: "/settings/team", label: "Team", icon: Users },
 ];
 
 export function Sidebar({ onboardingStep = 4 }: { onboardingStep?: number }) {

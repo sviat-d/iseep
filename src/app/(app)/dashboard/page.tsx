@@ -11,6 +11,7 @@ import {
   getLatestScoringRun,
 } from "@/lib/queries/dashboard";
 import { getProductContext } from "@/lib/queries/product-context";
+import { getRecentActivity as getActivityEvents } from "@/lib/queries/activity";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 
@@ -50,7 +51,7 @@ export default async function DashboardPage() {
   }
 
   // Normal dashboard
-  const [state, stats, icpHealth, latestRun, recentActivity, productCtx] =
+  const [state, stats, icpHealth, latestRun, recentActivity, productCtx, activityEvents] =
     await Promise.all([
       getDashboardState(ctx.workspaceId),
       getDashboardStats(ctx.workspaceId),
@@ -58,6 +59,7 @@ export default async function DashboardPage() {
       getLatestScoringRun(ctx.workspaceId),
       getRecentActivity(ctx.workspaceId),
       getProductContext(ctx.workspaceId),
+      getActivityEvents(ctx.workspaceId),
     ]);
 
   return (
@@ -68,6 +70,8 @@ export default async function DashboardPage() {
       latestRun={latestRun}
       recentActivity={recentActivity}
       hasProductContext={productCtx !== null}
+      activityEvents={activityEvents}
+      currentUserId={ctx.userId}
     />
   );
 }

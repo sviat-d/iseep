@@ -186,6 +186,15 @@ export async function saveIcpSnapshot(icpId: string, note: string): Promise<Acti
     .set({ version: newVersion, updatedAt: new Date() })
     .where(eq(icps.id, icpId));
 
+  // Log activity
+  const { logActivity } = await import("@/lib/activity");
+  await logActivity(ctx.workspaceId, ctx.userId, {
+    eventType: "icp_updated",
+    entityType: "icp",
+    entityId: icpId,
+    summary: `Updated ICP "${icp.name}"`,
+  });
+
   revalidatePath(`/icps/${icpId}`);
   return { success: true };
 }

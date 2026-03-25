@@ -159,6 +159,15 @@ export async function processUpload(
     await db.insert(scoredLeads).values(batch);
   }
 
+  // Log activity
+  const { logActivity } = await import("@/lib/activity");
+  await logActivity(ctx.workspaceId, ctx.userId, {
+    eventType: "scoring_run",
+    entityType: "upload",
+    entityId: upload.id,
+    summary: `Scored ${leadInserts.length} leads from "${fileName}"`,
+  });
+
   revalidatePath("/scoring");
   return { success: true, uploadId: upload.id, aiMappingUsed };
 }
