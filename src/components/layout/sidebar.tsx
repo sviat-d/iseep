@@ -33,8 +33,13 @@ const navItems = [
   { href: "/settings/ai", label: "AI Settings", icon: Sparkles },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onboardingStep = 4 }: { onboardingStep?: number }) {
   const pathname = usePathname();
+
+  const ONBOARDING_HREFS = new Set(["/dashboard", "/settings/product", "/icps", "/scoring"]);
+  const visibleItems = onboardingStep < 4
+    ? navItems.filter((item) => ONBOARDING_HREFS.has(item.href))
+    : navItems;
 
   return (
     <aside className="flex h-full w-60 flex-col border-r bg-sidebar">
@@ -45,7 +50,7 @@ export function Sidebar() {
         </Link>
       </div>
       <nav className="flex-1 space-y-1 px-2 py-3">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(item.href + "/");
           return (
