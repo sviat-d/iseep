@@ -21,6 +21,7 @@ export const workspaces = pgTable("workspaces", {
     enum: ["without_stats", "with_stats"],
   }),
   profileSharedIcpIds: jsonb("profile_shared_icp_ids"), // string[] | null (null = all active)
+  apiToken: text("api_token").unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -437,4 +438,27 @@ export const rejectedIcps = pgTable("rejected_icps", {
   reason: text("reason").notNull(),
   details: text("details"), // additional context
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+// ─── V. Drafts (AI suggestions) ───────────────────────────────────────────
+
+export const drafts = pgTable("drafts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  source: text("source").notNull(),
+  targetType: text("target_type").notNull(),
+  targetId: uuid("target_id"),
+  payload: jsonb("payload").notNull(),
+  summary: text("summary").notNull(),
+  reasoning: text("reasoning"),
+  status: text("status", { enum: ["pending", "rejected", "applied"] })
+    .default("pending")
+    .notNull(),
+  createdBy: uuid("created_by").references(() => users.id),
+  reviewedBy: uuid("reviewed_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  appliedAt: timestamp("applied_at", { withTimezone: true }),
 });
