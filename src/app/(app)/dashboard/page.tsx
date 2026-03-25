@@ -39,12 +39,13 @@ export default async function DashboardPage() {
       return <OnboardingWizard step={1} parsedContext={parsedContext} />;
     }
 
-    // Step 2: Reveal — need product + ICP data
+    // Step 2: Reveal — need product + ALL ICPs
     if (workspace.onboardingStep === 2) {
       const productCtx = await getProductContext(ctx.workspaceId);
+      const { inArray } = await import("drizzle-orm");
 
-      // Get the most recently created ICP
-      const [latestIcp] = await db
+      // Get ALL active ICPs
+      const activeIcps = await db
         .select()
         .from(icps)
         .where(
@@ -53,49 +54,47 @@ export default async function DashboardPage() {
             eq(icps.status, "active"),
           ),
         )
-        .orderBy(desc(icps.createdAt))
-        .limit(1);
+        .orderBy(desc(icps.createdAt));
 
-      let revealData = null;
-      if (latestIcp) {
-        const icpCriteria = await db
-          .select()
-          .from(criteria)
-          .where(eq(criteria.icpId, latestIcp.id));
+      const icpIds = activeIcps.map(i => i.id);
+      const allCriteria = icpIds.length > 0
+        ? await db.select().from(criteria).where(inArray(criteria.icpId, icpIds))
+        : [];
+      const allPersonas = icpIds.length > 0
+        ? await db.select().from(personas).where(inArray(personas.icpId, icpIds))
+        : [];
 
-        const icpPersonas = await db
-          .select()
-          .from(personas)
-          .where(eq(personas.icpId, latestIcp.id));
-
-        revealData = {
-          product: {
-            companyName: productCtx?.companyName ?? null,
-            productDescription: productCtx?.productDescription ?? "",
-            coreUseCases: (productCtx?.coreUseCases as string[]) ?? [],
-            keyValueProps: (productCtx?.keyValueProps as string[]) ?? [],
-            industriesFocus: (productCtx?.industriesFocus as string[]) ?? [],
-            geoFocus: (productCtx?.geoFocus as string[]) ?? [],
-          },
-          icp: {
-            id: latestIcp.id,
-            name: latestIcp.name,
-            description: latestIcp.description,
+      const revealData = {
+        product: {
+          companyName: productCtx?.companyName ?? null,
+          productDescription: productCtx?.productDescription ?? "",
+          coreUseCases: (productCtx?.coreUseCases as string[]) ?? [],
+          keyValueProps: (productCtx?.keyValueProps as string[]) ?? [],
+          industriesFocus: (productCtx?.industriesFocus as string[]) ?? [],
+          geoFocus: (productCtx?.geoFocus as string[]) ?? [],
+        },
+        icps: activeIcps.map(icp => {
+          const icpCriteria = allCriteria.filter(c => c.icpId === icp.id);
+          const icpPersonas = allPersonas.filter(p => p.icpId === icp.id);
+          return {
+            id: icp.id,
+            name: icp.name,
+            description: icp.description,
             criteriaCount: icpCriteria.length,
             personaCount: icpPersonas.length,
             qualifyCriteria: icpCriteria
-              .filter((c) => c.intent === "qualify")
-              .map((c) => ({ category: c.category, value: c.value })),
+              .filter(c => c.intent === "qualify")
+              .map(c => ({ category: c.category, value: c.value })),
             riskCriteria: icpCriteria
-              .filter((c) => c.intent === "risk")
-              .map((c) => ({ category: c.category, value: c.value })),
+              .filter(c => c.intent === "risk")
+              .map(c => ({ category: c.category, value: c.value })),
             excludeCriteria: icpCriteria
-              .filter((c) => c.intent === "exclude")
-              .map((c) => ({ category: c.category, value: c.value })),
-            personas: icpPersonas.map((p) => ({ name: p.name })),
-          },
-        };
-      }
+              .filter(c => c.intent === "exclude")
+              .map(c => ({ category: c.category, value: c.value })),
+            personas: icpPersonas.map(p => ({ name: p.name })),
+          };
+        }),
+      };
 
       return <OnboardingWizard step={2} revealData={revealData} />;
     }

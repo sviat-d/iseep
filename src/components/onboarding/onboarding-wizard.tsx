@@ -20,7 +20,7 @@ type OnboardingWizardProps = {
       industriesFocus: string[];
       geoFocus: string[];
     };
-    icp: {
+    icps: Array<{
       id: string;
       name: string;
       description: string | null;
@@ -30,7 +30,7 @@ type OnboardingWizardProps = {
       riskCriteria: Array<{ category: string; value: string }>;
       excludeCriteria: Array<{ category: string; value: string }>;
       personas: Array<{ name: string }>;
-    };
+    }>;
   } | null;
 };
 
@@ -59,7 +59,7 @@ export function OnboardingWizard({ step, parsedContext, revealData }: Onboarding
             <StepClarify parsedContext={parsedContext} />
           )}
           {step === 2 && revealData && (
-            <StepReveal product={revealData.product} icp={revealData.icp} />
+            <StepReveal product={revealData.product} icps={revealData.icps} />
           )}
         </div>
       </div>

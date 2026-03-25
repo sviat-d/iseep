@@ -157,12 +157,12 @@ export async function getParsedContext(): Promise<ParsedContext | null> {
       industriesFocus: (pc.industriesFocus as string[]) ?? [],
       geoFocus: (pc.geoFocus as string[]) ?? [],
     },
-    icp: {
+    icps: [{
       name: "Auto-generated ICP",
       description: "",
       criteria: [],
       personas: [],
-    },
+    }],
     missingQuestions: [],
     confidence: "low",
   };
@@ -223,57 +223,56 @@ export async function refineContext(
       }
     }
 
-    // Create ACTIVE ICP
-    const icpData = parsed.icp;
-    const [newIcp] = await db
-      .insert(icps)
-      .values({
-        workspaceId: ctx.workspaceId,
-        name: icpData.name || "Primary ICP",
-        description: icpData.description || null,
-        status: "active", // ACTIVE, not draft!
-        version: 1,
-        createdBy: ctx.userId,
-      })
-      .returning();
-
-    // Insert criteria
-    if (icpData.criteria.length > 0) {
-      await db.insert(criteria).values(
-        icpData.criteria.map((c) => ({
-          workspaceId: ctx.workspaceId,
-          icpId: newIcp.id,
-          group: c.group,
-          category: c.category,
-          value: c.value,
-          operator: "equals" as const,
-          intent: c.intent,
-          weight: c.intent === "qualify" ? (c.importance ?? 5) : (c.importance ?? null),
-          note: c.note || null,
-        })),
-      );
-    }
-
-    // Insert personas
-    if (icpData.personas.length > 0) {
-      await db.insert(personas).values(
-        icpData.personas.map((p) => ({
-          workspaceId: ctx.workspaceId,
-          icpId: newIcp.id,
-          name: p.name,
-          description: p.description || null,
-        })),
-      );
-    }
-
-    // Log activity
+    // Create ACTIVE ICPs (multiple)
     const { logActivity } = await import("@/lib/activity");
-    await logActivity(ctx.workspaceId, ctx.userId, {
-      eventType: "icp_created",
-      entityType: "icp",
-      entityId: newIcp.id,
-      summary: `Created ICP "${newIcp.name}" from onboarding`,
-    });
+
+    for (const icpData of parsed.icps) {
+      const [newIcp] = await db
+        .insert(icps)
+        .values({
+          workspaceId: ctx.workspaceId,
+          name: icpData.name || "ICP",
+          description: icpData.description || null,
+          status: "active", // ACTIVE, not draft!
+          version: 1,
+          createdBy: ctx.userId,
+        })
+        .returning();
+
+      if (icpData.criteria.length > 0) {
+        await db.insert(criteria).values(
+          icpData.criteria.map((c) => ({
+            workspaceId: ctx.workspaceId,
+            icpId: newIcp.id,
+            group: c.group,
+            category: c.category,
+            value: c.value,
+            operator: "equals" as const,
+            intent: c.intent,
+            weight: c.intent === "qualify" ? (c.importance ?? 5) : (c.importance ?? null),
+            note: c.note || null,
+          })),
+        );
+      }
+
+      if (icpData.personas.length > 0) {
+        await db.insert(personas).values(
+          icpData.personas.map((p) => ({
+            workspaceId: ctx.workspaceId,
+            icpId: newIcp.id,
+            name: p.name,
+            description: p.description || null,
+          })),
+        );
+      }
+
+      await logActivity(ctx.workspaceId, ctx.userId, {
+        eventType: "icp_created",
+        entityType: "icp",
+        entityId: newIcp.id,
+        summary: `Created ICP "${newIcp.name}" from onboarding`,
+      });
+    }
 
     // Advance to step 2 (reveal)
     await db

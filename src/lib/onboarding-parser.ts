@@ -12,7 +12,7 @@ export type ParsedContext = {
     industriesFocus: string[];
     geoFocus: string[];
   };
-  icp: {
+  icps: Array<{
     name: string;
     description: string;
     criteria: Array<{
@@ -27,7 +27,7 @@ export type ParsedContext = {
       name: string;
       description: string;
     }>;
-  };
+  }>;
   missingQuestions: Array<{
     id: string;
     question: string;
@@ -126,26 +126,28 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks) with this e
     "industriesFocus": ["string"],
     "geoFocus": ["string"]
   },
-  "icp": {
-    "name": "string — short label for this ICP",
-    "description": "string — 1-2 sentence summary",
-    "criteria": [
-      {
-        "group": "firmographic|technographic|behavioral|compliance|keyword",
-        "category": "string",
-        "value": "string — comma-separated if multiple values",
-        "intent": "qualify|risk|exclude",
-        "importance": "number 1-10 (only for qualify intent)",
-        "note": "string — brief context (optional)"
-      }
-    ],
-    "personas": [
-      {
-        "name": "Job Title",
-        "description": "Why this persona matters"
-      }
-    ]
-  },
+  "icps": [
+    {
+      "name": "string — short label, e.g. 'Transportation & Logistics'",
+      "description": "string — 1-2 sentence summary of this customer segment",
+      "criteria": [
+        {
+          "group": "firmographic|technographic|behavioral|compliance|keyword",
+          "category": "string",
+          "value": "string — comma-separated if multiple values",
+          "intent": "qualify|risk|exclude",
+          "importance": "number 1-10 (only for qualify intent)",
+          "note": "string — brief context (optional)"
+        }
+      ],
+      "personas": [
+        {
+          "name": "Job Title",
+          "description": "Why this persona matters"
+        }
+      ]
+    }
+  ],
   "missingQuestions": [
     {
       "id": "q1",
@@ -160,10 +162,10 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks) with this e
 ## Guidelines
 
 1. Extract EVERYTHING you can from the text. Be thorough — look for implicit information too.
-2. Generate ONE primary ICP that represents the best-fit customer segment described or implied.
-3. Include at least 5 criteria across multiple groups. Aim for 8-12 criteria for a detailed text.
-4. Always include at least 1 exclude criterion (common disqualifiers like wrong industry, wrong geography, too small, etc.).
-5. Always include at least 2 personas. If the text doesn't mention specific roles, infer likely buyer personas from the product type and industry.
+2. Generate 3-5 distinct ICPs, one per major industry/vertical the product serves. Each ICP should represent a different customer segment (e.g., "Transportation & Logistics", "Agriculture", "Insurance"). Do NOT create one generic ICP — split by industry.
+3. Each ICP should have 5-10 criteria across multiple groups. Include industry-specific criteria.
+4. Each ICP should have at least 1 exclude criterion (disqualifiers specific to that segment).
+5. Each ICP should have 2-3 personas relevant to that industry. If the text doesn't mention specific roles, infer likely buyer personas.
 6. For importance scores: 8-10 for must-have criteria, 5-7 for important criteria, 1-4 for nice-to-have criteria.
 7. Make questions specific and actionable — avoid generic questions like "tell me more about your product".
 8. If the text is about a payments/fintech product, include compliance-related criteria.
@@ -214,12 +216,9 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
     "industriesFocus": ["string"],
     "geoFocus": ["string"]
   },
-  "icp": {
-    "name": "string",
-    "description": "string",
-    "criteria": [...],
-    "personas": [...]
-  },
+  "icps": [
+    { "name": "string", "description": "string", "criteria": [...], "personas": [...] }
+  ],
   "missingQuestions": [],
   "confidence": "high|medium|low"
 }
@@ -299,40 +298,55 @@ function normalizeParsedContext(raw: Record<string, unknown>): ParsedContext {
     geoFocus: normalizeStringArray(rawProduct.geoFocus),
   };
 
-  // ── ICP ─────────────────────────────────────────────────────────────────
-  const rawCriteria = Array.isArray(rawIcp.criteria) ? rawIcp.criteria : [];
-  const rawPersonas = Array.isArray(rawIcp.personas) ? rawIcp.personas : [];
+  // ── ICPs ────────────────────────────────────────────────────────────────
+  // Support both "icps" (array) and legacy "icp" (single object)
+  const rawIcpArray = Array.isArray(raw.icps) ? raw.icps : (rawIcp.name ? [rawIcp] : []);
 
-  const criteria: ParsedContext["icp"]["criteria"] = rawCriteria.map(
-    (c: Record<string, unknown>) => {
-      const intent = normalizeIntent(String(c.intent ?? "qualify"));
-      return {
-        group: normalizeGroup(String(c.group ?? "firmographic")),
-        category: typeof c.category === "string" && c.category.length > 0 ? c.category : "unknown",
-        value: typeof c.value === "string" && c.value.length > 0 ? c.value : "",
-        intent,
-        importance: intent === "qualify" ? normalizeImportance(c.importance) : undefined,
-        note: typeof c.note === "string" && c.note.length > 0 ? c.note : undefined,
-      };
-    }
-  ).filter((c) => c.value.length > 0);
+  const icps: ParsedContext["icps"] = rawIcpArray.map((rawIcpItem: Record<string, unknown>) => {
+    const rawCriteria = Array.isArray(rawIcpItem.criteria) ? rawIcpItem.criteria : [];
+    const rawPersonas = Array.isArray(rawIcpItem.personas) ? rawIcpItem.personas : [];
 
-  const personas: ParsedContext["icp"]["personas"] = rawPersonas
-    .map((p: Record<string, unknown>) => ({
-      name: typeof p.name === "string" && p.name.length > 0 ? p.name : "",
-      description: typeof p.description === "string" ? p.description : "",
-    }))
-    .filter((p) => p.name.length > 0);
+    const criteria = rawCriteria.map(
+      (c: Record<string, unknown>) => {
+        const intent = normalizeIntent(String(c.intent ?? "qualify"));
+        return {
+          group: normalizeGroup(String(c.group ?? "firmographic")),
+          category: typeof c.category === "string" && c.category.length > 0 ? c.category : "unknown",
+          value: typeof c.value === "string" && c.value.length > 0 ? c.value : "",
+          intent,
+          importance: intent === "qualify" ? normalizeImportance(c.importance) : undefined,
+          note: typeof c.note === "string" && c.note.length > 0 ? c.note : undefined,
+        };
+      }
+    ).filter((c) => c.value.length > 0);
 
-  const icp: ParsedContext["icp"] = {
-    name: typeof rawIcp.name === "string" && rawIcp.name.length > 0 ? rawIcp.name : "Primary ICP",
-    description:
-      typeof rawIcp.description === "string" && rawIcp.description.length > 0
-        ? rawIcp.description
-        : "Auto-generated ICP from onboarding context",
-    criteria,
-    personas,
-  };
+    const personas = rawPersonas
+      .map((p: Record<string, unknown>) => ({
+        name: typeof p.name === "string" && p.name.length > 0 ? p.name : "",
+        description: typeof p.description === "string" ? p.description : "",
+      }))
+      .filter((p) => p.name.length > 0);
+
+    return {
+      name: typeof rawIcpItem.name === "string" && rawIcpItem.name.length > 0 ? rawIcpItem.name : "ICP",
+      description:
+        typeof rawIcpItem.description === "string" && rawIcpItem.description.length > 0
+          ? rawIcpItem.description
+          : "Auto-generated ICP",
+      criteria,
+      personas,
+    };
+  });
+
+  // Ensure at least one ICP
+  if (icps.length === 0) {
+    icps.push({
+      name: "Primary ICP",
+      description: "Auto-generated ICP from onboarding context",
+      criteria: [],
+      personas: [],
+    });
+  }
 
   // ── Missing questions ───────────────────────────────────────────────────
   const missingQuestions: ParsedContext["missingQuestions"] = Array.isArray(rawQuestions)
@@ -353,7 +367,7 @@ function normalizeParsedContext(raw: Record<string, unknown>): ParsedContext {
       ? (rawConfidence.toLowerCase() as ParsedContext["confidence"])
       : "low";
 
-  return { product, icp, missingQuestions, confidence };
+  return { product, icps, missingQuestions, confidence };
 }
 
 /**

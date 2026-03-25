@@ -48,7 +48,7 @@ export function StepClarify({
     });
   }
 
-  const { product, icp, missingQuestions } = parsedContext;
+  const { product, icps, missingQuestions } = parsedContext;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -106,13 +106,21 @@ export function StepClarify({
               </Badge>
             ))}
           </div>
-          {icp.name && (
+          {icps.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground">ICP detected</p>
-              <p className="text-sm font-medium">{icp.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {icp.criteria.length} criteria, {icp.personas.length} personas
+              <p className="text-xs font-medium text-muted-foreground">
+                {icps.length} ICP{icps.length > 1 ? "s" : ""} detected
               </p>
+              <div className="space-y-1 mt-1">
+                {icps.map((icp, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{icp.name}</p>
+                    <Badge variant="outline" className="text-[10px]">
+                      {icp.criteria.length} criteria
+                    </Badge>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
@@ -139,6 +147,15 @@ export function StepClarify({
                   onChange={(e) => handleAnswer(q.id, e.target.value)}
                   disabled={isRefining}
                 />
+                {q.hint && !answers[q.id] && (
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => handleAnswer(q.id, q.hint)}
+                  >
+                    Use suggestion: {q.hint.length > 60 ? q.hint.slice(0, 60) + "..." : q.hint}
+                  </button>
+                )}
               </div>
             ))}
           </CardContent>
