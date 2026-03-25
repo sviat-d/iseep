@@ -410,7 +410,8 @@ Remember: Return ONLY valid JSON. No markdown code blocks, no explanations, no e
     const raw = JSON.parse(jsonStr) as Record<string, unknown>;
 
     return normalizeParsedContext(raw);
-  } catch {
+  } catch (e) {
+    console.error("[onboarding-parser] parseOnboardingContext failed:", e instanceof Error ? e.message : e);
     return null;
   }
 }

@@ -69,7 +69,15 @@ export async function parseContext(
 
   try {
     const parsed = await parseOnboardingContext(text, ctx.workspaceId);
-    if (!parsed) return { error: "Could not parse your context. Please try adding more detail." };
+    if (!parsed) {
+      // Check if AI key is configured
+      const { getAiConfig } = await import("@/lib/ai-client");
+      const config = await getAiConfig(ctx.workspaceId);
+      if (!config.apiKey) {
+        return { error: "AI is not configured. Please add your API key in AI Settings (/settings/ai) or ask your workspace owner to set up the platform key." };
+      }
+      return { error: "Could not parse your context. Please try adding more detail." };
+    }
 
     // Store parsed context as JSON in workspace metadata for Step 2
     await db
