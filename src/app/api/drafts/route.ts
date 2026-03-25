@@ -1,30 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { workspaces, drafts } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { drafts } from "@/db/schema";
+import { authenticateApiRequest } from "@/lib/api-auth";
 import { parseDraftsInput } from "@/lib/drafts/parse";
 
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json(
-      { error: "Invalid or missing API token" },
-      { status: 401 },
-    );
-  }
-
-  const token = authHeader.slice(7);
-  const [ws] = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(eq(workspaces.apiToken, token));
-
-  if (!ws) {
-    return NextResponse.json(
-      { error: "Invalid or missing API token" },
-      { status: 401 },
-    );
-  }
+  const auth = await authenticateApiRequest(request);
+  if (auth instanceof Response) return auth;
 
   let body: string;
   try {
@@ -49,7 +31,7 @@ export async function POST(request: NextRequest) {
     const [row] = await db
       .insert(drafts)
       .values({
-        workspaceId: ws.id,
+        workspaceId: auth.workspaceId,
         source: "claude",
         targetType: d.targetType,
         targetId: d.targetId,
