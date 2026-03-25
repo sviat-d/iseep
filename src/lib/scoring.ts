@@ -8,6 +8,7 @@ import {
   normalizeValue,
   type MatchType,
 } from "@/lib/scoring/normalize";
+import { isChildOf } from "@/lib/taxonomy/lookup";
 
 type Criterion = InferSelectModel<typeof criteriaTable>;
 type Icp = InferSelectModel<typeof icpsTable>;
@@ -105,6 +106,20 @@ function matchesCriterion(
     .map((v) => normalizeValue(v).toLowerCase());
   const resolvedLower = resolved.toLowerCase();
   const matched = criterionValues.some((cv) => cv === resolvedLower);
+
+  // Hierarchical matching for industry criteria
+  if (!matched && criterion.category === "industry") {
+    const criterionRawValues = criterion.value.split(",").map((v) => v.trim());
+    const isChild = criterionRawValues.some((cv) => isChildOf(resolved, cv));
+    if (isChild) {
+      return {
+        matched: true,
+        matchType: "taxonomy_parent",
+        resolvedValue: resolved,
+      };
+    }
+  }
+
   return {
     matched,
     matchType: matched ? matchType : "none",
@@ -232,7 +247,9 @@ export function scoreLeadAgainstIcp(
       if (
         matchType === "exact" ||
         matchType === "case_insensitive" ||
-        matchType === "synonym"
+        matchType === "synonym" ||
+        matchType === "taxonomy" ||
+        matchType === "taxonomy_parent"
       ) {
         exactOrSynonymCount++;
       }

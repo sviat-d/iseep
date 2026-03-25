@@ -1,5 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { productContext as pcTable, criteria as criteriaTable } from "@/db/schema";
+import { resolveIndustry, hasTag } from "@/lib/taxonomy/lookup";
 
 type ProductCtx = InferSelectModel<typeof pcTable>;
 type Criterion = InferSelectModel<typeof criteriaTable>;
@@ -13,23 +14,6 @@ export type ClusterEvaluation = {
   confidence: "high" | "medium" | "low";
 };
 
-// Industries that typically need payment/payout/financial infrastructure
-const PAYMENT_HEAVY_INDUSTRIES = new Set([
-  "fintech", "igaming", "i-gaming", "ecommerce", "e-commerce",
-  "payments", "crypto", "cryptocurrency", "affiliate", "affiliate networks",
-  "lending", "banking", "insurance", "marketplace", "marketplaces",
-  "creator economy", "saas", "payroll", "gambling", "betting",
-  "forex", "trading", "remittance", "neobank",
-]);
-
-// Industries that typically do mass payouts to partners/creators/affiliates
-const MASS_PAYOUT_INDUSTRIES = new Set([
-  "affiliate", "affiliate networks", "creator economy",
-  "igaming", "i-gaming", "gambling", "betting",
-  "marketplace", "marketplaces", "gig economy",
-  "payroll", "freelance", "staffing",
-]);
-
 // Keywords that signal payment/payout product relevance
 const PRODUCT_PAYMENT_KEYWORDS = [
   "payment", "payout", "pay-out", "settlement", "transaction",
@@ -39,24 +23,27 @@ const PRODUCT_PAYMENT_KEYWORDS = [
   "withdrawal", "deposit", "checkout", "gateway", "processor",
 ];
 
-// Keywords that signal the cluster might need the product
+// Keywords that signal the cluster might need the product (keyed by taxonomy id)
 const INDUSTRY_NEED_SIGNALS: Record<string, string[]> = {
-  "creator economy": ["mass payouts to creators", "cross-border payments", "multi-currency disbursements"],
-  "affiliate networks": ["mass commission payouts", "partner payments at scale", "cross-border settlements"],
+  "creator-platforms": ["mass payouts to creators", "cross-border payments", "multi-currency disbursements"],
+  "content-monetization": ["creator payouts", "monetization settlements", "cross-border payments"],
+  "affiliate-networks": ["mass commission payouts", "partner payments at scale", "cross-border settlements"],
   "igaming": ["player withdrawals", "mass payouts", "multi-currency processing", "high-risk payment processing"],
-  "i-gaming": ["player withdrawals", "mass payouts", "multi-currency processing"],
-  "gambling": ["player withdrawals", "mass payouts", "regulatory compliance for payments"],
-  "betting": ["mass payouts", "fast withdrawals", "multi-currency"],
-  "ecommerce": ["merchant settlements", "cross-border payments", "multi-currency checkout"],
-  "e-commerce": ["merchant settlements", "cross-border payments", "multi-currency checkout"],
+  "online-casinos": ["player withdrawals", "mass payouts", "multi-currency processing"],
+  "gambling-facilities": ["player withdrawals", "mass payouts", "regulatory compliance for payments"],
+  "sports-betting": ["mass payouts", "fast withdrawals", "multi-currency"],
+  "e-commerce-platforms": ["merchant settlements", "cross-border payments", "multi-currency checkout"],
+  "online-retail": ["merchant settlements", "cross-border payments", "multi-currency checkout"],
   "marketplace": ["seller payouts", "escrow", "split payments", "mass disbursements"],
-  "marketplaces": ["seller payouts", "escrow", "split payments", "mass disbursements"],
   "fintech": ["payment infrastructure", "API integrations", "compliance"],
   "saas": ["subscription billing", "recurring payments", "usage-based billing"],
-  "payroll": ["mass salary payments", "cross-border payroll", "multi-currency disbursements"],
-  "crypto": ["fiat on/off ramps", "crypto settlements", "stablecoin payments"],
+  "payment-processing": ["payment orchestration", "multi-PSP routing", "settlement optimization"],
+  "crypto-blockchain": ["fiat on/off ramps", "crypto settlements", "stablecoin payments"],
   "lending": ["loan disbursements", "repayment processing", "collections"],
-  "freelance": ["freelancer payouts", "cross-border payments", "multi-currency"],
+  "freelance-marketplaces": ["freelancer payouts", "cross-border payments", "multi-currency"],
+  "gig-platforms": ["gig worker payouts", "instant settlements", "cross-border"],
+  "neobanking": ["card issuing", "payments infrastructure", "multi-currency accounts"],
+  "insurance": ["claims disbursements", "premium processing", "multi-currency"],
 };
 
 function norm(s: string): string {
@@ -101,6 +88,10 @@ export function evaluateCluster(
   const clusterLower = norm(clusterIndustry);
   const clusterCountriesLower = clusterCountries.map(norm);
 
+  // Resolve cluster industry via taxonomy for better matching
+  const resolvedNode = resolveIndustry(clusterIndustry);
+  const clusterCanonical = resolvedNode?.name.toLowerCase() ?? clusterLower;
+
   // --- ICP Similarity ---
   const industryValues = existingCriteria
     .filter((c) => c.category === "industry" && c.intent === "qualify")
@@ -111,7 +102,7 @@ export function evaluateCluster(
     .flatMap((c) => c.value.split(",").map(norm));
 
   let icpScore = 0;
-  if (industryValues.some((v) => v.includes(clusterLower) || clusterLower.includes(v))) {
+  if (industryValues.some((v) => v.includes(clusterCanonical) || clusterCanonical.includes(v))) {
     icpScore += 3;
   }
   if (clusterCountriesLower.some((c) => regionValues.some((r) => r.includes(c) || c.includes(r)))) {
@@ -156,13 +147,13 @@ export function evaluateCluster(
   const focusGeo = ((productCtx.geoFocus ?? []) as string[]).map(norm);
 
   // 1. Direct industry match in focus list
-  if (focusIndustries.some((fi) => fi.includes(clusterLower) || clusterLower.includes(fi))) {
+  if (focusIndustries.some((fi) => fi.includes(clusterCanonical) || clusterCanonical.includes(fi))) {
     productScore += 4;
     productReasons.push(`"${clusterIndustry}" is in your focus industries`);
   }
 
   // 2. Industry mentioned in product/target description
-  if (allProductText.includes(clusterLower)) {
+  if (allProductText.includes(clusterCanonical)) {
     productScore += 2;
     productReasons.push(`"${clusterIndustry}" mentioned in your product description`);
   }
@@ -172,7 +163,7 @@ export function evaluateCluster(
     || useCases.some((uc) => textContainsAny(uc, PRODUCT_PAYMENT_KEYWORDS))
     || valueProps.some((vp) => textContainsAny(vp, PRODUCT_PAYMENT_KEYWORDS));
 
-  if (productIsPaymentRelated && PAYMENT_HEAVY_INDUSTRIES.has(clusterLower)) {
+  if (productIsPaymentRelated && hasTag(clusterIndustry, "payment-heavy")) {
     productScore += 3;
     productReasons.push(`${clusterIndustry} companies typically need payment/payout infrastructure`);
   }
@@ -183,9 +174,10 @@ export function evaluateCluster(
     ["mass payout", "mass payment", "bulk payout", "disbursement", "payout", "commission", "withdrawal"]
   );
 
-  if (productDoesMassPayouts && MASS_PAYOUT_INDUSTRIES.has(clusterLower)) {
+  const needSignals = resolvedNode ? INDUSTRY_NEED_SIGNALS[resolvedNode.id] : undefined;
+
+  if (productDoesMassPayouts && hasTag(clusterIndustry, "mass-payout")) {
     productScore += 3;
-    const needSignals = INDUSTRY_NEED_SIGNALS[clusterLower];
     if (needSignals) {
       productReasons.push(`${clusterIndustry} companies need: ${needSignals.slice(0, 2).join(", ")}`);
     } else {
@@ -194,7 +186,6 @@ export function evaluateCluster(
   }
 
   // 5. Word overlap between product description and industry need signals
-  const needSignals = INDUSTRY_NEED_SIGNALS[clusterLower];
   if (needSignals) {
     const needText = needSignals.join(" ");
     const overlap = wordsOverlap(allProductText + " " + useCases.join(" "), needText);

@@ -1,3 +1,9 @@
+import { resolveIndustry } from "@/lib/taxonomy/lookup";
+
+// Re-export normalizeValue from the extracted module (avoids circular imports)
+export { normalizeValue } from "./normalize-value";
+import { normalizeValue } from "./normalize-value";
+
 // ─── Canonical synonym dictionaries ─────────────────────────────────────────
 
 const COUNTRY_SYNONYMS: Record<string, string> = {
@@ -24,38 +30,6 @@ const COUNTRY_SYNONYMS: Record<string, string> = {
   eu: "EU",
   europe: "EU",
   "european union": "EU",
-};
-
-const INDUSTRY_SYNONYMS: Record<string, string> = {
-  fintech: "FinTech",
-  "financial technology": "FinTech",
-  "fin tech": "FinTech",
-  ecommerce: "E-commerce",
-  "e commerce": "E-commerce",
-  "online retail": "E-commerce",
-  saas: "SaaS",
-  "software as a service": "SaaS",
-  igaming: "iGaming",
-  "i-gaming": "iGaming",
-  "online gambling": "iGaming",
-  gambling: "iGaming",
-  affiliate: "Affiliate Networks",
-  "affiliate network": "Affiliate Networks",
-  "affiliate networks": "Affiliate Networks",
-  crypto: "Crypto",
-  cryptocurrency: "Crypto",
-  blockchain: "Crypto",
-  payments: "Payments",
-  "payment processing": "Payments",
-  banking: "Banking",
-  neobank: "Banking",
-  "digital banking": "Banking",
-  insurance: "Insurance",
-  insurtech: "Insurance",
-  lending: "Lending",
-  loans: "Lending",
-  marketplace: "Marketplace",
-  marketplaces: "Marketplace",
 };
 
 const PLATFORM_SYNONYMS: Record<string, string> = {
@@ -86,14 +60,12 @@ const TITLE_SYNONYMS: Record<string, string> = {
   "head of product": "Head of Product",
 };
 
-// Get synonym dictionary for a category
+// Get synonym dictionary for a category (industry handled by taxonomy)
 function getSynonyms(category: string): Record<string, string> {
   switch (category) {
     case "country":
     case "region":
       return COUNTRY_SYNONYMS;
-    case "industry":
-      return INDUSTRY_SYNONYMS;
     case "platform":
     case "tech_stack":
     case "payment_method":
@@ -108,18 +80,12 @@ function getSynonyms(category: string): Record<string, string> {
 export type MatchType =
   | "exact"
   | "case_insensitive"
+  | "taxonomy"
+  | "taxonomy_parent"
   | "synonym"
   | "workspace_memory"
   | "ai_mapped"
   | "none";
-
-export function normalizeValue(value: string): string {
-  return value
-    .trim()
-    .replace(/\s+/g, " ") // collapse whitespace
-    .replace(/[^\w\s,/\-]/g, "") // remove punctuation except commas, hyphens, slashes
-    .trim();
-}
 
 export function resolveValue(
   rawValue: string,
@@ -139,7 +105,19 @@ export function resolveValue(
   const caseMatch = icpValues.find((v) => v.toLowerCase() === lower);
   if (caseMatch) return { resolved: caseMatch, matchType: "case_insensitive" };
 
-  // 3. Built-in synonym match
+  // 3. Taxonomy resolve (industry category only)
+  if (category === "industry") {
+    const node = resolveIndustry(rawValue);
+    if (node) {
+      const inIcp = icpValues.find(
+        (v) => v.toLowerCase() === node.name.toLowerCase(),
+      );
+      if (inIcp) return { resolved: inIcp, matchType: "taxonomy" };
+      return { resolved: node.name, matchType: "taxonomy" };
+    }
+  }
+
+  // 4. Built-in synonym match (non-industry categories)
   const synonyms = getSynonyms(category);
   const synonymMatch = synonyms[lower];
   if (synonymMatch) {
@@ -150,17 +128,17 @@ export function resolveValue(
     return { resolved: synonymMatch, matchType: "synonym" };
   }
 
-  // 4. Workspace memory
+  // 5. Workspace memory
   const memoryMatch = workspaceMemory[lower] || workspaceMemory[normalized];
   if (memoryMatch)
     return { resolved: memoryMatch, matchType: "workspace_memory" };
 
-  // 5. AI mapping
+  // 6. AI mapping
   const aiMatch = aiMappings[rawValue] || aiMappings[normalized];
   if (aiMatch && aiMatch !== "NONE")
     return { resolved: aiMatch, matchType: "ai_mapped" };
 
-  // 6. No match
+  // 7. No match
   return { resolved: normalized, matchType: "none" };
 }
 

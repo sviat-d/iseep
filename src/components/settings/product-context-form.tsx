@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { saveProductContext } from "@/actions/product-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Ban } from "lucide-react";
 import type { ActionResult } from "@/lib/types";
+import { IndustryPicker } from "@/components/shared/industry-picker";
 
 type ProductContextDefaults = {
   companyName: string | null;
@@ -40,6 +41,10 @@ export function ProductContextForm({
   defaultValues: ProductContextDefaults;
   rejectedIndustries?: RejectedIndustry[];
 }) {
+  const [industriesFocusValue, setIndustriesFocusValue] = useState(
+    joinArray(defaultValues?.industriesFocus),
+  );
+
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
     FormData
@@ -129,27 +134,26 @@ export function ProductContextForm({
             <p className="text-xs text-muted-foreground">Comma-separated</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="industriesFocus">Industries you focus on</Label>
-              <Input
-                id="industriesFocus"
-                name="industriesFocus"
-                placeholder="e.g. FinTech, iGaming, E-commerce"
-                defaultValue={joinArray(defaultValues?.industriesFocus)}
-              />
-              <p className="text-xs text-muted-foreground">Comma-separated</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="geoFocus">Regions you focus on</Label>
-              <Input
-                id="geoFocus"
-                name="geoFocus"
-                placeholder="e.g. EU, UK, Asia"
-                defaultValue={joinArray(defaultValues?.geoFocus)}
-              />
-              <p className="text-xs text-muted-foreground">Comma-separated</p>
-            </div>
+          <div className="space-y-2">
+            <Label>Industries you focus on</Label>
+            <input type="hidden" name="industriesFocus" value={industriesFocusValue} />
+            <IndustryPicker
+              value={industriesFocusValue}
+              onChange={setIndustriesFocusValue}
+              multiple
+              placeholder="Select industries..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="geoFocus">Regions you focus on</Label>
+            <Input
+              id="geoFocus"
+              name="geoFocus"
+              placeholder="e.g. EU, UK, Asia"
+              defaultValue={joinArray(defaultValues?.geoFocus)}
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

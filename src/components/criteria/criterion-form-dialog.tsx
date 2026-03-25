@@ -24,6 +24,9 @@ import { createCriterion, updateCriterion } from "@/actions/criteria";
 import type { ActionResult } from "@/lib/types";
 import { PROPERTY_OPTIONS } from "@/lib/constants";
 import { Info } from "lucide-react";
+import { IndustryPicker } from "@/components/shared/industry-picker";
+import { Badge } from "@/components/ui/badge";
+import { resolveIndustry, getTemplates } from "@/lib/taxonomy/lookup";
 
 const CUSTOM_PROPERTY = "__custom__";
 
@@ -95,6 +98,7 @@ export function CriterionFormDialog({
     defaultValues && !existingProperty ? (defaultValues.category ?? "") : ""
   );
   const [showTooltip, setShowTooltip] = useState(false);
+  const [industryValue, setIndustryValue] = useState(defaultValues?.value ?? "");
 
   // Reset state when defaultValues change
   useEffect(() => {
@@ -103,6 +107,7 @@ export function CriterionFormDialog({
     setProperty(defaultValues ? (opt ? defaultValues.category : CUSTOM_PROPERTY) : lastUsedProperty);
     setCustomCategory(defaultValues && !opt ? (defaultValues.category ?? "") : "");
     setShowTooltip(false);
+    setIndustryValue(defaultValues?.value ?? "");
   }, [defaultValues]);
 
   // Auto-detect operator from property type
@@ -241,22 +246,63 @@ export function CriterionFormDialog({
           {/* 3. Value */}
           <div className="space-y-2">
             <Label htmlFor="crit-value">Value</Label>
-            <Input
-              id="crit-value"
-              name="value"
-              placeholder={
-                intent === "qualify"
-                  ? "e.g. FinTech, iGaming, EU"
-                  : intent === "risk"
-                    ? "e.g. UK, USA"
-                    : "e.g. sanctioned jurisdictions"
-              }
-              defaultValue={defaultValues?.value ?? ""}
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              Separate multiple values with commas.
-            </p>
+            {resolvedCategory === "industry" ? (
+              <>
+                <input type="hidden" name="value" value={industryValue || ""} />
+                <IndustryPicker
+                  value={industryValue}
+                  onChange={setIndustryValue}
+                  placeholder="Search industries..."
+                />
+                {industryValue && (() => {
+                  const node = resolveIndustry(industryValue);
+                  if (!node) return null;
+                  const templates = getTemplates(node.id);
+                  if (templates.length === 0) return null;
+                  return (
+                    <div className="rounded-md border border-dashed p-2.5 space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Suggested criteria for {node.name}:
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {templates.map((t) => (
+                          <Badge
+                            key={`${t.category}-${t.suggestedValues[0]}`}
+                            variant="outline"
+                            className="text-[10px] text-muted-foreground"
+                          >
+                            {t.label}: {t.suggestedValues.slice(0, 2).join(", ")}
+                            {t.suggestedValues.length > 2 ? "..." : ""}
+                          </Badge>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Add these as separate rules after saving this one.
+                      </p>
+                    </div>
+                  );
+                })()}
+              </>
+            ) : (
+              <>
+                <Input
+                  id="crit-value"
+                  name="value"
+                  placeholder={
+                    intent === "qualify"
+                      ? "e.g. FinTech, iGaming, EU"
+                      : intent === "risk"
+                        ? "e.g. UK, USA"
+                        : "e.g. sanctioned jurisdictions"
+                  }
+                  defaultValue={defaultValues?.value ?? ""}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Separate multiple values with commas.
+                </p>
+              </>
+            )}
           </div>
 
           {/* 4. Importance — with dynamic help */}
