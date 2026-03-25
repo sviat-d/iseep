@@ -79,6 +79,7 @@ src/
 │   ├── settings/             # product-context-form, ai-settings-form (with API token card)
 │   ├── export/               # export-page-view (format picker, preview, copy/download)
 │   ├── drafts/               # draft-import-form, drafts-inbox, draft-review-view, draft-diff
+│   ├── onboarding/           # onboarding-wizard, stepper, step-product, step-icp, step-scoring, step-done
 │   └── shared/               # product-context-nudge, ai-nudge, context-export-button, company-share-dialog, industry-picker
 ├── actions/                  # Server actions
 │   ├── scoring.ts            # processUpload, processSampleData, deleteUpload
@@ -90,6 +91,7 @@ src/
 │   ├── product-context.ts    # saveProductContext
 │   ├── company-sharing.ts    # enableCompanySharing, disableCompanySharing, updateCompanyShareConfig
 │   ├── drafts.ts             # createDrafts, approveDraft, rejectDraft, generateApiToken
+│   ├── onboarding.ts         # advanceOnboarding, runOnboardingScoring
 │   └── auth.ts               # signIn, signUp, signOut, requestPasswordReset
 ├── db/
 │   ├── schema.ts             # Drizzle schema (23 tables)
@@ -393,7 +395,24 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 
 **Backward compatible:** existing freeform industry values still work through fallback chain (workspace memory → AI)
 
-## 18. Navigation (Sidebar)
+## 18. Onboarding Wizard [IMPLEMENTED]
+
+3-step guided wizard replacing dashboard empty state for new workspaces.
+
+**Data model:** `workspaces.onboardingStep` integer (0=not started, 1-3=in progress, 4=completed). DB default is 4 (existing workspaces skip wizard). New workspaces get 0 via signUp action.
+
+**Steps:**
+1. **Product Context** — simplified 4-field form (company name, description, industries, regions). Skippable.
+2. **First ICP** — AI text-to-ICP import, manual create link, or skip. Uses existing `parseIcpAction` + `confirmImportIcps`.
+3. **Sample Scoring** — auto-runs 20 demo leads via `processSampleData`. Creates demo ICP if user skipped step 2. Shows inline results (stats bar + top 5 leads).
+4. **Done** — "You're ready!" with CTAs: Upload leads or Explore dashboard.
+
+**Sidebar:** During onboarding (step < 4), shows only 4 items: Dashboard, Product, ICPs, Score Leads. After completion, all 12 items. Prop chain: layout (async) → AppShell → Sidebar.
+
+**Components:** `src/components/onboarding/` — wizard container, stepper, 4 step components.
+**Actions:** `src/actions/onboarding.ts` — `advanceOnboarding`, `runOnboardingScoring`.
+
+## 19. Navigation (Sidebar)
 
 1. Dashboard (`/dashboard`)
 2. Product (`/settings/product`)
@@ -477,7 +496,7 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 | Cluster rejection + learning | [IMPLEMENTED] | Excluded industries persist |
 | Product context (separate entity) | [IMPLEMENTED] | Dedicated table, all target fields |
 | Product context nudges | [PARTIAL] | Dismissible banner, no persistent dismissal state |
-| Product context as onboarding step | [MISSING] | No formal onboarding wizard |
+| Onboarding wizard | [IMPLEMENTED] | 3-step wizard: Product Context → ICP → Sample Scoring |
 | BYOK (Anthropic + OpenAI) | [IMPLEMENTED] | Key management, test, rate limits, security fix (masked keys) |
 | ICP import from text/file | [IMPLEMENTED] | 3-step wizard with AI parsing |
 | ICP sharing (public pages) | [IMPLEMENTED] | Token-based share links, 2 modes |
@@ -505,8 +524,7 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 1. **AI key / API token encryption** — keys and tokens stored plain text. Must encrypt before production launch.
 
 ### P1 — Product Completeness
-2. **Onboarding wizard** — guided flow: product context → first ICP → sample scoring
-3. **MCP server** — wrap POST /api/drafts + context export as MCP tools for Claude Desktop / agents
+2. **MCP server** — wrap POST /api/drafts + context export as MCP tools for Claude Desktop / agents
 
 ### P2 — UX Polish
 5. **Persistent nudge dismissal** — currently client-side only, resets on page reload
