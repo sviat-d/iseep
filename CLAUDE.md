@@ -67,6 +67,9 @@ src/
 │   │   ├── export/           # GTM Context Export page
 │   │   ├── drafts/           # Suggestions inbox, import, [id] review
 │   │   └── settings/         # product/, ai/
+│   ├── api/context/          # GET /api/context (GTM context export)
+│   ├── api/icps/             # GET /api/icps (read-only ICP list)
+│   ├── api/scoring/latest/   # GET /api/scoring/latest (scoring results)
 │   ├── api/drafts/           # POST endpoint for agent-submitted suggestions
 │   ├── share/[token]/        # Public ICP share (no auth)
 │   └── share/company/[token]/ # Public Company Profile + [icpId] drill-down
@@ -99,6 +102,7 @@ src/
 │   └── seed.ts               # Seed script
 ├── lib/
 │   ├── auth.ts               # getAuthContext (workspace + user)
+│   ├── api-auth.ts           # authenticateApiRequest (bearer token → workspaceId)
 │   ├── types.ts              # ActionResult, IcpSnapshotData
 │   ├── constants.ts          # GROUP_LABELS, property options
 │   ├── validators.ts         # Zod schemas
@@ -412,7 +416,24 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 **Components:** `src/components/onboarding/` — wizard container, stepper, 4 step components.
 **Actions:** `src/actions/onboarding.ts` — `advanceOnboarding`, `runOnboardingScoring`.
 
-## 19. Navigation (Sidebar)
+## 19. MCP Server [IMPLEMENTED]
+
+Standalone MCP server (`mcp-server/`) for Claude Desktop and MCP-compatible agents.
+
+**4 tools:**
+- `get_context` — GET /api/context → GtmContextPackage JSON (product, ICPs, scoring)
+- `list_icps` — GET /api/icps → active ICPs with criteria/personas
+- `get_scoring_results` — GET /api/scoring/latest → scoring stats + top leads
+- `submit_suggestions` — POST /api/drafts → submit drafts for review (existing)
+
+**Architecture:** Standalone Node.js process communicating via stdio. Calls iseep HTTP API with bearer token auth. 3 new read-only API routes + shared `api-auth.ts` helper.
+
+**Setup:** `cd mcp-server && npm install`, configure Claude Desktop with `ISEEP_API_TOKEN` and `ISEEP_BASE_URL` env vars.
+
+**Dependencies:** `@modelcontextprotocol/sdk`, `tsx` for TypeScript execution.
+
+## 20. Navigation (Sidebar)
+
 
 1. Dashboard (`/dashboard`)
 2. Product (`/settings/product`)
@@ -427,7 +448,7 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 11. Suggestions (`/drafts`)
 12. AI Settings (`/settings/ai`)
 
-## 19. Routes
+## 21. Routes
 
 ### Auth
 | Route | Purpose |
@@ -477,9 +498,12 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 ### API
 | Route | Purpose |
 |-------|---------|
+| `GET /api/context` | GTM context export (bearer token auth) |
+| `GET /api/icps` | Read-only ICP list with criteria/personas (bearer token auth) |
+| `GET /api/scoring/latest` | Latest scoring results (bearer token auth) |
 | `POST /api/drafts` | Agent-submitted suggestions (bearer token auth) |
 
-## 20. Current State vs Target State
+## 22. Current State vs Target State
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -516,15 +540,15 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 | AI key encryption | [MISSING] | Plain text in MVP |
 | Onboarding flow | [MISSING] | No guided setup wizard |
 | Inline draft editing | [MISSING] | Edit suggestion before approve (currently approve as-is or reject) |
-| MCP server for Claude Desktop | [MISSING] | Wrap API endpoint as MCP tool |
+| MCP server for Claude Desktop | [IMPLEMENTED] | 4 tools: get_context, list_icps, get_scoring_results, submit_suggestions |
 
-## 21. Known Gaps (Prioritized)
+## 23. Known Gaps (Prioritized)
 
 ### P0 — Security
 1. **AI key / API token encryption** — keys and tokens stored plain text. Must encrypt before production launch.
 
 ### P1 — Product Completeness
-2. **MCP server** — wrap POST /api/drafts + context export as MCP tools for Claude Desktop / agents
+(All P1 items completed)
 
 ### P2 — UX Polish
 5. **Persistent nudge dismissal** — currently client-side only, resets on page reload
@@ -536,7 +560,7 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 9. **Batch scoring optimization** — current per-lead loop, could batch DB inserts better
 10. **Token tracking enforcement** — tokens logged but not enforced in limits
 
-## 22. Conventions
+## 24. Conventions
 
 - Use shadcn/ui components for all UI
 - Use server actions for mutations, not API routes (exception: `POST /api/drafts` for external agent access)
