@@ -7,6 +7,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import {
   runOnboardingScoring,
   advanceOnboarding,
+  goBackOnboarding,
   type ScoringSummary,
 } from "@/actions/onboarding";
 
@@ -132,7 +133,16 @@ export function StepScoring() {
           </div>
         )}
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isFinishing}
+            onClick={() => goBackOnboarding(1)}
+            className="text-muted-foreground"
+          >
+            ← Back
+          </Button>
           <Button onClick={handleFinish} disabled={isFinishing}>
             {isFinishing && <Loader2 className="animate-spin" />}
             Finish &rarr;

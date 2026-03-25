@@ -43,6 +43,27 @@ export async function advanceOnboarding(
 
   revalidatePath("/dashboard");
   revalidatePath("/");
+  return { success: true, step };
+}
+
+// ─── 1b. Go Back to a Previous Step ─────────────────────────────────────────
+
+export async function goBackOnboarding(
+  step: number,
+): Promise<ActionResult & { step?: number }> {
+  const ctx = await getAuthContext();
+  if (!ctx) return { error: "Unauthorized" };
+
+  // Allow going back to any step 0-3
+  if (step < 0 || step > 3) return { error: "Invalid step" };
+
+  await db
+    .update(workspaces)
+    .set({ onboardingStep: step, updatedAt: new Date() })
+    .where(eq(workspaces.id, ctx.workspaceId));
+
+  revalidatePath("/dashboard");
+  revalidatePath("/");
 
   return { success: true, step };
 }

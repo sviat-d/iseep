@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, PenLine, SkipForward, Loader2 } from "lucide-react";
 import { parseIcpAction, confirmImportIcps } from "@/actions/import-icp";
-import { advanceOnboarding } from "@/actions/onboarding";
+import { advanceOnboarding, goBackOnboarding } from "@/actions/onboarding";
 import type { ParsedIcp } from "@/lib/icp-parser";
 
 export function StepIcp() {
@@ -167,6 +167,18 @@ export function StepIcp() {
           )}
           Skip for now
         </Button>
+
+        <div className="ml-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={anyPending}
+            onClick={() => goBackOnboarding(0)}
+            className="text-muted-foreground"
+          >
+            ← Back
+          </Button>
+        </div>
       </div>
     </div>
   );
