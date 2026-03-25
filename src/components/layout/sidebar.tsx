@@ -14,6 +14,7 @@ import {
   FileSearch,
   Sparkles,
   FileDown,
+  Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const navItems = [
   { href: "/insights", label: "Insights", icon: BarChart3 },
   { href: "/scoring", label: "Score Leads", icon: FileSearch },
   { href: "/export", label: "Export", icon: FileDown },
+  { href: "/drafts", label: "Suggestions", icon: Inbox },
   { href: "/settings/ai", label: "AI Settings", icon: Sparkles },
 ];
 
