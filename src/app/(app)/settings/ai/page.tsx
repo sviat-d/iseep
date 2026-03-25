@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { AiSettingsForm } from "@/components/settings/ai-settings-form";
 import { db } from "@/db";
-import { aiKeys } from "@/db/schema";
+import { aiKeys, workspaces } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getMonthlyUsage } from "@/lib/ai-usage";
 
@@ -21,6 +21,11 @@ export default async function AiSettingsPage() {
     .where(eq(aiKeys.workspaceId, ctx.workspaceId));
 
   const usage = await getMonthlyUsage(ctx.workspaceId);
+
+  const [ws] = await db
+    .select({ apiToken: workspaces.apiToken })
+    .from(workspaces)
+    .where(eq(workspaces.id, ctx.workspaceId));
 
   // Never send raw API key to client — mask it
   const safeKey = existingKey
@@ -41,7 +46,7 @@ export default async function AiSettingsPage() {
           Use your own API key for unlimited AI operations, or use iseep&apos;s built-in AI
         </p>
       </div>
-      <AiSettingsForm existingKey={safeKey} usage={usage} />
+      <AiSettingsForm existingKey={safeKey} usage={usage} apiToken={ws?.apiToken ?? null} />
     </div>
   );
 }

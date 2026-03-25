@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { saveAiKey, removeAiKey, testAiKey } from "@/actions/ai-keys";
+import { generateApiToken } from "@/actions/drafts";
 import {
   Card,
   CardContent,
@@ -80,9 +81,11 @@ const AI_FEATURES = [
 export function AiSettingsForm({
   existingKey,
   usage,
+  apiToken,
 }: {
   existingKey: SafeKey;
   usage: Usage;
+  apiToken: string | null;
 }) {
   const [provider, setProvider] = useState<"anthropic" | "openai">(
     existingKey?.provider ?? "anthropic",
@@ -99,6 +102,26 @@ export function AiSettingsForm({
   const [isSaving, startSaveTransition] = useTransition();
   const [isRemoving, startRemoveTransition] = useTransition();
   const [isTesting, startTestTransition] = useTransition();
+
+  const [currentToken, setCurrentToken] = useState(apiToken);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [isGenerating, startGenerateTransition] = useTransition();
+
+  function handleGenerateToken() {
+    startGenerateTransition(async () => {
+      const result = await generateApiToken();
+      if (result.token) {
+        setCurrentToken(result.token);
+      }
+    });
+  }
+
+  async function handleCopyToken() {
+    if (!currentToken) return;
+    await navigator.clipboard.writeText(currentToken);
+    setTokenCopied(true);
+    setTimeout(() => setTokenCopied(false), 2000);
+  }
 
   const hasExistingKey = existingKey !== null;
   const modelSuggestions =
@@ -424,6 +447,79 @@ export function AiSettingsForm({
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* API Access card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Key className="h-4 w-4" />
+            API Access
+          </CardTitle>
+          <CardDescription>
+            Allow AI agents to send suggestions to iseep via API
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {currentToken ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 min-w-0 flex-1 items-center rounded-md border bg-muted/50 px-2.5 font-mono text-xs text-muted-foreground">
+                  {currentToken.slice(0, 12)}...{currentToken.slice(-4)}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyToken}
+                  className="shrink-0"
+                >
+                  {tokenCopied ? (
+                    <CheckCircle2 className="mr-1 h-3 w-3 text-green-600" />
+                  ) : (
+                    <Key className="mr-1 h-3 w-3" />
+                  )}
+                  {tokenCopied ? "Copied" : "Copy"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGenerateToken}
+                  disabled={isGenerating}
+                  className="shrink-0"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : null}
+                  Regenerate
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Endpoint: <code className="rounded bg-muted px-1 py-0.5">POST /api/drafts</code>
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Generate a token to let Claude or other agents send suggestions directly.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateToken}
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  "Generate API token"
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
