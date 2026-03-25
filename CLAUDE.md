@@ -53,7 +53,7 @@ Built for INXY Payments (crypto payment gateway for B2B cross-border payouts), b
 ```
 src/
 ├── app/
-│   ├── (auth)/               # Auth pages (sign-in, sign-up)
+│   ├── (auth)/               # Auth pages (sign-in, sign-up, forgot-password)
 │   ├── (app)/                # Authenticated app
 │   │   ├── dashboard/        # Main dashboard
 │   │   ├── icps/             # ICP list, new, [id], import
@@ -64,16 +64,22 @@ src/
 │   │   ├── companies/        # Company list, new, [id]
 │   │   ├── requests/         # Product requests
 │   │   ├── insights/         # Win/loss analytics
+│   │   ├── export/           # GTM Context Export page
+│   │   ├── drafts/           # Suggestions inbox, import, [id] review
 │   │   └── settings/         # product/, ai/
-│   └── share/[token]/        # Public ICP share (no auth)
+│   ├── api/drafts/           # POST endpoint for agent-submitted suggestions
+│   ├── share/[token]/        # Public ICP share (no auth)
+│   └── share/company/[token]/ # Public Company Profile + [icpId] drill-down
 ├── components/
 │   ├── ui/                   # shadcn/ui components
 │   ├── layout/               # sidebar, topbar, app-shell
 │   ├── dashboard/            # dashboard-view
 │   ├── icps/                 # ICP management components
 │   ├── scoring/              # scoring-results, upload-wizard, cluster-review, reject-icp-dialog
-│   ├── settings/             # product-context-form, ai-settings-form
-│   └── shared/               # product-context-nudge, industry-input
+│   ├── settings/             # product-context-form, ai-settings-form (with API token card)
+│   ├── export/               # export-page-view (format picker, preview, copy/download)
+│   ├── drafts/               # draft-import-form, drafts-inbox, draft-review-view, draft-diff
+│   └── shared/               # product-context-nudge, ai-nudge, context-export-button, company-share-dialog
 ├── actions/                  # Server actions
 │   ├── scoring.ts            # processUpload, processSampleData, deleteUpload
 │   ├── cluster-icp.ts        # saveClusterAsIcp (adopt cluster → create ICP + reclassify leads)
@@ -81,9 +87,12 @@ src/
 │   ├── reject-icp.ts         # rejectSuggestedIcp
 │   ├── import-icp.ts         # parseIcpAction, confirmImportIcps
 │   ├── ai-keys.ts            # saveAiKey, removeAiKey, testAiKey
-│   └── product-context.ts    # saveProductContext
+│   ├── product-context.ts    # saveProductContext
+│   ├── company-sharing.ts    # enableCompanySharing, disableCompanySharing, updateCompanyShareConfig
+│   ├── drafts.ts             # createDrafts, approveDraft, rejectDraft, generateApiToken
+│   └── auth.ts               # signIn, signUp, signOut, requestPasswordReset
 ├── db/
-│   ├── schema.ts             # Drizzle schema (22 tables)
+│   ├── schema.ts             # Drizzle schema (23 tables)
 │   ├── index.ts              # DB client (pooler-aware)
 │   └── seed.ts               # Seed script
 ├── lib/
@@ -103,13 +112,15 @@ src/
 │   ├── cluster-evaluation.ts # Evaluate clusters (ICP similarity + product fit)
 │   ├── sample-data.ts        # 20 sample leads for demo scoring
 │   ├── segment-helpers.ts    # Condition tree manipulation
+│   ├── context-export/       # GTM context export (types, builders, formatters)
+│   ├── drafts/               # Draft system (types, parse, apply)
 │   ├── queries/              # Server-side query functions
 │   ├── supabase/             # Supabase client (browser + server)
 │   └── proxy.ts              # Auth proxy (replaces middleware.ts)
-└── drizzle/migrations/       # SQL migrations (0000-0004)
+└── drizzle/migrations/       # SQL migrations (0000-0006)
 ```
 
-## 5. Core Entities (22 Tables)
+## 5. Core Entities (23 Tables)
 
 ### ICP System
 | Table | Purpose | Key Fields |
@@ -146,10 +157,15 @@ src/
 | `value_mappings` | Learned synonym mappings | category, fromValue, toValue |
 | `rejected_icps` | Rejected cluster industries | industry, reason, details |
 
+### Draft System (Claude → iseep)
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `drafts` | AI-proposed changes awaiting review | source (claude/manual/system), targetType (4 types), payload (JSONB), summary, reasoning, status (pending/rejected/applied), reviewedBy, appliedAt |
+
 ### Auth & Tenancy
 | Table | Purpose |
 |-------|---------|
-| `workspaces` | Tenant root (name, slug) |
+| `workspaces` | Tenant root (name, slug, profileShareToken, apiToken) |
 | `users` | Auth users (synced from Supabase) |
 | `memberships` | User-workspace access (role: owner/admin/member) |
 
@@ -270,7 +286,83 @@ Users can configure personal Anthropic or OpenAI API keys at `/settings/ai`.
 
 AI parser extracts: name, description, criteria (5 groups, 3 intents, weights), personas (title + description)
 
-## 11. Industry System [PARTIAL]
+## 11. Public Company Profile Sharing [IMPLEMENTED]
+
+Workspace-level public page showing product info + selected ICPs. Extends the single-ICP sharing with a company-wide profile.
+
+**Schema:** 3 fields on `workspaces`: `profileShareToken`, `profileShareMode` (without_stats/with_stats), `profileSharedIcpIds` (JSONB, null = all active)
+
+**Routes:**
+- `/share/company/[token]` — public company profile page
+- `/share/company/[token]/[icpId]` — ICP detail within company context
+
+**UI:** Banner on ICPs page — CTA when inactive (dashed border, "Create public profile"), green status when active (link + copy + preview + settings). Settings dialog for mode + ICP selection.
+
+## 12. GTM Context Export [IMPLEMENTED]
+
+iseep as source of truth for GTM context — exportable for AI agents, partners, investors, teams.
+
+**Architecture:** `src/lib/context-export/` — types, builders (server-side), formatters (pure functions).
+
+**Three formats:**
+- **JSON** — versioned (`schemaVersion: 1`), for agents/MCP/API consumers
+- **Markdown** — for partners, wiki, documents
+- **Compact text** — optimized for AI context window (copy-paste to Claude)
+
+**Central page:** `/export` with module toggles (Product/ICPs/Scoring), format picker, live preview, copy + download.
+
+**Contextual buttons:** Split button (copy + download dropdown) on:
+- `/icps` — "Copy all ICPs"
+- `/icps/[id]` — "Copy ICP"
+- `/settings/product` — "Copy product context"
+
+**Builders:** `buildFullContext(workspaceId, modules?)`, `buildProductContext(workspaceId)`, `buildIcpContext(workspaceId, icpId)`
+
+## 13. Draft System — Claude → iseep [IMPLEMENTED]
+
+AI agents (or users) propose changes through reviewable drafts. "Claude proposes, human approves, iseep applies."
+
+**Schema:** `drafts` table — generic with typed JSONB payloads. Status: pending → applied or rejected.
+
+**4 target types:**
+- `create_icp` — new ICP with criteria + personas
+- `update_product` — partial update to product context
+- `update_icp` — add/remove criteria and personas (match-by-value, not UUID)
+- `create_segment` — new segment linked to ICP
+
+**Two input paths:**
+- **Paste UI** (`/drafts/import`) — 3-step wizard: paste JSON → preview → create
+- **API endpoint** (`POST /api/drafts`) — bearer token auth via `workspaces.apiToken`
+
+**Review flow:** Inbox (`/drafts`) with filter tabs → Review page (`/drafts/[id]`) with type-specific diff → Approve & Apply (creates entity) or Reject
+
+**Apply logic:** `src/lib/drafts/apply.ts` — handlers per type. ICP update bumps version + creates snapshot. Product update merges only provided fields.
+
+**API token:** Generated at `/settings/ai` (API Access card). One per workspace.
+
+**Zod validation:** Per-type payload schemas in `src/lib/drafts/types.ts` (Zod v4). Parser rejects invalid payloads with field-level errors.
+
+## 14. Auth Improvements [IMPLEMENTED]
+
+- **Duplicate email sign-up:** Handled gracefully — amber banner "Account exists" with Sign In + Reset Password CTAs (no more server crash)
+- **Forgot password:** `/forgot-password` page — email input → Supabase reset link → "Check your email" success state
+- **Sign-in:** "Forgot password?" link next to password field
+
+## 15. AI Settings Improvements [IMPLEMENTED]
+
+- **Security fix:** Raw API key no longer sent to client — masked on server before RSC payload
+- **Discoverability:** "AI Settings" added to sidebar with Sparkles icon
+- **AI nudge:** Banner on scoring page when no user key connected
+- **AI Settings page redesign:**
+  - AI Status card (connected state with provider/model/masked key, or usage meter)
+  - "Where AI is used" section (3 feature cards linking to ICP Import, Scoring, Cluster Eval)
+  - API Access card (generate/copy/regenerate API token for agent access)
+
+## 16. Dialog Overflow Fix [IMPLEMENTED]
+
+Added `overflow-hidden` to `DialogContent` in `src/components/ui/dialog.tsx` — prevents buttons overflowing rounded corners in all dialogs.
+
+## 17. Industry System [PARTIAL]
 
 **Implemented:**
 - Built-in synonym dictionaries for countries (27), industries (23), platforms (8), titles (10)
@@ -284,7 +376,7 @@ AI parser extracts: name, description, criteria (5 groups, 3 intents, weights), 
 - No normalized industry hierarchy
 - Synonyms are hardcoded in `normalize.ts`, not configurable
 
-## 12. Navigation (Sidebar)
+## 18. Navigation (Sidebar)
 
 1. Dashboard (`/dashboard`)
 2. Product (`/settings/product`)
@@ -295,22 +387,26 @@ AI parser extracts: name, description, criteria (5 groups, 3 intents, weights), 
 7. Requests (`/requests`)
 8. Insights (`/insights`)
 9. Score Leads (`/scoring`)
+10. Export (`/export`)
+11. Suggestions (`/drafts`)
+12. AI Settings (`/settings/ai`)
 
-## 13. Routes
+## 19. Routes
 
 ### Auth
 | Route | Purpose |
 |-------|---------|
 | `/sign-in` | Login |
 | `/sign-up` | Registration + workspace setup |
+| `/forgot-password` | Password reset request |
 
 ### App
 | Route | Purpose |
 |-------|---------|
 | `/dashboard` | State-aware overview (empty → has ICPs → has scoring) |
 | `/settings/product` | Product context form |
-| `/settings/ai` | BYOK API key management |
-| `/icps` | ICP list |
+| `/settings/ai` | BYOK API key + API token management |
+| `/icps` | ICP list + company share banner |
 | `/icps/new` | Create ICP manually |
 | `/icps/import` | Import ICP from text/file (AI) |
 | `/icps/[id]` | ICP detail (tabs: Overview, Personas, Signals, History) |
@@ -322,6 +418,10 @@ AI parser extracts: name, description, criteria (5 groups, 3 intents, weights), 
 | `/scoring/upload` | CSV upload wizard with column mapping |
 | `/scoring/[id]` | Scoring results (stats bar, lead table, cluster discovery) |
 | `/scoring/[id]/review-cluster` | Cluster review → create ICP from unmatched leads |
+| `/export` | GTM Context Export (format picker, preview, copy, download) |
+| `/drafts` | Suggestions inbox (filter: pending/applied/rejected) |
+| `/drafts/import` | Paste Claude JSON → parse → create suggestions |
+| `/drafts/[id]` | Review suggestion with diff → approve/reject |
 | `/deals` | Deal list |
 | `/deals/new` | Create deal |
 | `/deals/[id]` | Deal detail (reasons, notes, ICP links) |
@@ -330,9 +430,20 @@ AI parser extracts: name, description, criteria (5 groups, 3 intents, weights), 
 | `/companies/[id]` | Company detail with contacts |
 | `/requests` | Product requests from deals |
 | `/insights` | Win/loss analytics |
-| `/share/[token]` | Public ICP share (no auth) |
 
-## 14. Current State vs Target State
+### Public (no auth)
+| Route | Purpose |
+|-------|---------|
+| `/share/[token]` | Public ICP share |
+| `/share/company/[token]` | Public Company Profile |
+| `/share/company/[token]/[icpId]` | ICP detail within company profile |
+
+### API
+| Route | Purpose |
+|-------|---------|
+| `POST /api/drafts` | Agent-submitted suggestions (bearer token auth) |
+
+## 20. Current State vs Target State
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -350,10 +461,16 @@ AI parser extracts: name, description, criteria (5 groups, 3 intents, weights), 
 | Product context (separate entity) | [IMPLEMENTED] | Dedicated table, all target fields |
 | Product context nudges | [PARTIAL] | Dismissible banner, no persistent dismissal state |
 | Product context as onboarding step | [MISSING] | No formal onboarding wizard |
-| Product context as separate sidebar item | [IMPLEMENTED] | "Product" nav item (links to /settings/product) |
-| BYOK (Anthropic + OpenAI) | [IMPLEMENTED] | Key management, test, rate limits |
+| BYOK (Anthropic + OpenAI) | [IMPLEMENTED] | Key management, test, rate limits, security fix (masked keys) |
 | ICP import from text/file | [IMPLEMENTED] | 3-step wizard with AI parsing |
 | ICP sharing (public pages) | [IMPLEMENTED] | Token-based share links, 2 modes |
+| Company profile sharing | [IMPLEMENTED] | Workspace-level public page, mode selection, ICP picker |
+| GTM Context Export | [IMPLEMENTED] | 3 formats (JSON/MD/text), central page + contextual buttons |
+| Draft system (Claude → iseep) | [IMPLEMENTED] | 4 target types, paste UI + API, review + approve/reject |
+| API endpoint for agents | [IMPLEMENTED] | POST /api/drafts with bearer token auth |
+| Auth: duplicate email handling | [IMPLEMENTED] | Friendly error + password reset CTA |
+| Auth: forgot password | [IMPLEMENTED] | Supabase reset flow |
+| AI settings discoverability | [IMPLEMENTED] | Sidebar item, nudges, "Where AI is used" section |
 | Deals with win/loss tracking | [IMPLEMENTED] | Companies, contacts, reasons, notes |
 | Product requests lifecycle | [IMPLEMENTED] | 4 types, 4 statuses, linked to deals |
 | Insights analytics | [IMPLEMENTED] | Win/loss patterns by ICP |
@@ -363,31 +480,35 @@ AI parser extracts: name, description, criteria (5 groups, 3 intents, weights), 
 | Match explanation layer | [IMPLEMENTED] | matchReasons[] with per-criterion detail |
 | AI key encryption | [MISSING] | Plain text in MVP |
 | Onboarding flow | [MISSING] | No guided setup wizard |
+| Inline draft editing | [MISSING] | Edit suggestion before approve (currently approve as-is or reject) |
+| MCP server for Claude Desktop | [MISSING] | Wrap API endpoint as MCP tool |
 
-## 15. Known Gaps (Prioritized)
+## 21. Known Gaps (Prioritized)
 
 ### P0 — Security
-1. **AI key encryption** — keys stored plain text. Must encrypt before production launch.
+1. **AI key / API token encryption** — keys and tokens stored plain text. Must encrypt before production launch.
 
 ### P1 — Product Completeness
 2. **Industry taxonomy system** — need configurable industry hierarchy with aliases, not just hardcoded synonyms
 3. **Onboarding wizard** — guided flow: product context → first ICP → sample scoring
-4. **Product context standalone route** — move from `/settings/product` to `/product` (own route, not settings)
+4. **MCP server** — wrap POST /api/drafts + context export as MCP tools for Claude Desktop / agents
 
 ### P2 — UX Polish
 5. **Persistent nudge dismissal** — currently client-side only, resets on page reload
-6. **Cluster AI evaluation UX** — improve loading states, error handling
-7. **Segment discovery (Level 2)** — auto-generated segments from scoring patterns (beyond manual clusters)
+6. **Inline draft editing** — edit suggestion payload before approving
+7. **Batch approve drafts** — approve multiple suggestions at once from inbox
+8. **Segment discovery (Level 2)** — auto-generated segments from scoring patterns
 
 ### P3 — Scale
-8. **Batch scoring optimization** — current per-lead loop, could batch DB inserts better
-9. **Token tracking enforcement** — tokens logged but not enforced in limits
+9. **Batch scoring optimization** — current per-lead loop, could batch DB inserts better
+10. **Token tracking enforcement** — tokens logged but not enforced in limits
 
-## 16. Conventions
+## 22. Conventions
 
 - Use shadcn/ui components for all UI
-- Use server actions for mutations, not API routes
+- Use server actions for mutations, not API routes (exception: `POST /api/drafts` for external agent access)
 - All pages use `createClient()` from `@/lib/supabase/server` for auth
+- Raw API keys never sent to client — mask on server before RSC payload
 - Dynamic route params are `Promise<{ id: string }>` in Next.js 16 (must await)
 - Import Zod from `zod/v4` (not `zod`)
 - Criteria groups: firmographic, technographic, behavioral, compliance, keyword
