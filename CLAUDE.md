@@ -79,7 +79,7 @@ src/
 │   ├── settings/             # product-context-form, ai-settings-form (with API token card)
 │   ├── export/               # export-page-view (format picker, preview, copy/download)
 │   ├── drafts/               # draft-import-form, drafts-inbox, draft-review-view, draft-diff
-│   └── shared/               # product-context-nudge, ai-nudge, context-export-button, company-share-dialog
+│   └── shared/               # product-context-nudge, ai-nudge, context-export-button, company-share-dialog, industry-picker
 ├── actions/                  # Server actions
 │   ├── scoring.ts            # processUpload, processSampleData, deleteUpload
 │   ├── cluster-icp.ts        # saveClusterAsIcp (adopt cluster → create ICP + reclassify leads)
@@ -102,7 +102,8 @@ src/
 │   ├── validators.ts         # Zod schemas
 │   ├── scoring.ts            # Scoring engine (scoreLeadAgainstIcp, scoreLeadAgainstAllIcps)
 │   ├── scoring/
-│   │   ├── normalize.ts      # Value resolution (6-step: exact → case → synonym → memory → AI → none)
+│   │   ├── normalize-value.ts # normalizeValue() — extracted to avoid circular imports
+│   │   ├── normalize.ts      # Value resolution (7-step: exact → case → taxonomy → synonym → memory → AI → none)
 │   │   └── mapping-memory.ts # Workspace value mappings (learning from AI)
 │   ├── value-mapper.ts       # AI-assisted value mapping (Claude/GPT)
 │   ├── ai-client.ts          # AI provider factory (Anthropic/OpenAI, BYOK)
@@ -112,6 +113,7 @@ src/
 │   ├── cluster-evaluation.ts # Evaluate clusters (ICP similarity + product fit)
 │   ├── sample-data.ts        # 20 sample leads for demo scoring
 │   ├── segment-helpers.ts    # Condition tree manipulation
+│   ├── taxonomy/             # Industry taxonomy (data, templates, lookup)
 │   ├── context-export/       # GTM context export (types, builders, formatters)
 │   ├── drafts/               # Draft system (types, parse, apply)
 │   ├── queries/              # Server-side query functions
@@ -176,13 +178,14 @@ src/
 ```
 CSV Upload → Parse → Normalize → Score → Persist
                         ↓
-              6-step value resolution:
+              7-step value resolution:
               1. Exact match
               2. Case-insensitive
-              3. Built-in synonyms (countries, industries, platforms, titles)
-              4. Workspace memory (learned mappings)
-              5. AI mapping (Claude/GPT) — optional, rate-limited
-              6. No match
+              3. Taxonomy resolve (industry category — alias → canonical name)
+              4. Built-in synonyms (countries, platforms, titles)
+              5. Workspace memory (learned mappings)
+              6. AI mapping (Claude/GPT) — optional, rate-limited
+              7. No match
 ```
 
 ### Three-Intent Scoring Model
@@ -362,19 +365,33 @@ AI agents (or users) propose changes through reviewable drafts. "Claude proposes
 
 Added `overflow-hidden` to `DialogContent` in `src/components/ui/dialog.tsx` — prevents buttons overflowing rounded corners in all dialogs.
 
-## 17. Industry System [PARTIAL]
+## 17. Industry Taxonomy System [IMPLEMENTED]
 
-**Implemented:**
-- Built-in synonym dictionaries for countries (27), industries (23), platforms (8), titles (10)
-- Workspace-level value mappings (learned from AI, persisted across scoring runs)
-- AI-assisted fuzzy matching for unknown values
-- Industry merge/replace action across workspace
+Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as TypeScript data files in `src/lib/taxonomy/`.
 
-**Missing:**
-- No formal industry taxonomy entity/table
-- No industry alias management UI
-- No normalized industry hierarchy
-- Synonyms are hardcoded in `normalize.ts`, not configurable
+**Architecture:**
+- `data.ts` — `IndustryNode` type + `TAXONOMY` array with aliases, Clay mappings, and tags (payment-heavy, mass-payout)
+- `templates.ts` — `AttributeTemplate` type + templates for 5 key sectors (Financial Services, Technology, Gaming & Betting, E-commerce & Marketplaces, Creator & Gig Economy)
+- `lookup.ts` — in-memory indexes (`byId`, `byAlias`, `childrenOf`) + functions: `resolveIndustry`, `getChildren`, `getParent`, `isChildOf`, `searchIndustries`, `getTemplates`, `hasTag`, `getSectors`, `getById`
+
+**Scoring integration:**
+- New `"taxonomy"` and `"taxonomy_parent"` match types in scoring pipeline
+- Taxonomy resolve step inserted before synonym lookup (step 3 in pipeline)
+- Hierarchical matching: parent criterion (e.g., "Financial Services") matches all children (e.g., "FinTech")
+- Old `INDUSTRY_SYNONYMS` removed from `normalize.ts`, migrated to taxonomy aliases
+- `normalizeValue()` extracted to `normalize-value.ts` to avoid circular imports
+
+**Cluster evaluation:**
+- Hardcoded `PAYMENT_HEAVY_INDUSTRIES` and `MASS_PAYOUT_INDUSTRIES` replaced with taxonomy tag lookups via `hasTag()`
+- `INDUSTRY_NEED_SIGNALS` re-keyed by taxonomy id
+
+**UI:**
+- `IndustryPicker` component (`src/components/shared/industry-picker.tsx`) — searchable grouped dropdown with sector headers, multi-select, custom fallback
+- Integrated into ICP criteria form (replaces text input when category = "industry")
+- Integrated into product context form (replaces text input for `industriesFocus`)
+- Attribute template suggestions shown in criteria form when selecting industries with templates
+
+**Backward compatible:** existing freeform industry values still work through fallback chain (workspace memory → AI)
 
 ## 18. Navigation (Sidebar)
 
@@ -474,8 +491,7 @@ Added `overflow-hidden` to `DialogContent` in `src/components/ui/dialog.tsx` —
 | Deals with win/loss tracking | [IMPLEMENTED] | Companies, contacts, reasons, notes |
 | Product requests lifecycle | [IMPLEMENTED] | 4 types, 4 statuses, linked to deals |
 | Insights analytics | [IMPLEMENTED] | Win/loss patterns by ICP |
-| Industry taxonomy (normalized) | [PARTIAL] | Hardcoded synonyms, no formal taxonomy UI |
-| Industry alias management | [MISSING] | No UI for managing synonyms |
+| Industry taxonomy (normalized) | [IMPLEMENTED] | Two-level hierarchy (25 sectors, ~350 industries), aliases, hierarchical scoring, picker UI |
 | Segment builder with condition logic | [IMPLEMENTED] | Flat Include/Exclude/Risk rules |
 | Match explanation layer | [IMPLEMENTED] | matchReasons[] with per-criterion detail |
 | AI key encryption | [MISSING] | Plain text in MVP |
@@ -489,9 +505,8 @@ Added `overflow-hidden` to `DialogContent` in `src/components/ui/dialog.tsx` —
 1. **AI key / API token encryption** — keys and tokens stored plain text. Must encrypt before production launch.
 
 ### P1 — Product Completeness
-2. **Industry taxonomy system** — need configurable industry hierarchy with aliases, not just hardcoded synonyms
-3. **Onboarding wizard** — guided flow: product context → first ICP → sample scoring
-4. **MCP server** — wrap POST /api/drafts + context export as MCP tools for Claude Desktop / agents
+2. **Onboarding wizard** — guided flow: product context → first ICP → sample scoring
+3. **MCP server** — wrap POST /api/drafts + context export as MCP tools for Claude Desktop / agents
 
 ### P2 — UX Polish
 5. **Persistent nudge dismissal** — currently client-side only, resets on page reload
