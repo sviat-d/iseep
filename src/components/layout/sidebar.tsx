@@ -39,7 +39,7 @@ export function Sidebar({ onboardingStep = 4 }: { onboardingStep?: number }) {
   const pathname = usePathname();
 
   const ONBOARDING_HREFS = new Set(["/dashboard", "/settings/product", "/icps", "/scoring"]);
-  const visibleItems = onboardingStep < 4
+  const visibleItems = onboardingStep < 3
     ? navItems.filter((item) => ONBOARDING_HREFS.has(item.href))
     : navItems;
 

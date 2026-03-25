@@ -1,63 +1,56 @@
-"use client";
-
 import { Check } from "lucide-react";
 
 const STEPS = [
-  { number: 1, label: "Product" },
-  { number: 2, label: "ICP" },
-  { number: 3, label: "Scoring" },
-  { number: 4, label: "Done" },
+  { label: "Context", step: 1 },
+  { label: "Clarify", step: 2 },
+  { label: "Your Profile", step: 3 },
 ];
 
-export function OnboardingStepper({ currentStep }: { currentStep: number }) {
+export function OnboardingStepper({
+  currentStep,
+}: {
+  currentStep: number;
+}) {
   return (
-    <div className="flex items-center justify-center gap-0">
-      {STEPS.map((step, idx) => {
-        const isCompleted = step.number < currentStep;
-        const isCurrent = step.number === currentStep;
+    <div className="flex items-center justify-center gap-0 py-4">
+      {STEPS.map((s, i) => {
+        const isCompleted = currentStep > s.step;
+        const isCurrent = currentStep === s.step;
+        const isFuture = currentStep < s.step;
 
         return (
-          <div key={step.number} className="flex items-center">
-            {/* Connector line before step (skip first) */}
-            {idx > 0 && (
+          <div key={s.label} className="flex items-center">
+            <div className="flex flex-col items-center gap-1">
               <div
-                className={`h-0.5 w-10 sm:w-16 ${
-                  STEPS[idx - 1].number < currentStep
-                    ? "bg-primary"
-                    : "bg-muted"
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium transition-colors ${
+                  isCompleted
+                    ? "bg-primary text-primary-foreground"
+                    : isCurrent
+                      ? "bg-primary text-primary-foreground ring-2 ring-primary/30 ring-offset-2"
+                      : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {isCompleted ? <Check className="h-4 w-4" /> : s.step}
+              </div>
+              <span
+                className={`text-xs ${
+                  isCurrent
+                    ? "font-semibold text-foreground"
+                    : isFuture
+                      ? "text-muted-foreground"
+                      : "font-medium text-foreground"
+                }`}
+              >
+                {s.label}
+              </span>
+            </div>
+            {i < STEPS.length - 1 && (
+              <div
+                className={`mx-3 h-0.5 w-12 transition-colors ${
+                  currentStep > s.step ? "bg-primary" : "bg-muted"
                 }`}
               />
             )}
-
-            <div className="flex flex-col items-center gap-1.5">
-              {/* Circle */}
-              {isCompleted ? (
-                <div className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                  <Check className="size-4" />
-                </div>
-              ) : isCurrent ? (
-                <div className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background">
-                  <span className="text-xs font-semibold">{step.number}</span>
-                </div>
-              ) : (
-                <div className="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  <span className="text-xs">{step.number}</span>
-                </div>
-              )}
-
-              {/* Label */}
-              <span
-                className={`text-xs ${
-                  isCompleted
-                    ? "font-bold text-foreground"
-                    : isCurrent
-                      ? "font-semibold text-foreground"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {step.label}
-              </span>
-            </div>
           </div>
         );
       })}
