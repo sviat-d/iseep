@@ -95,14 +95,17 @@ src/
 │   ├── company-sharing.ts    # enableCompanySharing, disableCompanySharing, updateCompanyShareConfig
 │   ├── drafts.ts             # createDrafts, approveDraft, rejectDraft, generateApiToken
 │   ├── onboarding.ts         # advanceOnboarding, runOnboardingScoring
+│   ├── team.ts               # inviteMember, removeMember, cancelInvite, acceptInvite, switchWorkspace
 │   └── auth.ts               # signIn, signUp, signOut, requestPasswordReset
 ├── db/
 │   ├── schema.ts             # Drizzle schema (23 tables)
 │   ├── index.ts              # DB client (pooler-aware)
 │   └── seed.ts               # Seed script
 ├── lib/
-│   ├── auth.ts               # getAuthContext (workspace + user)
+│   ├── auth.ts               # getAuthContext (workspace + user + role)
 │   ├── api-auth.ts           # authenticateApiRequest (bearer token → workspaceId)
+│   ├── permissions.ts        # canManageTeam (role check)
+│   ├── activity.ts           # logActivity (fire-and-forget event logging)
 │   ├── types.ts              # ActionResult, IcpSnapshotData
 │   ├── constants.ts          # GROUP_LABELS, property options
 │   ├── validators.ts         # Zod schemas
@@ -128,7 +131,7 @@ src/
 └── drizzle/migrations/       # SQL migrations (0000-0006)
 ```
 
-## 5. Core Entities (23 Tables)
+## 5. Core Entities (25 Tables)
 
 ### ICP System
 | Table | Purpose | Key Fields |
@@ -432,8 +435,25 @@ Standalone MCP server (`mcp-server/`) for Claude Desktop and MCP-compatible agen
 
 **Dependencies:** `@modelcontextprotocol/sdk`, `tsx` for TypeScript execution.
 
-## 20. Navigation (Sidebar)
+## 20. Team Collaboration [IMPLEMENTED]
 
+Email invites, Owner/Member roles, and activity feed for workspace collaboration.
+
+**Team Management:**
+- `invites` table — email-based invites with unique tokens, status (pending/accepted/expired)
+- Owner/Member roles — Owner can invite/remove members, Member has full data access
+- Team settings page at `/settings/team` — members list, invite form, pending invites
+- Invite acceptance at `/invite/[token]` — auto-creates membership
+- `getAuthContext()` now returns `role` alongside userId/workspaceId
+- `canManageTeam(role)` permission check in `src/lib/permissions.ts`
+- Workspace switcher support via `activeWorkspaceId` cookie
+
+**Activity Feed:**
+- `activity_events` table — 10 event types (icp_created/updated, scoring_run, draft_submitted/approved/rejected, product_updated, member_invited/joined)
+- `logActivity()` helper in `src/lib/activity.ts` — fire-and-forget, integrated into ICP, scoring, drafts, and product context actions
+- Dashboard widget showing last 10 events with user names and relative timestamps
+
+## 21. Navigation (Sidebar)
 
 1. Dashboard (`/dashboard`)
 2. Product (`/settings/product`)
@@ -447,8 +467,9 @@ Standalone MCP server (`mcp-server/`) for Claude Desktop and MCP-compatible agen
 10. Export (`/export`)
 11. Suggestions (`/drafts`)
 12. AI Settings (`/settings/ai`)
+13. Team (`/settings/team`)
 
-## 21. Routes
+## 22. Routes
 
 ### Auth
 | Route | Purpose |
@@ -503,7 +524,7 @@ Standalone MCP server (`mcp-server/`) for Claude Desktop and MCP-compatible agen
 | `GET /api/scoring/latest` | Latest scoring results (bearer token auth) |
 | `POST /api/drafts` | Agent-submitted suggestions (bearer token auth) |
 
-## 22. Current State vs Target State
+## 23. Current State vs Target State
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -521,6 +542,7 @@ Standalone MCP server (`mcp-server/`) for Claude Desktop and MCP-compatible agen
 | Product context (separate entity) | [IMPLEMENTED] | Dedicated table, all target fields |
 | Product context nudges | [PARTIAL] | Dismissible banner, no persistent dismissal state |
 | Onboarding wizard | [IMPLEMENTED] | 3-step wizard: Product Context → ICP → Sample Scoring |
+| Team collaboration | [IMPLEMENTED] | Email invites, Owner/Member roles, activity feed |
 | BYOK (Anthropic + OpenAI) | [IMPLEMENTED] | Key management, test, rate limits, security fix (masked keys) |
 | ICP import from text/file | [IMPLEMENTED] | 3-step wizard with AI parsing |
 | ICP sharing (public pages) | [IMPLEMENTED] | Token-based share links, 2 modes |
@@ -542,7 +564,7 @@ Standalone MCP server (`mcp-server/`) for Claude Desktop and MCP-compatible agen
 | Inline draft editing | [MISSING] | Edit suggestion before approve (currently approve as-is or reject) |
 | MCP server for Claude Desktop | [IMPLEMENTED] | 4 tools: get_context, list_icps, get_scoring_results, submit_suggestions |
 
-## 23. Known Gaps (Prioritized)
+## 24. Known Gaps (Prioritized)
 
 ### P0 — Security
 1. **AI key / API token encryption** — keys and tokens stored plain text. Must encrypt before production launch.
@@ -560,7 +582,7 @@ Standalone MCP server (`mcp-server/`) for Claude Desktop and MCP-compatible agen
 9. **Batch scoring optimization** — current per-lead loop, could batch DB inserts better
 10. **Token tracking enforcement** — tokens logged but not enforced in limits
 
-## 24. Conventions
+## 25. Conventions
 
 - Use shadcn/ui components for all UI
 - Use server actions for mutations, not API routes (exception: `POST /api/drafts` for external agent access)
