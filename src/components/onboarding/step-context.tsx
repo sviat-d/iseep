@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -11,7 +11,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ClipboardPaste, Sparkles, Upload, Copy, Check } from "lucide-react";
+import { Loader2, ClipboardPaste, Sparkles, Upload, Copy, Check, CheckCircle2 } from "lucide-react";
 import { parseContext } from "@/actions/onboarding";
 
 const AI_PROMPT = `I need to set up my company's GTM intelligence system. Please help me describe:
@@ -32,7 +32,23 @@ export function StepContext() {
   const [isParsing, startParse] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [promptCopied, setPromptCopied] = useState(false);
+  const [progressStep, setProgressStep] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Animated progress during parsing
+  useEffect(() => {
+    if (!isParsing) {
+      setProgressStep(0);
+      return;
+    }
+    const timers = [
+      setTimeout(() => setProgressStep(1), 800),
+      setTimeout(() => setProgressStep(2), 2500),
+      setTimeout(() => setProgressStep(3), 5000),
+      setTimeout(() => setProgressStep(4), 8000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [isParsing]);
 
   function handleParse() {
     if (!text.trim()) return;
@@ -42,7 +58,6 @@ export function StepContext() {
       if (result.error) {
         setError(result.error);
       }
-      // On success, advanceOnboarding is called server-side → page reloads to step 2
     });
   }
 
@@ -168,8 +183,53 @@ export function StepContext() {
         </Card>
       )}
 
-      {/* Textarea — shown after mode selection */}
-      {mode && (
+      {/* Progress display during parsing */}
+      {isParsing && (
+        <Card>
+          <CardContent className="py-8">
+            <div className="space-y-4">
+              <div className="flex items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+              <p className="text-center text-sm font-medium">Analyzing your context...</p>
+              <div className="mx-auto max-w-xs space-y-2.5">
+                {[
+                  "Reading your context",
+                  "Extracting product info",
+                  "Identifying customer segments",
+                  "Generating ICP criteria",
+                  "Preparing clarification questions",
+                ].map((label, i) => (
+                  <div
+                    key={label}
+                    className={`flex items-center gap-2.5 text-sm transition-opacity duration-300 ${
+                      progressStep > i
+                        ? "opacity-100"
+                        : progressStep === i
+                          ? "opacity-100"
+                          : "opacity-30"
+                    }`}
+                  >
+                    {progressStep > i ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />
+                    ) : progressStep === i ? (
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                    ) : (
+                      <div className="h-4 w-4 shrink-0 rounded-full border-2 border-muted" />
+                    )}
+                    <span className={progressStep > i ? "text-foreground" : progressStep === i ? "text-foreground font-medium" : "text-muted-foreground"}>
+                      {label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Textarea — shown after mode selection, hidden during parsing */}
+      {mode && !isParsing && (
         <div className="space-y-3">
           <Textarea
             value={text}
@@ -181,7 +241,6 @@ export function StepContext() {
             }
             rows={10}
             className="min-h-[200px]"
-            disabled={isParsing}
           />
 
           <div className="flex items-center justify-between">
@@ -205,20 +264,11 @@ export function StepContext() {
 
             <Button
               onClick={handleParse}
-              disabled={!text.trim() || isParsing}
+              disabled={!text.trim()}
               size="lg"
             >
-              {isParsing ? (
-                <>
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-1.5 h-4 w-4" />
-                  Analyze context
-                </>
-              )}
+              <Sparkles className="mr-1.5 h-4 w-4" />
+              Analyze context
             </Button>
           </div>
         </div>
