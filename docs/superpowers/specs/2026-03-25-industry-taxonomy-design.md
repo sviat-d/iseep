@@ -28,12 +28,16 @@ A two-level industry taxonomy with aliases and attribute templates:
 ```typescript
 // src/lib/taxonomy/data.ts
 
+/** Must match the DB enum in schema.ts criteria.group */
+export type CriteriaGroup = "firmographic" | "technographic" | "behavioral" | "compliance" | "keyword";
+
 export type IndustryNode = {
   id: string;              // slug: "neobanking"
   name: string;            // display: "Neobanking"
   parentId: string | null; // null = top-level sector
   aliases: string[];       // ["neobank", "neo-bank", "neo bank", "digital bank"]
   clayMappings: string[];  // Clay values that resolve here: ["Financial Services"]
+  tags?: string[];         // ["payment-heavy", "mass-payout"] — for cluster evaluation signals
 };
 
 export type IndustrySector = IndustryNode & {
@@ -129,17 +133,27 @@ export function getParent(industryId: string): IndustryNode | null;
 /** Check if childValue is a descendant of parentValue in taxonomy */
 export function isChildOf(childValue: string, parentValue: string): boolean;
 
-/** Search taxonomy by query — matches name + aliases, returns ranked results */
+/** Search taxonomy by query — matches name + aliases, returns ranked results.
+ *  Ranking: name prefix > alias prefix > name substring > alias substring.
+ *  Within each tier, sectors appear before children. */
 export function searchIndustries(query: string): IndustryNode[];
 
 /** Get attribute templates for an industry (also checks parent sector templates) */
 export function getTemplates(industryId: string): AttributeTemplate[];
+
+/** Check if resolved industry has a given tag (e.g., "payment-heavy").
+ *  Accepts raw string — calls resolveIndustry internally. */
+export function hasTag(rawValue: string, tag: string): boolean;
 ```
 
 All lookups are O(1) or O(n) in-memory operations on the flat array. Build index maps on module load for performance:
 - `byId: Map<string, IndustryNode>` — lookup by id
-- `byAlias: Map<string, IndustryNode>` — lowercase alias → node (includes name, aliases, clayMappings)
+- `byAlias: Map<string, IndustryNode>` — lowercase normalized alias → node (includes name, aliases, clayMappings)
 - `childrenOf: Map<string, IndustryNode[]>` — parentId → children
+
+**Alias collision policy:** Data file is ordered sectors-first, then children. During `byAlias` map construction, child aliases override parent aliases (last-write wins). A build-time validation should flag duplicate aliases as warnings.
+
+**Input normalization:** `resolveIndustry(raw)` applies the same `normalizeValue()` + `.toLowerCase()` pipeline from `normalize.ts` before looking up the `byAlias` map. This ensures consistent behavior with the existing scoring pipeline.
 
 ## 6. Scoring Integration
 
@@ -198,24 +212,25 @@ ICP criterion: "Financial Services"
    matchType: "taxonomy_parent"
 ```
 
+**Integration point:** In `matchesCriterion()` in `scoring.ts`, after the existing exact matching block (which splits criterion values by comma and compares), add: if `criterion.category === "industry"` and `matched` is false, iterate over `criterionValues` and check `isChildOf(resolved, criterionValue.trim())`. If any returns true, set `matched = true` and `matchType = "taxonomy_parent"`.
+
 This only applies to `category === "industry"`. Other categories use existing pipeline unchanged.
 
 Hierarchical match counts as full match — same weight as exact. The user intentionally chose a parent-level criterion.
 
-### Hardcoded Lists Replacement
+### Confidence Calculation
 
-`PAYMENT_HEAVY_INDUSTRIES` and `MASS_PAYOUT_INDUSTRIES` in `cluster-evaluation.ts` are replaced with taxonomy-based lookups. Add optional tags to `IndustryNode`:
+Both `"taxonomy"` and `"taxonomy_parent"` are deterministic matches and should be treated as high-quality matches in the confidence calculation (equivalent to `"synonym"`):
 
 ```typescript
-export type IndustryNode = {
-  id: string;
-  name: string;
-  parentId: string | null;
-  aliases: string[];
-  clayMappings: string[];
-  tags?: string[];  // ["payment-heavy", "mass-payout"]
-};
+if (["exact", "case_insensitive", "synonym", "taxonomy", "taxonomy_parent"].includes(matchType)) {
+  exactOrSynonymCount++;
+}
 ```
+
+### Hardcoded Lists Replacement
+
+`PAYMENT_HEAVY_INDUSTRIES` and `MASS_PAYOUT_INDUSTRIES` in `cluster-evaluation.ts` are replaced with taxonomy-based lookups using `IndustryNode.tags` (defined in Section 3).
 
 `cluster-evaluation.ts` replaces:
 - `PAYMENT_HEAVY_INDUSTRIES.includes(lower)` → `hasTag(industryValue, "payment-heavy")`
@@ -248,8 +263,12 @@ type IndustryPickerProps = {
 - Custom fallback: if no match found, show "Add custom: {query}" option — stores freeform string as before
 - Built on shadcn `Popover` + `Command` (cmdk) pattern — consistent with existing UI
 
+**Output format:**
+- Single-select (`multiple=false`): `onChange` emits a canonical name string (e.g., `"FinTech"`)
+- Multi-select (`multiple=true`): `onChange` emits a comma-separated string (e.g., `"FinTech, Neobanking"`) to match existing form data handling
+
 **Used in:**
-- ICP criteria form — when category === "industry", value input becomes industry picker
+- ICP criteria form — when `resolvedCategory === "industry"`, the value `<Input>` is replaced with `IndustryPicker`. Criterion form dialog in `src/components/criteria/criterion-form-dialog.tsx` checks the resolved category.
 - Product context form — `industriesFocus` field becomes multi-select industry picker
 - Cluster review — industry display shows canonical name with parent sector badge
 
@@ -269,6 +288,8 @@ When user adds an industry criterion to an ICP, check for attribute templates:
 
 Clicking a suggestion adds a new criterion row to the ICP form with pre-filled group, category, and value. User can modify before saving.
 
+**Deduplication:** Filter out suggestions where an existing criterion on this ICP already matches the same category and value.
+
 **No blocking:** Suggestions are informational. User can ignore them entirely.
 
 **Scope:** Templates exist only for ~50 industries in Financial Services, Technology, Gaming & Betting, E-commerce & Marketplaces, Creator & Gig Economy. Other industries show no suggestions.
@@ -287,7 +308,7 @@ No changes to AI parser. It continues to extract industry values as strings. The
 ### Cluster Evaluation
 Replace hardcoded industry lists with taxonomy tag lookups. The `evaluateCluster()` function calls `resolveIndustry()` on the cluster's industry value to get the canonical name, then checks tags for payment-heavy/mass-payout signals.
 
-`INDUSTRY_NEED_SIGNALS` in `cluster-evaluation.ts` keyed by industry name — update keys to use canonical taxonomy names.
+`INDUSTRY_NEED_SIGNALS` in `cluster-evaluation.ts` — re-key by taxonomy `id` (slug, e.g., `"igaming"`, `"payment-processing"`). Duplicate keys (e.g., `"igaming"` and `"i-gaming"`) collapse into single entries. Lookup: `resolveIndustry(clusterIndustry)?.id` to get the key.
 
 ### Industry Merge Action
 `src/actions/industry.ts` `mergeIndustryValue()` remains unchanged. It operates on raw string values in DB. Taxonomy resolution is read-time, not write-time.
@@ -296,7 +317,7 @@ Replace hardcoded industry lists with taxonomy tag lookups. The `evaluateCluster
 
 - **Existing ICP criteria** with freeform industry values continue to work. If value matches a taxonomy entry (by name or alias), it gets resolved. If not, falls through to workspace memory → AI → none (same as today).
 - **Existing scored leads** are not re-scored. Their `matchReasons` retain original matchType values.
-- **`INDUSTRY_SYNONYMS`** in `normalize.ts` is removed — its entries are migrated to taxonomy aliases. The `getSynonyms("industry")` call returns empty, but this codepath is replaced by taxonomy resolve.
+- **`INDUSTRY_SYNONYMS`** in `normalize.ts` is deleted entirely. The `case "industry"` branch is removed from `getSynonyms()` so it falls through to the default empty return. Taxonomy resolve replaces this codepath.
 - **Non-industry synonyms** (`COUNTRY_SYNONYMS`, `PLATFORM_SYNONYMS`, `TITLE_SYNONYMS`) are unchanged.
 - **Custom freeform values** still work via industry picker's "Add custom" fallback.
 
@@ -321,6 +342,7 @@ src/lib/scoring/normalize.ts
   — Add "taxonomy" and "taxonomy_parent" to MatchType
   — Replace INDUSTRY_SYNONYMS lookup with taxonomy resolve in resolveValue()
   — Delete INDUSTRY_SYNONYMS constant
+  — Remove "industry" case from getSynonyms() switch
 
 src/lib/scoring.ts
   — Add hierarchical matching: if category === "industry" and direct match fails, check isChildOf()
@@ -357,7 +379,7 @@ This is done as part of implementation — the data file is authored manually wi
 
 ## 13. Future Extensibility
 
-- **Third level:** If sub-industries are needed (Neobanking → Challenger Banks, Digital-Only Banks), add children to children. `isChildOf` already traverses the tree recursively.
+- **Third level:** If sub-industries are needed (Neobanking → Challenger Banks, Digital-Only Banks), allow children to have children by setting `parentId` to a child ID. The `isChildOf` implementation should use recursive parent traversal to support arbitrary depth — even though v1 only has 2 levels, building it recursively from the start costs nothing extra.
 - **Database migration:** If the taxonomy needs to be user-configurable per workspace, move `TAXONOMY` array to a `industries` table. Lookup functions become DB queries with caching.
 - **Admin UI:** Web interface for adding/editing taxonomy entries. Not needed while taxonomy is code-managed.
 - **Auto-tagging:** When scoring a CSV, auto-tag companies with canonical industry from taxonomy for analytics.
