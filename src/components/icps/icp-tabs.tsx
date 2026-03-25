@@ -72,6 +72,8 @@ type Snapshot = {
   version: number;
   changeSummary: string | null;
   note: string | null;
+  source: string | null;
+  tags: unknown;
   createdAt: Date;
   createdBy: string | null;
   icpId: string;

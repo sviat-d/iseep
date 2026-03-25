@@ -313,6 +313,8 @@ export const icpSnapshots = pgTable(
     snapshotData: jsonb("snapshot_data").notNull(),
     changeSummary: text("change_summary"),
     note: text("note"),
+    source: text("source", { enum: ["manual", "agent", "import", "system"] }).default("manual"),
+    tags: jsonb("tags").default([]), // string[] e.g. ["agent-generated", "production"]
     createdBy: uuid("created_by").references(() => users.id),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },

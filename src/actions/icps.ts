@@ -177,6 +177,7 @@ export async function saveIcpSnapshot(icpId: string, note: string): Promise<Acti
     snapshotData,
     changeSummary,
     note: note || null,
+    source: "manual",
     createdBy: ctx.userId,
   });
 

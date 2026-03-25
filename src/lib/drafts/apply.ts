@@ -195,6 +195,8 @@ export async function applyUpdateIcp(
       },
     },
     changeSummary: "Updated via AI suggestion",
+    source: "agent",
+    tags: ["agent-generated"],
   });
 }
 
