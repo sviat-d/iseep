@@ -11,10 +11,6 @@ import {
   ChevronDown,
   ChevronRight,
   Pencil,
-  Globe,
-  Users,
-  MapPin,
-  Factory,
 } from "lucide-react";
 import { updateCompanyInfo } from "@/actions/company";
 
@@ -41,87 +37,56 @@ export function CompanyBlock({ company }: { company: CompanyData }) {
     });
   }
 
-  const hasDetails =
-    company.companyDescription ||
-    company.targetCustomers ||
-    company.industriesFocus.length > 0 ||
-    company.geoFocus.length > 0;
-
   return (
-    <div className="rounded-lg border bg-muted/20">
-      {/* Header — always visible */}
+    <div className="rounded-lg border">
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/30 transition-colors"
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left hover:bg-muted/30 transition-colors"
       >
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-          <Building2 className="h-4.5 w-4.5 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">{company.name}</span>
-            {company.website && (
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Globe className="h-3 w-3" />
-                {company.website.replace(/^https?:\/\//, "")}
-              </span>
-            )}
-          </div>
-          {company.companyDescription && (
-            <p className="text-xs text-muted-foreground truncate max-w-lg">
-              {company.companyDescription}
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {!hasDetails && (
-            <span className="text-[10px] text-muted-foreground/50">Add company info</span>
-          )}
+        <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="text-sm font-medium">{company.name}</span>
+        <span className="ml-auto">
           {open ? (
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           ) : (
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
-        </div>
+        </span>
       </button>
 
-      {/* Expanded view */}
       {open && !editing && (
-        <div className="border-t px-4 py-3 space-y-3">
+        <div className="border-t px-4 py-3 space-y-2.5">
+          {company.website && (
+            <p className="text-xs text-muted-foreground">{company.website}</p>
+          )}
+          {company.companyDescription && (
+            <p className="text-sm text-muted-foreground">{company.companyDescription}</p>
+          )}
           {company.targetCustomers && (
-            <div className="flex items-start gap-2">
-              <Users className="mt-0.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <div>
-                <p className="text-[10px] font-medium text-muted-foreground">Target customers</p>
-                <p className="text-xs">{company.targetCustomers}</p>
-              </div>
+            <div>
+              <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Target customers</p>
+              <p className="text-xs">{company.targetCustomers}</p>
             </div>
           )}
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap gap-3">
             {company.industriesFocus.length > 0 && (
-              <div className="flex items-start gap-2">
-                <Factory className="mt-0.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Industries</p>
-                  <div className="flex flex-wrap gap-1">
-                    {company.industriesFocus.map((ind) => (
-                      <Badge key={ind} variant="outline" className="text-[10px]">{ind}</Badge>
-                    ))}
-                  </div>
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Industries</p>
+                <div className="flex flex-wrap gap-1">
+                  {company.industriesFocus.map((ind) => (
+                    <Badge key={ind} variant="outline" className="text-[10px]">{ind}</Badge>
+                  ))}
                 </div>
               </div>
             )}
             {company.geoFocus.length > 0 && (
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <div>
-                  <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Regions</p>
-                  <div className="flex flex-wrap gap-1">
-                    {company.geoFocus.map((geo) => (
-                      <Badge key={geo} variant="outline" className="text-[10px]">{geo}</Badge>
-                    ))}
-                  </div>
+              <div>
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Regions</p>
+                <div className="flex flex-wrap gap-1">
+                  {company.geoFocus.map((geo) => (
+                    <Badge key={geo} variant="outline" className="text-[10px]">{geo}</Badge>
+                  ))}
                 </div>
               </div>
             )}
@@ -139,7 +104,6 @@ export function CompanyBlock({ company }: { company: CompanyData }) {
         </div>
       )}
 
-      {/* Edit form */}
       {open && editing && (
         <div className="border-t px-4 py-3">
           <form action={handleSave} className="space-y-3">
@@ -155,13 +119,7 @@ export function CompanyBlock({ company }: { company: CompanyData }) {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">What does your company do?</label>
-              <Textarea
-                name="companyDescription"
-                defaultValue={company.companyDescription ?? ""}
-                rows={2}
-                placeholder="Brief description of your business"
-                className="mt-1"
-              />
+              <Textarea name="companyDescription" defaultValue={company.companyDescription ?? ""} rows={2} placeholder="Brief description" className="mt-1" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Target customers</label>
@@ -170,11 +128,11 @@ export function CompanyBlock({ company }: { company: CompanyData }) {
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Industries (comma-separated)</label>
-                <Input name="industriesFocus" defaultValue={company.industriesFocus.join(", ")} placeholder="FinTech, E-commerce, ..." className="mt-1" />
+                <Input name="industriesFocus" defaultValue={company.industriesFocus.join(", ")} className="mt-1" />
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Regions (comma-separated)</label>
-                <Input name="geoFocus" defaultValue={company.geoFocus.join(", ")} placeholder="EU, LATAM, ..." className="mt-1" />
+                <Input name="geoFocus" defaultValue={company.geoFocus.join(", ")} className="mt-1" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
