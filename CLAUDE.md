@@ -77,9 +77,9 @@ src/
 │   ├── ui/                   # shadcn/ui components
 │   ├── layout/               # sidebar, topbar, app-shell
 │   ├── dashboard/            # dashboard-view
-│   ├── icps/                 # ICP management components
+│   ├── icps/                 # ICP management components (incl. icp-product-context, icp-feedback-tab)
 │   ├── scoring/              # scoring-results, upload-wizard, cluster-review, reject-icp-dialog
-│   ├── settings/             # product-context-form, ai-settings-form (with API token card)
+│   ├── settings/             # product-context-form, ai-settings-form, settings-nav (hub sub-nav)
 │   ├── export/               # export-page-view (format picker, preview, copy/download)
 │   ├── drafts/               # draft-import-form, drafts-inbox, draft-review-view, draft-diff
 │   ├── onboarding/           # onboarding-wizard, stepper, step-context, step-clarify, step-reveal
@@ -96,6 +96,7 @@ src/
 │   ├── drafts.ts             # createDrafts, approveDraft, rejectDraft, generateApiToken
 │   ├── onboarding.ts         # advanceOnboarding, goBackOnboarding, parseContext, refineContext
 │   ├── team.ts               # inviteMember, removeMember, cancelInvite, acceptInvite, switchWorkspace
+│   ├── evidence.ts           # addEvidence, deleteEvidence, getEvidenceForIcp
 │   └── auth.ts               # signIn, signUp, signOut, requestPasswordReset
 ├── db/
 │   ├── schema.ts             # Drizzle schema (23 tables)
@@ -132,7 +133,7 @@ src/
 └── drizzle/migrations/       # SQL migrations (0000-0006)
 ```
 
-## 5. Core Entities (25 Tables)
+## 5. Core Entities (26 Tables)
 
 ### ICP System
 | Table | Purpose | Key Fields |
@@ -168,6 +169,11 @@ src/
 | `ai_usage` | AI operation tracking | operation, tokensUsed |
 | `value_mappings` | Learned synonym mappings | category, fromValue, toValue |
 | `rejected_icps` | Rejected cluster industries | industry, reason, details |
+
+### ICP Feedback Loop
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `icp_evidence` | Won/lost company evidence per ICP | companyName, outcome (won/lost), reasonTags (JSONB), note, industry, region, date |
 
 ### Draft System (Claude → iseep)
 | Table | Purpose | Key Fields |
@@ -275,7 +281,7 @@ Separate entity (`product_context` table), one per workspace. NOT part of ICP �
 
 **Fields:** companyName, website, productDescription (required), targetCustomers, coreUseCases[], keyValueProps[], industriesFocus[], geoFocus[], pricingModel, avgTicket, excludedIndustries[]
 
-**Location:** Sidebar nav item "Product" → `/settings/product`
+**Location:** `/settings/product` (accessible via links from ICP detail's Product Context block, nudge banners). Collapsible Product Context summary block shown at top of each ICP detail page.
 
 **Nudges:** Dismissible amber banner on dashboard, ICPs page when product context is missing. Dashboard empty state shows tip to add product context.
 
@@ -464,21 +470,24 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 - `logActivity()` helper in `src/lib/activity.ts` — fire-and-forget, integrated into ICP, scoring, drafts, and product context actions
 - Dashboard widget showing last 10 events with user names and relative timestamps
 
-## 21. Navigation (Sidebar)
+## 21. Navigation (Sidebar) — Simplified
 
 1. Dashboard (`/dashboard`)
-2. Product (`/settings/product`)
-3. ICPs (`/icps`)
-4. Segments (`/segments`)
-5. Deals (`/deals`)
-6. Companies (`/companies`)
-7. Requests (`/requests`)
-8. Insights (`/insights`)
-9. Score Leads (`/scoring`)
-10. Export (`/export`)
-11. Suggestions (`/drafts`)
-12. AI Settings (`/settings/ai`)
-13. Team (`/settings/team`)
+2. ICPs (`/icps`)
+3. Score Leads (`/scoring`) — Beta badge
+4. Settings (`/settings`) — hub with sub-nav for AI Settings + Team
+
+**Settings sub-pages:** `/settings/ai`, `/settings/team`, `/settings/product` (accessible via links, not in sub-nav)
+
+**Removed from sidebar:** Product, Segments, Deals, Companies, Requests, Insights, Export, Suggestions, AI Settings, Team (top-level)
+
+**Relocated features:**
+- Product Context → collapsible block inside ICP detail page
+- Segments → tab inside ICP detail page (already was)
+- Export → contextual actions inside ICP detail page (already was)
+- Deals/Companies → replaced by Feedback/Evidence tab inside ICP detail page
+- AI Settings + Team → under Settings hub
+- Requests, Insights → hidden from UI
 
 ## 22. Routes
 
@@ -564,9 +573,11 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Auth: duplicate email handling | [IMPLEMENTED] | Friendly error + password reset CTA |
 | Auth: forgot password | [IMPLEMENTED] | Supabase reset flow |
 | AI settings discoverability | [IMPLEMENTED] | Sidebar item, nudges, "Where AI is used" section |
-| Deals with win/loss tracking | [IMPLEMENTED] | Companies, contacts, reasons, notes |
-| Product requests lifecycle | [IMPLEMENTED] | 4 types, 4 statuses, linked to deals |
-| Insights analytics | [IMPLEMENTED] | Win/loss patterns by ICP |
+| Deals with win/loss tracking | [HIDDEN] | Routes exist but removed from sidebar; replaced by ICP Feedback tab |
+| Product requests lifecycle | [HIDDEN] | Routes exist but removed from sidebar |
+| Insights analytics | [HIDDEN] | Routes exist but removed from sidebar |
+| ICP Feedback/Evidence loop | [IMPLEMENTED] | Feedback tab in ICP detail, icp_evidence table, won/lost evidence with reason tags |
+| Product restructure (IA simplification) | [IMPLEMENTED] | Sidebar: 4 items, Settings hub, Product Context in ICP, Feedback replaces Performance |
 | Industry taxonomy (normalized) | [IMPLEMENTED] | Two-level hierarchy (25 sectors, ~350 industries), aliases, hierarchical scoring, picker UI |
 | Segment builder with condition logic | [IMPLEMENTED] | Flat Include/Exclude/Risk rules |
 | Match explanation layer | [IMPLEMENTED] | matchReasons[] with per-criterion detail |

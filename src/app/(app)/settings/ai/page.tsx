@@ -39,13 +39,7 @@ export default async function AiSettingsPage() {
     : null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">AI Settings</h1>
-        <p className="text-muted-foreground">
-          Use your own API key for unlimited AI operations, or use iseep&apos;s built-in AI
-        </p>
-      </div>
+    <div className="space-y-6">
       <AiSettingsForm existingKey={safeKey} usage={usage} apiToken={ws?.apiToken ?? null} />
     </div>
   );

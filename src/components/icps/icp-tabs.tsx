@@ -12,6 +12,7 @@ import { CriteriaGroupedList } from "@/components/criteria/criteria-grouped-list
 import { PersonaList } from "@/components/personas/persona-list";
 import { SignalList } from "@/components/signals/signal-list";
 import { IcpVersionHistory } from "@/components/icps/icp-version-history";
+import { IcpFeedbackTab } from "@/components/icps/icp-feedback-tab";
 
 type Criterion = {
   id: string;
@@ -60,11 +61,16 @@ type Segment = {
   priorityScore: number;
 };
 
-type DealStats = {
-  total: number;
-  won: number;
-  lost: number;
-  open: number;
+type EvidenceItem = {
+  id: string;
+  companyName: string;
+  outcome: string;
+  reasonTags: unknown;
+  note: string | null;
+  industry: string | null;
+  region: string | null;
+  date: Date | null;
+  createdAt: Date;
 };
 
 type Snapshot = {
@@ -92,9 +98,10 @@ type IcpTabsProps = {
     personas: Persona[];
     signals: Signal[];
     segments: Segment[];
-    dealStats: DealStats;
+    dealStats: { total: number; won: number; lost: number; open: number };
   };
   snapshots: Snapshot[];
+  evidence: EvidenceItem[];
 };
 
 const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
@@ -103,7 +110,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
-export function IcpTabs({ icp, snapshots }: IcpTabsProps) {
+export function IcpTabs({ icp, snapshots, evidence }: IcpTabsProps) {
   return (
     <Tabs defaultValue="profile">
       <TabsList variant="line">
@@ -111,7 +118,7 @@ export function IcpTabs({ icp, snapshots }: IcpTabsProps) {
         <TabsTrigger value="personas">Personas</TabsTrigger>
         <TabsTrigger value="signals">Signals</TabsTrigger>
         <TabsTrigger value="segments">Segments</TabsTrigger>
-        <TabsTrigger value="performance">Performance</TabsTrigger>
+        <TabsTrigger value="feedback">Feedback</TabsTrigger>
         <TabsTrigger value="history">Versions</TabsTrigger>
       </TabsList>
 
@@ -131,8 +138,8 @@ export function IcpTabs({ icp, snapshots }: IcpTabsProps) {
         <SegmentsTab segments={icp.segments} icpId={icp.id} />
       </TabsContent>
 
-      <TabsContent value="performance" className="pt-4">
-        <PerformanceTab dealStats={icp.dealStats} />
+      <TabsContent value="feedback" className="pt-4">
+        <IcpFeedbackTab icpId={icp.id} evidence={evidence} />
       </TabsContent>
 
       <TabsContent value="history" className="pt-4">
@@ -179,51 +186,6 @@ function SegmentsTab({ segments, icpId }: { segments: Segment[]; icpId: string }
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function PerformanceTab({ dealStats }: { dealStats: DealStats }) {
-  if (dealStats.total === 0) {
-    return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
-        No deal data available yet.
-      </p>
-    );
-  }
-
-  const winRate =
-    dealStats.won + dealStats.lost > 0
-      ? ((dealStats.won / (dealStats.won + dealStats.lost)) * 100).toFixed(1)
-      : "N/A";
-
-  const isMuted = dealStats.total < 5;
-
-  return (
-    <div className={isMuted ? "opacity-60" : ""}>
-      {isMuted && (
-        <p className="mb-4 text-sm text-muted-foreground">
-          Limited data (fewer than 5 deals). Metrics may not be reliable.
-        </p>
-      )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Open Deals" value={dealStats.open} />
-        <StatCard label="Won Deals" value={dealStats.won} />
-        <StatCard label="Lost Deals" value={dealStats.lost} />
-        <StatCard
-          label="Win Rate"
-          value={typeof winRate === "string" ? winRate : `${winRate}%`}
-        />
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-lg border p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
     </div>
   );
 }

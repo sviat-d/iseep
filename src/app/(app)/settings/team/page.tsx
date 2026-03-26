@@ -11,13 +11,7 @@ export default async function TeamSettingsPage() {
   if (!data) notFound();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Team Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your workspace members and invitations
-        </p>
-      </div>
+    <div className="space-y-6">
       <TeamSettings
         members={data.members ?? []}
         pendingInvites={data.pendingInvites ?? []}

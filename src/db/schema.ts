@@ -480,6 +480,27 @@ export const rejectedIcps = pgTable("rejected_icps", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── W. ICP Evidence (Feedback Loop) ──────────────────────────────────────
+
+export const icpEvidence = pgTable("icp_evidence", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  icpId: uuid("icp_id")
+    .references(() => icps.id)
+    .notNull(),
+  companyName: text("company_name").notNull(),
+  outcome: text("outcome", { enum: ["won", "lost"] }).notNull(),
+  reasonTags: jsonb("reason_tags").default([]).notNull(), // string[]
+  note: text("note"),
+  industry: text("industry"),
+  region: text("region"),
+  date: timestamp("date", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── V. Drafts (AI suggestions) ───────────────────────────────────────────
 
 export const drafts = pgTable("drafts", {

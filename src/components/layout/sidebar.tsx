@@ -4,41 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  Package,
   Target,
-  Layers,
-  Handshake,
-  Building2,
-  MessageSquare,
-  BarChart3,
   FileSearch,
-  Sparkles,
-  FileDown,
-  Inbox,
-  Users,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/settings/product", label: "Product", icon: Package },
   { href: "/icps", label: "ICPs", icon: Target },
-  { href: "/segments", label: "Segments", icon: Layers },
-  { href: "/deals", label: "Deals", icon: Handshake },
-  { href: "/companies", label: "Companies", icon: Building2 },
-  { href: "/requests", label: "Requests", icon: MessageSquare },
-  { href: "/insights", label: "Insights", icon: BarChart3 },
-  { href: "/scoring", label: "Score Leads", icon: FileSearch },
-  { href: "/export", label: "Export", icon: FileDown },
-  { href: "/drafts", label: "Suggestions", icon: Inbox },
-  { href: "/settings/ai", label: "AI Settings", icon: Sparkles },
-  { href: "/settings/team", label: "Team", icon: Users },
+  { href: "/scoring", label: "Score Leads", icon: FileSearch, badge: "Beta" },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar({ onboardingStep = 4 }: { onboardingStep?: number }) {
   const pathname = usePathname();
 
-  const ONBOARDING_HREFS = new Set(["/dashboard", "/settings/product", "/icps", "/scoring"]);
+  const ONBOARDING_HREFS = new Set(["/dashboard", "/icps", "/scoring"]);
   const visibleItems = onboardingStep < 3
     ? navItems.filter((item) => ONBOARDING_HREFS.has(item.href))
     : navItems;
@@ -68,6 +51,11 @@ export function Sidebar({ onboardingStep = 4 }: { onboardingStep?: number }) {
             >
               <item.icon className="h-4 w-4" />
               {item.label}
+              {item.badge && (
+                <Badge variant="secondary" className="ml-auto text-[10px] px-1.5 py-0">
+                  {item.badge}
+                </Badge>
+              )}
             </Link>
           );
         })}
