@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getIcps } from "@/lib/queries/icps";
-import { getProductContextForProduct } from "@/lib/queries/product-context";
 import { getWorkspaceShareInfo } from "@/lib/queries/workspace";
 import { getProducts } from "@/actions/products";
 import { ProductsIcpsView } from "@/components/icps/products-icps-view";
@@ -22,17 +21,25 @@ export default async function IcpsPage({
   const { product: selectedProductId } = await searchParams;
   const [allProducts, allIcps, wsShare, exportContext] = await Promise.all([
     getProducts(ctx.workspaceId),
-    getIcps(ctx.workspaceId), // ALL ICPs, filtering happens client-side
+    getIcps(ctx.workspaceId),
     getWorkspaceShareInfo(ctx.workspaceId),
     buildFullContext(ctx.workspaceId, { product: true, icps: true, scoring: false }),
   ]);
 
-  // Get workspace name for company display
+  // Get workspace for company info
   const [ws] = await db
-    .select({ name: workspaces.name })
+    .select()
     .from(workspaces)
     .where(eq(workspaces.id, ctx.workspaceId));
-  const companyName = ws?.name ?? "Company";
+
+  const company = {
+    name: ws?.name ?? "Company",
+    website: ws?.website ?? null,
+    companyDescription: ws?.companyDescription ?? null,
+    targetCustomers: ws?.targetCustomers ?? null,
+    industriesFocus: (ws?.industriesFocus as string[]) ?? [],
+    geoFocus: (ws?.geoFocus as string[]) ?? [],
+  };
 
   // Empty state: no products
   if (allProducts.length === 0) {
@@ -49,21 +56,14 @@ export default async function IcpsPage({
     );
   }
 
-  // Build product data with context for each product
-  const productsWithContext = await Promise.all(
-    allProducts.map(async (p) => {
-      const pCtx = await getProductContextForProduct(p.id);
-      return {
-        id: p.id,
-        name: p.name,
-        shortDescription: p.shortDescription,
-        contextDescription: pCtx?.productDescription ?? null,
-        coreUseCases: (pCtx?.coreUseCases as string[]) ?? [],
-        industriesFocus: (pCtx?.industriesFocus as string[]) ?? [],
-        geoFocus: (pCtx?.geoFocus as string[]) ?? [],
-      };
-    })
-  );
+  const productsData = allProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    shortDescription: p.shortDescription,
+    description: p.description,
+    coreUseCases: (p.coreUseCases as string[]) ?? [],
+    keyValueProps: (p.keyValueProps as string[]) ?? [],
+  }));
 
   const initialProductId =
     selectedProductId && allProducts.some((p) => p.id === selectedProductId)
@@ -72,8 +72,8 @@ export default async function IcpsPage({
 
   return (
     <ProductsIcpsView
-      companyName={companyName}
-      products={productsWithContext}
+      company={company}
+      products={productsData}
       allIcps={allIcps}
       wsShare={{
         profileShareToken: wsShare?.profileShareToken ?? null,

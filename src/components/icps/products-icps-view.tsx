@@ -4,20 +4,29 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ProductSelector } from "@/components/icps/product-selector";
 import { IcpProductContext } from "@/components/icps/icp-product-context";
+import { CompanyBlock } from "@/components/icps/company-block";
 import { IcpListView } from "@/components/icps/icp-list-view";
 import { CompanyShareBanner } from "@/components/shared/company-share-dialog";
 import { ContextExportButton } from "@/components/shared/context-export-button";
 import { Plus, FileText } from "lucide-react";
 import type { GtmContextPackage } from "@/lib/context-export/types";
 
+type CompanyData = {
+  name: string;
+  website: string | null;
+  companyDescription: string | null;
+  targetCustomers: string | null;
+  industriesFocus: string[];
+  geoFocus: string[];
+};
+
 type Product = {
   id: string;
   name: string;
   shortDescription: string | null;
-  contextDescription: string | null;
+  description: string | null;
   coreUseCases: string[];
-  industriesFocus: string[];
-  geoFocus: string[];
+  keyValueProps: string[];
 };
 
 type IcpItem = {
@@ -41,14 +50,14 @@ type WsShare = {
 };
 
 export function ProductsIcpsView({
-  companyName,
+  company,
   products,
   allIcps,
   wsShare,
   exportContext,
   initialProductId,
 }: {
-  companyName: string;
+  company: CompanyData;
   products: Product[];
   allIcps: IcpItem[];
   wsShare: WsShare;
@@ -59,7 +68,6 @@ export function ProductsIcpsView({
     initialProductId ?? (products.length > 0 ? products[0].id : null)
   );
 
-  // Client-side ICP filtering — instant, no server roundtrip
   const filteredIcps = useMemo(() => {
     if (!selectedProductId) return allIcps;
     return allIcps.filter((icp) => icp.productId === selectedProductId);
@@ -69,12 +77,10 @@ export function ProductsIcpsView({
 
   return (
     <div className="space-y-6">
-      {/* Company name */}
-      <p className="text-xs text-muted-foreground">
-        Company: <span className="font-medium text-foreground">{companyName}</span>
-      </p>
+      {/* Company block — clickable, inline editable */}
+      <CompanyBlock company={company} />
 
-      {/* Product Selector — client-side switching */}
+      {/* Product Selector */}
       <ProductSelector
         products={products}
         selectedProductId={selectedProductId}
@@ -83,7 +89,15 @@ export function ProductsIcpsView({
 
       {/* Product Context for selected product */}
       {activeProduct && (
-        <IcpProductContext product={activeProduct} />
+        <IcpProductContext
+          product={{
+            name: activeProduct.name,
+            shortDescription: activeProduct.shortDescription,
+            contextDescription: activeProduct.description,
+            coreUseCases: activeProduct.coreUseCases,
+            keyValueProps: activeProduct.keyValueProps,
+          }}
+        />
       )}
 
       {/* Company Profile Sharing */}
@@ -91,11 +105,7 @@ export function ProductsIcpsView({
         profileShareToken={wsShare.profileShareToken}
         profileShareMode={wsShare.profileShareMode}
         profileSharedIcpIds={wsShare.profileSharedIcpIds}
-        allIcps={filteredIcps.map((i) => ({
-          id: i.id,
-          name: i.name,
-          status: i.status,
-        }))}
+        allIcps={filteredIcps.map((i) => ({ id: i.id, name: i.name, status: i.status }))}
       />
 
       {/* ICP header + actions */}
@@ -127,7 +137,6 @@ export function ProductsIcpsView({
         </div>
       </div>
 
-      {/* ICP List — instant update on product switch */}
       <IcpListView icps={filteredIcps} />
     </div>
   );

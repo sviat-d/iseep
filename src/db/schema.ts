@@ -16,13 +16,20 @@ export const workspaces = pgTable("workspaces", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   slug: text("slug").unique().notNull(),
+  // Company info
+  website: text("website"),
+  companyDescription: text("company_description"),
+  targetCustomers: text("target_customers"),
+  industriesFocus: jsonb("industries_focus").default([]), // string[]
+  geoFocus: jsonb("geo_focus").default([]), // string[]
+  // Sharing & config
   profileShareToken: text("profile_share_token").unique(),
   profileShareMode: text("profile_share_mode", {
     enum: ["without_stats", "with_stats"],
   }),
   profileSharedIcpIds: jsonb("profile_shared_icp_ids"), // string[] | null (null = all active)
   apiToken: text("api_token").unique(),
-  onboardingStep: integer("onboarding_step").notNull().default(4), // 0-3 = wizard in progress, 4 = completed
+  onboardingStep: integer("onboarding_step").notNull().default(4),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -104,6 +111,11 @@ export const products = pgTable("products", {
     .notNull(),
   name: text("name").notNull(),
   shortDescription: text("short_description"),
+  description: text("description"),
+  coreUseCases: jsonb("core_use_cases").default([]), // string[]
+  keyValueProps: jsonb("key_value_props").default([]), // string[]
+  pricingModel: text("pricing_model"),
+  avgTicket: text("avg_ticket"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

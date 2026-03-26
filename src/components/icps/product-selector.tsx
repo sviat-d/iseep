@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, X, Package, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { createProduct, updateProduct, deleteProduct } from "@/actions/products";
+import { createProduct, deleteProduct } from "@/actions/products";
 
 type Product = {
   id: string;
@@ -25,7 +26,6 @@ export function ProductSelector({
 }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -38,14 +38,6 @@ export function ProductSelector({
         onSelect(result.productId);
         router.refresh();
       }
-    });
-  }
-
-  function handleUpdate(productId: string, formData: FormData) {
-    startTransition(async () => {
-      await updateProduct(productId, formData);
-      setEditingId(null);
-      router.refresh();
     });
   }
 
@@ -67,36 +59,6 @@ export function ProductSelector({
       <div className="flex flex-wrap items-center gap-2">
         {products.map((p) => {
           const isSelected = p.id === selectedProductId;
-
-          if (editingId === p.id) {
-            return (
-              <form
-                key={p.id}
-                action={(fd) => handleUpdate(p.id, fd)}
-                className="flex items-center gap-1.5"
-              >
-                <Input
-                  name="name"
-                  defaultValue={p.name}
-                  className="h-8 w-32 text-sm"
-                  autoFocus
-                  required
-                />
-                <Input
-                  name="shortDescription"
-                  defaultValue={p.shortDescription ?? ""}
-                  placeholder="Description"
-                  className="h-8 w-40 text-sm"
-                />
-                <Button type="submit" size="sm" className="h-7" disabled={isPending}>
-                  Save
-                </Button>
-                <button type="button" onClick={() => setEditingId(null)} className="text-muted-foreground hover:text-foreground">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </form>
-            );
-          }
 
           return (
             <div key={p.id} className="relative flex items-center">
@@ -129,17 +91,14 @@ export function ProductSelector({
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)} />
                   <div className="absolute left-0 top-full z-50 mt-1 w-36 rounded-md border bg-popover p-1 shadow-md">
-                    <button
-                      type="button"
+                    <Link
+                      href={`/icps/products/${p.id}`}
                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
-                      onClick={() => {
-                        setEditingId(p.id);
-                        setMenuOpenId(null);
-                      }}
+                      onClick={() => setMenuOpenId(null)}
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       Edit
-                    </button>
+                    </Link>
                     <button
                       type="button"
                       className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10"

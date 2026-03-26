@@ -9,8 +9,7 @@ type ProductData = {
   shortDescription: string | null;
   contextDescription: string | null;
   coreUseCases: string[];
-  industriesFocus: string[];
-  geoFocus: string[];
+  keyValueProps: string[];
 };
 
 export function IcpProductContext({ product }: { product: ProductData | null }) {
@@ -18,7 +17,7 @@ export function IcpProductContext({ product }: { product: ProductData | null }) 
 
   if (!product) return null;
 
-  const hasContext = product.contextDescription || product.coreUseCases.length > 0 || product.industriesFocus.length > 0 || product.geoFocus.length > 0;
+  const hasContext = product.contextDescription || product.coreUseCases.length > 0 || product.keyValueProps.length > 0;
 
   if (!hasContext && !product.shortDescription) return null;
 
@@ -37,20 +36,15 @@ export function IcpProductContext({ product }: { product: ProductData | null }) 
         <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium">{product.name}</span>
         {product.shortDescription && (
-          <span className="text-xs text-muted-foreground">
-            — {product.shortDescription}
-          </span>
+          <span className="text-xs text-muted-foreground">— {product.shortDescription}</span>
         )}
       </button>
 
       {open && hasContext && (
         <div className="border-t px-4 py-3 space-y-2.5">
           {product.contextDescription && (
-            <p className="text-sm text-muted-foreground">
-              {product.contextDescription}
-            </p>
+            <p className="text-sm text-muted-foreground">{product.contextDescription}</p>
           )}
-
           <div className="flex flex-wrap gap-3">
             {product.coreUseCases.length > 0 && (
               <div>
@@ -62,22 +56,12 @@ export function IcpProductContext({ product }: { product: ProductData | null }) 
                 </div>
               </div>
             )}
-            {product.industriesFocus.length > 0 && (
+            {product.keyValueProps.length > 0 && (
               <div>
-                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Industries</p>
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Value props</p>
                 <div className="flex flex-wrap gap-1">
-                  {product.industriesFocus.map((ind) => (
-                    <Badge key={ind} variant="outline" className="text-[10px]">{ind}</Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-            {product.geoFocus.length > 0 && (
-              <div>
-                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Regions</p>
-                <div className="flex flex-wrap gap-1">
-                  {product.geoFocus.map((geo) => (
-                    <Badge key={geo} variant="outline" className="text-[10px]">{geo}</Badge>
+                  {product.keyValueProps.map((vp) => (
+                    <Badge key={vp} variant="outline" className="text-[10px]">{vp}</Badge>
                   ))}
                 </div>
               </div>

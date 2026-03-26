@@ -44,6 +44,34 @@ export async function updateProduct(productId: string, formData: FormData): Prom
   return { success: true };
 }
 
+export async function updateProductFull(productId: string, formData: FormData): Promise<ActionResult> {
+  const ctx = await getAuthContext();
+  if (!ctx) return { error: "Unauthorized" };
+
+  const name = (formData.get("name") as string)?.trim();
+  if (!name) return { error: "Product name is required" };
+
+  const shortDescription = (formData.get("shortDescription") as string)?.trim() || null;
+  const description = (formData.get("description") as string)?.trim() || null;
+  const coreUseCases = parseList(formData.get("coreUseCases") as string);
+  const keyValueProps = parseList(formData.get("keyValueProps") as string);
+  const pricingModel = (formData.get("pricingModel") as string)?.trim() || null;
+  const avgTicket = (formData.get("avgTicket") as string)?.trim() || null;
+
+  await db
+    .update(products)
+    .set({ name, shortDescription, description, coreUseCases, keyValueProps, pricingModel, avgTicket, updatedAt: new Date() })
+    .where(and(eq(products.id, productId), eq(products.workspaceId, ctx.workspaceId)));
+
+  revalidatePath("/icps");
+  return { success: true };
+}
+
+function parseList(value: string | null): string[] {
+  if (!value?.trim()) return [];
+  return value.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 export async function deleteProduct(productId: string): Promise<ActionResult> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };

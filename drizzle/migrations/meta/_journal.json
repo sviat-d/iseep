@@ -71,6 +71,13 @@
       "when": 1774522844545,
       "tag": "0009_fuzzy_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1774539740665,
+      "tag": "0010_cute_adam_warlock",
+      "breakpoints": true
     }
   ]
 }
