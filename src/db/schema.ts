@@ -95,6 +95,19 @@ export const activityEvents = pgTable("activity_events", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── D0. Products ───────────────────────────────────────────────────────────
+
+export const products = pgTable("products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  name: text("name").notNull(),
+  shortDescription: text("short_description"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── D. ICPs ─────────────────────────────────────────────────────────────────
 
 export const icps = pgTable("icps", {
@@ -102,6 +115,7 @@ export const icps = pgTable("icps", {
   workspaceId: uuid("workspace_id")
     .references(() => workspaces.id)
     .notNull(),
+  productId: uuid("product_id").references(() => products.id),
   name: text("name").notNull(),
   description: text("description"),
   status: text("status", { enum: ["draft", "active", "archived"] })
@@ -450,8 +464,8 @@ export const productContext = pgTable("product_context", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id")
     .references(() => workspaces.id)
-    .notNull()
-    .unique(), // one per workspace
+    .notNull(),
+  productId: uuid("product_id").references(() => products.id).unique(), // one context per product
   companyName: text("company_name"),
   website: text("website"),
   productDescription: text("product_description").notNull(),

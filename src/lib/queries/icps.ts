@@ -2,7 +2,10 @@ import { db } from "@/db";
 import { icps, criteria, personas, signals, segments, icpSnapshots, deals } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
-export async function getIcps(workspaceId: string) {
+export async function getIcps(workspaceId: string, productId?: string) {
+  const conditions = [eq(icps.workspaceId, workspaceId)];
+  if (productId) conditions.push(eq(icps.productId, productId));
+
   const result = await db
     .select({
       id: icps.id,
@@ -10,6 +13,7 @@ export async function getIcps(workspaceId: string) {
       description: icps.description,
       status: icps.status,
       version: icps.version,
+      productId: icps.productId,
       createdAt: icps.createdAt,
       updatedAt: icps.updatedAt,
       qualifyCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'qualify')::int`,
@@ -17,7 +21,7 @@ export async function getIcps(workspaceId: string) {
       personaCount: sql<number>`(select count(*) from personas where personas.icp_id = ${icps.id})::int`,
     })
     .from(icps)
-    .where(eq(icps.workspaceId, workspaceId))
+    .where(and(...conditions))
     .orderBy(sql`${icps.updatedAt} desc`);
 
   return result;

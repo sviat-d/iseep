@@ -24,6 +24,7 @@ import { ActivityFeed } from "@/components/dashboard/activity-feed";
 type IcpOverviewItem = {
   id: string;
   name: string;
+  productName: string | null;
   status: string;
   version: number;
   qualifyCount: number;
@@ -202,6 +203,9 @@ export function DashboardView({
                     {icp.status}
                   </Badge>
                   <span className="text-xs">v{icp.version}</span>
+                  {icp.productName && (
+                    <span className="text-[10px] text-muted-foreground/60">{icp.productName}</span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>

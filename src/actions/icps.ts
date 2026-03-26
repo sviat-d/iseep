@@ -19,6 +19,7 @@ export async function createIcp(formData: FormData) {
     status: (formData.get("status") as string) || "draft",
     parentIcpId: (formData.get("parentIcpId") as string) || undefined,
   };
+  const productId = (formData.get("productId") as string) || null;
 
   const parsed = icpSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
@@ -27,6 +28,7 @@ export async function createIcp(formData: FormData) {
     .insert(icps)
     .values({
       workspaceId: ctx.workspaceId,
+      productId,
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       status: parsed.data.status,

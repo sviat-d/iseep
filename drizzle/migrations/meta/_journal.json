@@ -64,6 +64,13 @@
       "when": 1774522005042,
       "tag": "0008_stiff_tattoo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1774522844545,
+      "tag": "0009_fuzzy_juggernaut",
+      "breakpoints": true
     }
   ]
 }

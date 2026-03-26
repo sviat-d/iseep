@@ -104,6 +104,8 @@ export async function getIcpOverview(workspaceId: string) {
       name: icps.name,
       status: icps.status,
       version: icps.version,
+      productId: icps.productId,
+      productName: sql<string | null>`(select p.name from products p where p.id = ${icps.productId})`,
       updatedAt: icps.updatedAt,
       qualifyCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'qualify')::int`,
       excludeCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'exclude')::int`,

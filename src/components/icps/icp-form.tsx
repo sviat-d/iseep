@@ -24,9 +24,10 @@ type IcpFormProps = {
     status: string;
     parentIcpId: string | null;
   };
+  productId?: string | null;
 };
 
-export function IcpForm({ action, existingIcps, defaultValues }: IcpFormProps) {
+export function IcpForm({ action, existingIcps, defaultValues, productId }: IcpFormProps) {
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
     FormData
@@ -39,6 +40,7 @@ export function IcpForm({ action, existingIcps, defaultValues }: IcpFormProps) {
     <Card>
       <CardContent>
         <form action={formAction} className="space-y-4">
+          {productId && <input type="hidden" name="productId" value={productId} />}
           {state?.error && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {state.error}
