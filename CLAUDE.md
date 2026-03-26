@@ -5,14 +5,18 @@
 ## 1. Product Vision
 
 iseep is a **GTM intelligence system** (NOT a CRM) that helps B2B sales teams:
-- Define and manage Ideal Customer Profiles (ICPs)
+- Manage multiple **Products** per company, each with its own ICPs and context
+- Define and manage **Ideal Customer Profiles (ICPs)** — shared across products via many-to-many
 - Score leads against ICPs with deterministic + AI-assisted matching
+- Capture **Cases** (won/lost/in-progress evidence) scoped per Product + ICP
+- Track **product Use Cases** for structured ICP learning
 - Discover new market segments from unmatched leads
-- Track deals, win/loss reasons, and product requests for ICP refinement
 
 Built for INXY Payments (crypto payment gateway for B2B cross-border payouts), but designed as a generic multi-tenant SaaS platform.
 
 **Status:** MVP — deployed on Vercel with Supabase backend.
+
+**Core hierarchy:** Company → Products → ICPs → Cases
 
 ## 2. Tech Stack
 
@@ -60,13 +64,13 @@ src/
 │   │   ├── personas/[id]/    # Persona detail
 │   │   ├── segments/         # Segment list, new, [id]
 │   │   ├── scoring/          # Upload list, upload wizard, [id] results, [id]/review-cluster
-│   │   ├── deals/            # Deal list, new, [id]
-│   │   ├── companies/        # Company list, new, [id]
-│   │   ├── requests/         # Product requests
-│   │   ├── insights/         # Win/loss analytics
-│   │   ├── export/           # GTM Context Export page
+│   │   ├── deals/            # [HIDDEN] Deal list (replaced by Cases)
+│   │   ├── companies/        # [HIDDEN] Company list (replaced by Cases)
+│   │   ├── requests/         # [HIDDEN] Product requests
+│   │   ├── insights/         # [HIDDEN] Win/loss analytics
+│   │   ├── export/           # [HIDDEN] GTM Context Export (moved to contextual buttons)
 │   │   ├── drafts/           # Suggestions inbox, import, [id] review
-│   │   └── settings/         # product/, ai/
+│   │   └── settings/         # ai/, team/ (product redirects to /icps)
 │   ├── api/context/          # GET /api/context (GTM context export)
 │   ├── api/icps/             # GET /api/icps (read-only ICP list)
 │   ├── api/scoring/latest/   # GET /api/scoring/latest (scoring results)
@@ -133,59 +137,67 @@ src/
 └── drizzle/migrations/       # SQL migrations (0000-0006)
 ```
 
-## 5. Core Entities (26 Tables)
+## 5. Core Entities (~30 Tables)
 
-### ICP System
+### Company & Products
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `icps` | Ideal Customer Profiles | name, status (draft/active/archived), version, shareToken, shareMode, parentIcpId |
-| `criteria` | Scoring rules per ICP | group (5 types), category, value, intent (qualify/risk/exclude), weight (1-10), operator |
+| `workspaces` | Company/tenant root | name, website, companyDescription, targetCustomers, industriesFocus[], geoFocus[], onboardingStep |
+| `products` | Solutions/offerings per company | name, shortDescription, description, coreUseCases[], keyValueProps[], pricingModel, avgTicket |
+| `product_use_cases` | Practical usage flows per product | name, normalizedName, unique per (product, normalizedName) |
+| `product_context` | [LEGACY] Old mixed product/company data | being replaced by workspaces + products tables |
+
+### ICP System (Many-to-Many with Products)
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `icps` | Ideal Customer Profiles (shared definitions) | name, status (draft/active/archived), version, shareToken, shareMode |
+| `product_icps` | Many-to-many: Product ↔ ICP links | productId, icpId, unique per pair |
+| `criteria` | Scoring rules per ICP | group (5 types), category, value, intent (qualify/risk/exclude), weight (1-10) |
 | `personas` | Target buyer personas | name (job title), description |
 | `segments` | Audience segments with condition trees | logicJson (JSONB), status, priorityScore |
 | `signals` | Behavioral indicators | type (positive/negative/neutral), label, strength |
 | `icp_snapshots` | Version history | version, snapshotData (JSONB), changeSummary |
 
+### Cases (ICP Learning Loop, Product-Scoped)
+| Table | Purpose | Key Fields |
+|-------|---------|------------|
+| `icp_evidence` | Won/lost/in-progress cases | companyName, outcome, productId, useCaseId, segmentId, channel, channelDetail, reasonTags[], hypothesis, note |
+
 ### Scoring System
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `scored_uploads` | CSV upload batches | fileName, sourceName, totalRows, columnMapping (JSONB) |
-| `scored_leads` | Individual scored leads | rawData, fitScore (0-100), fitLevel (6 levels), confidence (0-100), matchReasons (JSONB), bestIcpId |
-
-### Sales Context
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `companies` | Prospect companies | name, website, country, industry |
-| `contacts` | People at companies | fullName, title, email, linkedinUrl |
-| `deals` | Sales opportunities | stage, outcome (won/lost/open), dealValue, currency |
-| `deal_reasons` | Win/loss analytics | reasonType (win/loss/objection), category, tag, severity |
-| `meeting_notes` | Sales meeting docs | summary, sourceType (manual/notetaker/import) |
-| `product_requests` | Feature requests | type (4 types), status (4 states), source, frequencyScore |
+| `scored_uploads` | CSV upload batches | fileName, totalRows, columnMapping (JSONB) |
+| `scored_leads` | Individual scored leads | rawData, fitScore (0-100), fitLevel (6 levels), confidence, matchReasons (JSONB) |
 
 ### Configuration
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `product_context` | Product positioning (1 per workspace) | productDescription, targetCustomers, coreUseCases[], keyValueProps[], industriesFocus[], geoFocus[], excludedIndustries[] |
 | `ai_keys` | BYOK API keys (1 per workspace) | provider (anthropic/openai), apiKey, model, isActive |
 | `ai_usage` | AI operation tracking | operation, tokensUsed |
 | `value_mappings` | Learned synonym mappings | category, fromValue, toValue |
 | `rejected_icps` | Rejected cluster industries | industry, reason, details |
 
-### ICP Feedback Loop
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| `icp_evidence` | Won/lost company evidence per ICP | companyName, outcome (won/lost), reasonTags (JSONB), note, industry, region, date |
+### Legacy (Hidden, Routes Exist)
+| Table | Purpose |
+|-------|---------|
+| `companies` | Prospect companies (replaced by Cases) |
+| `deals` | Sales opportunities (replaced by Cases) |
+| `deal_reasons` | Win/loss reasons (replaced by Cases reason tags) |
+| `contacts`, `meeting_notes`, `product_requests` | Legacy CRM features |
 
 ### Draft System (Claude → iseep)
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `drafts` | AI-proposed changes awaiting review | source (claude/manual/system), targetType (4 types), payload (JSONB), summary, reasoning, status (pending/rejected/applied), reviewedBy, appliedAt |
+| `drafts` | AI-proposed changes awaiting review | source, targetType, payload (JSONB), status (pending/rejected/applied) |
 
 ### Auth & Tenancy
 | Table | Purpose |
 |-------|---------|
-| `workspaces` | Tenant root (name, slug, profileShareToken, apiToken) |
+| `workspaces` | Company/tenant root with company info fields |
 | `users` | Auth users (synced from Supabase) |
 | `memberships` | User-workspace access (role: owner/admin/member) |
+| `invites` | Email-based team invites with tokens |
+| `activity_events` | Audit trail (10+ event types) |
 
 ## 6. Scoring System [IMPLEMENTED]
 
@@ -275,17 +287,21 @@ Combined metric: lead count + product fit + ICP similarity
 1. User rejects cluster → industry added to `excludedIndustries` → future evaluations return "none"
 2. User adopts cluster → ICP created + leads reclassified → future scoring uses new ICP
 
-## 8. Product Context [IMPLEMENTED]
+## 8. Company & Products [REFACTORED]
 
-Separate entity (`product_context` table), one per workspace. NOT part of ICP — global context used for cluster evaluation and AI features.
+**Company info** lives on `workspaces` table: name, website, companyDescription, targetCustomers, industriesFocus[], geoFocus[]. Editable inline on Products & ICPs page.
 
-**Fields:** companyName, website, productDescription (required), targetCustomers, coreUseCases[], keyValueProps[], industriesFocus[], geoFocus[], pricingModel, avgTicket, excludedIndustries[]
+**Product info** lives on `products` table: name, shortDescription, description, coreUseCases[], keyValueProps[], pricingModel, avgTicket. Editable inline on Products & ICPs page. Multiple products per company.
 
-**Location:** `/settings/product` (accessible via links from ICP detail's Product Context block, nudge banners). Collapsible Product Context summary block shown at top of each ICP detail page.
+**Product Use Cases** live on `product_use_cases` table: lightweight per-product entities describing HOW a product is used (e.g., "Website checkout", "Payment links"). Selectable in Cases via select-or-create pattern. Normalized to prevent duplicates.
 
-**Nudges:** Dismissible amber banner on dashboard, ICPs page when product context is missing. Dashboard empty state shows tip to add product context.
+**Legacy:** `product_context` table still exists in DB but onboarding now writes to `workspaces` + `products` instead. `/settings/product` redirects to `/icps`.
 
-**Usage:** Required for AI cluster evaluation. Without it, product fit returns "unknown". With it, enables multi-factor cluster scoring.
+**Multi-product architecture:**
+- Company → Products → ICPs (many-to-many via `product_icps`)
+- ICP can be shared across products or duplicated/forked per product
+- Cases are scoped to Product + ICP (different cases per product for shared ICP)
+- Product switching is client-side with instant filtering
 
 ## 9. BYOK (Bring Your Own Key) [IMPLEMENTED]
 
@@ -470,24 +486,28 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 - `logActivity()` helper in `src/lib/activity.ts` — fire-and-forget, integrated into ICP, scoring, drafts, and product context actions
 - Dashboard widget showing last 10 events with user names and relative timestamps
 
-## 21. Navigation (Sidebar) — Simplified
+## 21. Navigation (Sidebar)
 
-1. Dashboard (`/dashboard`)
-2. ICPs (`/icps`)
+1. Dashboard (`/dashboard`) — ICP-focused control center
+2. Products & ICPs (`/icps`) — main workspace: Company → Products → ICPs
 3. Score Leads (`/scoring`) — Beta badge
 4. Settings (`/settings`) — hub with sub-nav for AI Settings + Team
 
-**Settings sub-pages:** `/settings/ai`, `/settings/team`, `/settings/product` (accessible via links, not in sub-nav)
+**Products & ICPs page structure:**
+- Company block (collapsible, inline editable)
+- Product selector (chips + add/edit/delete)
+- Product context block (collapsible, inline editable with use cases)
+- ICP list (filtered by selected product, client-side switching)
 
-**Removed from sidebar:** Product, Segments, Deals, Companies, Requests, Insights, Export, Suggestions, AI Settings, Team (top-level)
+**Settings sub-pages:** `/settings/ai`, `/settings/team`
+**`/settings/product`** redirects to `/icps`
 
-**Relocated features:**
-- Product Context → collapsible block inside ICP detail page
-- Segments → tab inside ICP detail page (already was)
-- Export → contextual actions inside ICP detail page (already was)
-- Deals/Companies → replaced by Feedback/Evidence tab inside ICP detail page
-- AI Settings + Team → under Settings hub
-- Requests, Insights → hidden from UI
+**Key architectural decisions:**
+- Company info lives on `workspaces` table, editable inline on /icps page
+- Product info lives on `products` table, editable inline on /icps page
+- ICPs linked to products via `product_icps` many-to-many
+- Cases are product-specific (productId on icp_evidence)
+- Product switching is client-side (instant, no server roundtrip)
 
 ## 22. Routes
 
@@ -559,8 +579,8 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Cluster → ICP creation (prefilled) | [IMPLEMENTED] | Editable draft with criteria/personas |
 | Lead reclassification on adopt | [IMPLEMENTED] | Unmatched → high (score 80) |
 | Cluster rejection + learning | [IMPLEMENTED] | Excluded industries persist |
-| Product context (separate entity) | [IMPLEMENTED] | Dedicated table, all target fields |
-| Product context nudges | [PARTIAL] | Dismissible banner, no persistent dismissal state |
+| Multi-product architecture | [IMPLEMENTED] | Company → Products → ICPs (many-to-many), product selector, inline editing |
+| Company/Product separation | [IMPLEMENTED] | Company info on workspaces, Product info on products table |
 | Onboarding wizard | [IMPLEMENTED] | Context-driven 3-step: paste context → AI clarify → reveal profile + multiple active ICPs |
 | Team collaboration | [IMPLEMENTED] | Email invites, Owner/Member roles, activity feed |
 | BYOK (Anthropic + OpenAI) | [IMPLEMENTED] | Key management, test, rate limits, security fix (masked keys) |
@@ -573,11 +593,14 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Auth: duplicate email handling | [IMPLEMENTED] | Friendly error + password reset CTA |
 | Auth: forgot password | [IMPLEMENTED] | Supabase reset flow |
 | AI settings discoverability | [IMPLEMENTED] | Sidebar item, nudges, "Where AI is used" section |
-| Deals with win/loss tracking | [HIDDEN] | Routes exist but removed from sidebar; replaced by ICP Feedback tab |
+| Deals with win/loss tracking | [REPLACED] | Replaced by Cases (lightweight ICP-scoped learning loop) |
 | Product requests lifecycle | [HIDDEN] | Routes exist but removed from sidebar |
 | Insights analytics | [HIDDEN] | Routes exist but removed from sidebar |
-| ICP Feedback/Evidence loop | [IMPLEMENTED] | Feedback tab in ICP detail, icp_evidence table, won/lost evidence with reason tags |
-| Product restructure (IA simplification) | [IMPLEMENTED] | Sidebar: 4 items, Settings hub, Product Context in ICP, Feedback replaces Performance |
+| Cases (ICP learning loop) | [IMPLEMENTED] | Cases tab in ICP detail, product-scoped, won/lost/in-progress, use cases, channels, reason tags |
+| Product Use Cases | [IMPLEMENTED] | Per-product entities, select-or-create in Cases, normalized duplicates prevention |
+| Shared ICPs across products | [IMPLEMENTED] | Many-to-many via product_icps, link/duplicate/fork, usage badges |
+| Product restructure (IA simplification) | [IMPLEMENTED] | Sidebar: 4 items, Company block, Product selector, inline editing |
+| Performance optimization | [IMPLEMENTED] | Parallel queries, loading skeletons, client-side product switching, max 5 DB connections |
 | Industry taxonomy (normalized) | [IMPLEMENTED] | Two-level hierarchy (25 sectors, ~350 industries), aliases, hierarchical scoring, picker UI |
 | Segment builder with condition logic | [IMPLEMENTED] | Flat Include/Exclude/Risk rules |
 | Match explanation layer | [IMPLEMENTED] | matchReasons[] with per-criterion detail |
@@ -615,3 +638,11 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 - Criteria groups: firmographic, technographic, behavioral, compliance, keyword
 - Criteria intents: qualify (positive, weighted), risk (penalty), exclude (hard blocker)
 - Fit levels: high, medium, low, risk, blocked, none
+- Product hierarchy: Company (workspaces) → Products (products) → ICPs (icps via product_icps)
+- Cases: product-scoped (icp_evidence.productId), use cases via product_use_cases
+- Company info on workspaces table (NOT product_context)
+- Product info on products table (description, use cases, value props)
+- ICP sharing: many-to-many via product_icps, link/duplicate/fork flow
+- DB pool: max 5 connections (for parallel queries)
+- All heavy pages use Promise.all for parallel DB queries
+- Loading skeletons via loading.tsx on all main routes
