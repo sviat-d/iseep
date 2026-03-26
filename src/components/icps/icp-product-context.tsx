@@ -1,40 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronRight, Pencil, Package } from "lucide-react";
+import { ChevronDown, ChevronRight, Package } from "lucide-react";
 
-type ProductContextData = {
-  companyName: string | null;
-  productDescription: string;
+type ProductData = {
+  name: string;
+  shortDescription: string | null;
+  contextDescription: string | null;
   coreUseCases: string[];
-  keyValueProps: string[];
   industriesFocus: string[];
   geoFocus: string[];
-} | null;
+};
 
-export function IcpProductContext({ product }: { product: ProductContextData }) {
+export function IcpProductContext({ product }: { product: ProductData | null }) {
   const [open, setOpen] = useState(false);
 
-  if (!product) {
-    return (
-      <div className="rounded-lg border border-dashed p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Package className="h-4 w-4" />
-            No product context set
-          </div>
-          <Link
-            href="/settings/product"
-            className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium border border-border bg-background hover:bg-muted transition-colors"
-          >
-            Add context
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  if (!product) return null;
+
+  const hasContext = product.contextDescription || product.coreUseCases.length > 0 || product.industriesFocus.length > 0 || product.geoFocus.length > 0;
+
+  if (!hasContext && !product.shortDescription) return null;
 
   return (
     <div className="rounded-lg border">
@@ -49,75 +35,53 @@ export function IcpProductContext({ product }: { product: ProductContextData }) 
           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         )}
         <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="text-sm font-medium">Product Context</span>
-        {product.companyName && (
+        <span className="text-sm font-medium">{product.name}</span>
+        {product.shortDescription && (
           <span className="text-xs text-muted-foreground">
-            — {product.companyName}
+            — {product.shortDescription}
           </span>
         )}
       </button>
 
-      {open && (
+      {open && hasContext && (
         <div className="border-t px-4 py-3 space-y-2.5">
-          <p className="text-sm text-muted-foreground">
-            {product.productDescription}
-          </p>
+          {product.contextDescription && (
+            <p className="text-sm text-muted-foreground">
+              {product.contextDescription}
+            </p>
+          )}
 
           <div className="flex flex-wrap gap-3">
             {product.coreUseCases.length > 0 && (
               <div>
-                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
-                  Use cases
-                </p>
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Use cases</p>
                 <div className="flex flex-wrap gap-1">
                   {product.coreUseCases.map((uc) => (
-                    <Badge key={uc} variant="secondary" className="text-[10px]">
-                      {uc}
-                    </Badge>
+                    <Badge key={uc} variant="secondary" className="text-[10px]">{uc}</Badge>
                   ))}
                 </div>
               </div>
             )}
-
             {product.industriesFocus.length > 0 && (
               <div>
-                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
-                  Industries
-                </p>
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Industries</p>
                 <div className="flex flex-wrap gap-1">
                   {product.industriesFocus.map((ind) => (
-                    <Badge key={ind} variant="outline" className="text-[10px]">
-                      {ind}
-                    </Badge>
+                    <Badge key={ind} variant="outline" className="text-[10px]">{ind}</Badge>
                   ))}
                 </div>
               </div>
             )}
-
             {product.geoFocus.length > 0 && (
               <div>
-                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">
-                  Regions
-                </p>
+                <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Regions</p>
                 <div className="flex flex-wrap gap-1">
                   {product.geoFocus.map((geo) => (
-                    <Badge key={geo} variant="outline" className="text-[10px]">
-                      {geo}
-                    </Badge>
+                    <Badge key={geo} variant="outline" className="text-[10px]">{geo}</Badge>
                   ))}
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="flex justify-end">
-            <Link
-              href="/settings/product"
-              className="inline-flex items-center h-7 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Pencil className="mr-1 h-3 w-3" />
-              Edit
-            </Link>
           </div>
         </div>
       )}
