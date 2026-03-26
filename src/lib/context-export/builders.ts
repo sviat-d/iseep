@@ -14,7 +14,13 @@ export async function buildFullContext(
     scoring: includeScoring = true,
   } = modules;
 
-  const workspaceName = await getWorkspaceName(workspaceId);
+  // Fetch all independent data in parallel
+  const [workspaceName, ctx, allIcps, uploads] = await Promise.all([
+    getWorkspaceName(workspaceId),
+    includeProduct ? getProductContext(workspaceId) : null,
+    includeIcps ? getIcps(workspaceId) : null,
+    includeScoring ? getScoredUploads(workspaceId) : null,
+  ]);
 
   const pkg: GtmContextPackage = {
     schemaVersion: 1,
@@ -22,31 +28,25 @@ export async function buildFullContext(
     workspace: { name: workspaceName },
   };
 
-  if (includeProduct) {
-    const ctx = await getProductContext(workspaceId);
-    if (ctx) {
-      pkg.product = {
-        companyName: ctx.companyName,
-        website: ctx.website,
-        productDescription: ctx.productDescription,
-        targetCustomers: ctx.targetCustomers,
-        coreUseCases: (ctx.coreUseCases as string[]) ?? [],
-        keyValueProps: (ctx.keyValueProps as string[]) ?? [],
-        industriesFocus: (ctx.industriesFocus as string[]) ?? [],
-        geoFocus: (ctx.geoFocus as string[]) ?? [],
-      };
-    }
+  if (ctx) {
+    pkg.product = {
+      companyName: ctx.companyName,
+      website: ctx.website,
+      productDescription: ctx.productDescription,
+      targetCustomers: ctx.targetCustomers,
+      coreUseCases: (ctx.coreUseCases as string[]) ?? [],
+      keyValueProps: (ctx.keyValueProps as string[]) ?? [],
+      industriesFocus: (ctx.industriesFocus as string[]) ?? [],
+      geoFocus: (ctx.geoFocus as string[]) ?? [],
+    };
   }
 
-  if (includeIcps) {
-    const allIcps = await getIcps(workspaceId);
+  if (allIcps) {
     const activeIcps = allIcps.filter((i) => i.status === "active");
-
     if (activeIcps.length > 0) {
       const detailed = await Promise.all(
         activeIcps.map((i) => getIcp(i.id, workspaceId)),
       );
-
       pkg.icps = detailed
         .filter((d) => d !== null)
         .map((d) => ({
@@ -69,14 +69,12 @@ export async function buildFullContext(
     }
   }
 
-  if (includeScoring) {
-    const uploads = await getScoredUploads(workspaceId);
-    pkg.scoring = { totalRuns: uploads.length };
-
-    if (uploads.length > 0) {
-      const latest = uploads[0];
-      const stats = await getScoredLeadStats(latest.id, workspaceId);
-      pkg.scoring.latestRun = {
+  if (uploads && uploads.length > 0) {
+    const latest = uploads[0];
+    const stats = await getScoredLeadStats(latest.id, workspaceId);
+    pkg.scoring = {
+      totalRuns: uploads.length,
+      latestRun: {
         fileName: latest.fileName,
         scoredAt: latest.scoredAt.toISOString(),
         totalLeads: latest.totalRows,
@@ -88,8 +86,10 @@ export async function buildFullContext(
           blocked: stats.blocked,
           unmatched: stats.none,
         },
-      };
-    }
+      },
+    };
+  } else if (uploads) {
+    pkg.scoring = { totalRuns: 0 };
   }
 
   return pkg;
@@ -109,9 +109,12 @@ export async function buildIcpContext(
   workspaceId: string,
   icpId: string,
 ): Promise<GtmContextPackage> {
-  const workspaceName = await getWorkspaceName(workspaceId);
-  const ctx = await getProductContext(workspaceId);
-  const icp = await getIcp(icpId, workspaceId);
+  // All 3 queries in parallel (was sequential)
+  const [workspaceName, ctx, icp] = await Promise.all([
+    getWorkspaceName(workspaceId),
+    getProductContext(workspaceId),
+    getIcp(icpId, workspaceId),
+  ]);
 
   const pkg: GtmContextPackage = {
     schemaVersion: 1,

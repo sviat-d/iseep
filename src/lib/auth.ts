@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/db";
-import { memberships } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { memberships, workspaces } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import { cookies } from "next/headers";
 
 export async function getAuthContext() {
@@ -12,30 +12,29 @@ export async function getAuthContext() {
 
   if (!user) return null;
 
-  // Check for active workspace cookie (multi-workspace support)
   const cookieStore = await cookies();
   const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value;
 
   let membership;
 
   if (activeWorkspaceId) {
-    // Try the active workspace first
+    // Single query: try active workspace directly
     const [active] = await db
       .select()
       .from(memberships)
-      .where(
-        eq(memberships.userId, user.id),
-      )
-      .limit(10);
+      .where(and(eq(memberships.userId, user.id), eq(memberships.workspaceId, activeWorkspaceId)))
+      .limit(1);
 
-    // Find membership matching cookie, fallback to first
-    const allMemberships = await db
-      .select()
-      .from(memberships)
-      .where(eq(memberships.userId, user.id));
-
-    membership = allMemberships.find(m => m.workspaceId === activeWorkspaceId)
-      ?? allMemberships[0];
+    if (active) {
+      membership = active;
+    } else {
+      // Cookie invalid, fall back to first membership
+      [membership] = await db
+        .select()
+        .from(memberships)
+        .where(eq(memberships.userId, user.id))
+        .limit(1);
+    }
   } else {
     [membership] = await db
       .select()
@@ -46,9 +45,17 @@ export async function getAuthContext() {
 
   if (!membership) return null;
 
+  // Fetch onboardingStep in same round — avoids separate query in layout
+  const [ws] = await db
+    .select({ onboardingStep: workspaces.onboardingStep })
+    .from(workspaces)
+    .where(eq(workspaces.id, membership.workspaceId))
+    .limit(1);
+
   return {
     userId: user.id,
     workspaceId: membership.workspaceId,
-    role: membership.role, // "owner" | "admin" | "member"
+    role: membership.role,
+    onboardingStep: ws?.onboardingStep ?? 4,
   };
 }

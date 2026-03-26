@@ -14,27 +14,20 @@ export default async function DashboardPage() {
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  // Check onboarding status
-  const [workspace] = await db
-    .select({ onboardingStep: workspaces.onboardingStep })
-    .from(workspaces)
-    .where(eq(workspaces.id, ctx.workspaceId))
-    .limit(1);
-
-  if (workspace && workspace.onboardingStep < 3) {
-    // Step 0: Context input
-    if (workspace.onboardingStep === 0) {
+  // onboardingStep already fetched in getAuthContext — no extra query
+  if (ctx.onboardingStep < 3) {
+    if (ctx.onboardingStep === 0) {
       return <OnboardingWizard step={0} />;
     }
 
     // Step 1: Clarify — need parsed context
-    if (workspace.onboardingStep === 1) {
+    if (ctx.onboardingStep === 1) {
       const parsedContext = await getParsedContext();
       return <OnboardingWizard step={1} parsedContext={parsedContext} />;
     }
 
     // Step 2: Reveal — need product + ALL ICPs
-    if (workspace.onboardingStep === 2) {
+    if (ctx.onboardingStep === 2) {
       const productCtx = await getProductContext(ctx.workspaceId);
       const { inArray } = await import("drizzle-orm");
 
@@ -50,12 +43,12 @@ export default async function DashboardPage() {
         .orderBy(desc(icps.createdAt));
 
       const icpIds = activeIcps.map(i => i.id);
-      const allCriteria = icpIds.length > 0
-        ? await db.select().from(criteria).where(inArray(criteria.icpId, icpIds))
-        : [];
-      const allPersonas = icpIds.length > 0
-        ? await db.select().from(personas).where(inArray(personas.icpId, icpIds))
-        : [];
+      const [allCriteria, allPersonas] = icpIds.length > 0
+        ? await Promise.all([
+            db.select().from(criteria).where(inArray(criteria.icpId, icpIds)),
+            db.select().from(personas).where(inArray(personas.icpId, icpIds)),
+          ])
+        : [[], []];
 
       const revealData = {
         product: {
