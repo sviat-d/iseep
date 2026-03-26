@@ -82,7 +82,7 @@ export function IcpShareDialog({ icp }: IcpShareDialogProps) {
         Share
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[420px]">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Share ICP Profile</DialogTitle>
             <DialogDescription>
