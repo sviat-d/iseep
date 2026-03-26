@@ -67,6 +67,45 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
   return { success: true };
 }
 
+export async function updateCase(caseId: string, icpId: string, formData: FormData): Promise<ActionResult> {
+  const ctx = await getAuthContext();
+  if (!ctx) return { error: "Unauthorized" };
+
+  const companyName = (formData.get("companyName") as string)?.trim();
+  const outcome = formData.get("outcome") as string;
+  if (!companyName || !outcome) return { error: "Company and outcome are required" };
+
+  const useCaseId = (formData.get("useCaseId") as string) || null;
+  const channel = (formData.get("channel") as string) || null;
+  const channelDetail = (formData.get("channelDetail") as string)?.trim() || null;
+  const segmentId = (formData.get("segmentId") as string) || null;
+  const hypothesis = (formData.get("hypothesis") as string)?.trim() || null;
+  const note = (formData.get("note") as string)?.trim() || null;
+  const tagsRaw = formData.get("reasonTags") as string;
+  const reasonTags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+
+  await db
+    .update(icpEvidence)
+    .set({
+      companyName,
+      outcome: outcome as "won" | "lost" | "in_progress",
+      useCaseId,
+      channel: channel && VALID_CHANNELS.includes(channel as typeof VALID_CHANNELS[number])
+        ? (channel as "linkedin" | "email" | "conference" | "referral" | "inbound" | "other")
+        : null,
+      channelDetail,
+      segmentId: segmentId || null,
+      reasonTags,
+      hypothesis,
+      note,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(icpEvidence.id, caseId), eq(icpEvidence.workspaceId, ctx.workspaceId)));
+
+  revalidatePath(`/icps/${icpId}`);
+  return { success: true };
+}
+
 export async function deleteCase(caseId: string, icpId: string): Promise<ActionResult> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };

@@ -6,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, ChevronRight, Package, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Package, Pencil, Trash2, X, Plus } from "lucide-react";
 import { updateProductFull, deleteProduct } from "@/actions/products";
+import { createUseCase, deleteUseCase } from "@/actions/use-cases";
 
 type ProductData = {
   id: string;
@@ -33,6 +34,8 @@ export function IcpProductContext({
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [newUcName, setNewUcName] = useState("");
+  const [localUseCases, setLocalUseCases] = useState(product?.useCases ?? []);
 
   if (!product) return null;
 
@@ -179,8 +182,71 @@ export function IcpProductContext({
               <Textarea name="description" defaultValue={product.contextDescription ?? ""} rows={2} placeholder="What does this product do?" className="mt-1" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Use cases (comma-separated)</label>
-              <Input name="coreUseCases" defaultValue={product.coreUseCases.join(", ")} placeholder="Cross-border payouts, ..." className="mt-1" />
+              <label className="text-xs font-medium text-muted-foreground">Use cases</label>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {localUseCases.map((uc) => (
+                  <span key={uc.id} className="inline-flex items-center gap-1 rounded-full border bg-secondary/50 px-2.5 py-1 text-xs font-medium">
+                    {uc.name}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        startTransition(async () => {
+                          const result = await deleteUseCase(uc.id);
+                          if (result.success) {
+                            setLocalUseCases((prev) => prev.filter((u) => u.id !== uc.id));
+                          }
+                        });
+                      }}
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="mt-1.5 flex gap-1.5">
+                <Input
+                  value={newUcName}
+                  onChange={(e) => setNewUcName(e.target.value)}
+                  placeholder="Add use case..."
+                  className="h-7 text-xs flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newUcName.trim()) {
+                      e.preventDefault();
+                      const name = newUcName.trim();
+                      startTransition(async () => {
+                        const result = await createUseCase(product!.id, name);
+                        if (result.success && result.useCaseId) {
+                          setLocalUseCases((prev) => {
+                            if (prev.some((u) => u.id === result.useCaseId)) return prev;
+                            return [...prev, { id: result.useCaseId!, name }];
+                          });
+                          setNewUcName("");
+                        }
+                      });
+                    }
+                  }}
+                />
+                {newUcName.trim() && (
+                  <button
+                    type="button"
+                    className="rounded border border-dashed px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted whitespace-nowrap"
+                    onClick={() => {
+                      const name = newUcName.trim();
+                      startTransition(async () => {
+                        const result = await createUseCase(product!.id, name);
+                        if (result.success && result.useCaseId) {
+                          setLocalUseCases((prev) => [...prev, { id: result.useCaseId!, name }]);
+                          setNewUcName("");
+                        }
+                      });
+                    }}
+                  >
+                    <Plus className="mr-0.5 inline h-3 w-3" />Add
+                  </button>
+                )}
+              </div>
+              <input type="hidden" name="coreUseCases" value={localUseCases.map((uc) => uc.name).join(", ")} />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Value propositions (comma-separated)</label>

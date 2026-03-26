@@ -15,8 +15,9 @@ import {
   X,
   ChevronDown,
   Briefcase,
+  Pencil,
 } from "lucide-react";
-import { addCase, deleteCase } from "@/actions/evidence";
+import { addCase, deleteCase, updateCase } from "@/actions/evidence";
 import { createUseCase } from "@/actions/use-cases";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -419,6 +420,134 @@ function AddCaseForm({
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
+// ─── Edit Case Inline ───────────────────────────────────────────────────────
+
+function EditCaseInline({
+  caseItem,
+  icpId,
+  segments,
+  useCases,
+  productId,
+  onClose,
+}: {
+  caseItem: CaseItem;
+  icpId: string;
+  segments: Segment[];
+  useCases: UseCase[];
+  productId?: string;
+  onClose: () => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const tags = Array.isArray(caseItem.reasonTags) ? (caseItem.reasonTags as string[]) : [];
+  const [outcome, setOutcome] = useState(caseItem.outcome);
+  const [selectedTags, setSelectedTags] = useState<string[]>(tags);
+  const [selectedUseCaseId, setSelectedUseCaseId] = useState(caseItem.useCaseId ?? "");
+  const [channel, setChannel] = useState(caseItem.channel ?? "");
+  const [selectedSegment, setSelectedSegment] = useState(caseItem.segmentId ?? "");
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
+  }
+
+  function handleSubmit(formData: FormData) {
+    formData.set("outcome", outcome);
+    formData.set("channel", channel);
+    formData.set("segmentId", selectedSegment);
+    formData.set("useCaseId", selectedUseCaseId);
+    formData.set("reasonTags", selectedTags.join(","));
+    startTransition(async () => {
+      await updateCase(caseItem.id, icpId, formData);
+      onClose();
+    });
+  }
+
+  const suggestedTags = getTagsForOutcome(outcome);
+
+  return (
+    <Card>
+      <CardContent className="pt-3 pb-3">
+        <form action={handleSubmit} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Company *</label>
+              <Input name="companyName" defaultValue={caseItem.companyName} required className="mt-1" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Outcome *</label>
+              <div className="mt-1.5 flex gap-2">
+                {(["won", "lost", "in_progress"] as const).map((o) => {
+                  const cfg = outcomeConfig[o];
+                  return (
+                    <button key={o} type="button" onClick={() => { setOutcome(o); setSelectedTags([]); }}
+                      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${outcome === o ? `${cfg.bg} ${cfg.color} border-current` : "border-border text-muted-foreground hover:bg-muted"}`}>
+                      <cfg.icon className="h-3 w-3" />{cfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          {segments.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Segment</label>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {segments.map((seg) => (
+                  <button key={seg.id} type="button" onClick={() => setSelectedSegment(selectedSegment === seg.id ? "" : seg.id)}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${selectedSegment === seg.id ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                    {seg.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {useCases.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Use case</label>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {useCases.map((uc) => (
+                  <button key={uc.id} type="button" onClick={() => setSelectedUseCaseId(selectedUseCaseId === uc.id ? "" : uc.id)}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${selectedUseCaseId === uc.id ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                    {uc.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {suggestedTags.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Why?</label>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {suggestedTags.map((tag) => (
+                  <button key={tag} type="button" onClick={() => toggleTag(tag)}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${selectedTags.includes(tag) ? `${outcomeConfig[outcome as keyof typeof outcomeConfig]?.bg ?? ""} ${outcomeConfig[outcome as keyof typeof outcomeConfig]?.color ?? ""} border-current` : "border-border text-muted-foreground hover:bg-muted"}`}>
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
+              <Input name="hypothesis" defaultValue={caseItem.hypothesis ?? ""} className="mt-1" />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Note</label>
+              <Input name="note" defaultValue={caseItem.note ?? ""} className="mt-1" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+            <Button type="submit" size="sm" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
+
 export function IcpCasesTab({
   icpId,
   cases,
@@ -433,6 +562,7 @@ export function IcpCasesTab({
   useCases?: UseCase[];
 }) {
   const [showForm, setShowForm] = useState(false);
+  const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "won" | "lost" | "in_progress">("all");
   const [useCaseFilter, setUseCaseFilter] = useState<string>("");
   const [isPending, startTransition] = useTransition();
@@ -568,6 +698,20 @@ export function IcpCasesTab({
             const segName = c.segmentId ? segmentMap.get(c.segmentId) : null;
             const ucName = c.useCaseId ? useCaseMap.get(c.useCaseId) : null;
 
+            if (editingCaseId === c.id) {
+              return (
+                <EditCaseInline
+                  key={c.id}
+                  caseItem={c}
+                  icpId={icpId}
+                  segments={segments}
+                  useCases={useCases}
+                  productId={productId}
+                  onClose={() => setEditingCaseId(null)}
+                />
+              );
+            }
+
             return (
               <div key={c.id} className="flex items-start gap-3 rounded-lg border px-4 py-3">
                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${cfg.color}`} />
@@ -610,14 +754,25 @@ export function IcpCasesTab({
                     <p className="text-xs text-muted-foreground">{c.note}</p>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(c.id)}
-                  disabled={isPending}
-                  className="shrink-0 rounded p-1 text-muted-foreground hover:text-destructive transition-colors"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex shrink-0 gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCaseId(c.id)}
+                    className="rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(c.id)}
+                    disabled={isPending}
+                    className="rounded p-1 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })}
