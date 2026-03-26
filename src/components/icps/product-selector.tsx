@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -30,14 +30,29 @@ export function ProductSelector({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Optimistic products list for instant add
+  const [optimisticProducts, addOptimistic] = useOptimistic(
+    products,
+    (state, newProduct: Product) => [...state, newProduct]
+  );
+
   function handleCreate(formData: FormData) {
+    const name = (formData.get("name") as string)?.trim();
+    const shortDescription = (formData.get("shortDescription") as string)?.trim() || null;
+    if (!name) return;
+
+    // Optimistic: add immediately with temp ID
+    const tempId = `temp-${Date.now()}`;
+    addOptimistic({ id: tempId, name, shortDescription });
+    onSelect(tempId);
+    setShowAdd(false);
+
     startTransition(async () => {
       const result = await createProduct(formData);
       if (result.success && result.productId) {
-        setShowAdd(false);
         onSelect(result.productId);
-        router.refresh();
       }
+      router.refresh();
     });
   }
 
@@ -45,11 +60,8 @@ export function ProductSelector({
     startTransition(async () => {
       await deleteProduct(productId);
       setConfirmDeleteId(null);
-      // Select first remaining product
-      const remaining = products.filter((p) => p.id !== productId);
-      if (remaining.length > 0) {
-        onSelect(remaining[0].id);
-      }
+      const remaining = optimisticProducts.filter((p) => p.id !== productId);
+      if (remaining.length > 0) onSelect(remaining[0].id);
       router.refresh();
     });
   }
@@ -57,7 +69,7 @@ export function ProductSelector({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        {products.map((p) => {
+        {optimisticProducts.map((p) => {
           const isSelected = p.id === selectedProductId;
 
           return (
@@ -75,17 +87,18 @@ export function ProductSelector({
                 {p.name}
               </button>
 
-              {/* ⋯ menu */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpenId(menuOpenId === p.id ? null : p.id);
-                }}
-                className="ml-0.5 rounded p-0.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-              </button>
+              {!p.id.startsWith("temp-") && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpenId(menuOpenId === p.id ? null : p.id);
+                  }}
+                  className="ml-0.5 rounded p-0.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+              )}
 
               {menuOpenId === p.id && (
                 <>
@@ -134,22 +147,11 @@ export function ProductSelector({
         <Card className="border-destructive/30">
           <CardContent className="py-3">
             <p className="text-sm">
-              This will delete <span className="font-medium">{products.find((p) => p.id === confirmDeleteId)?.name}</span> and all its ICPs and cases.
+              Delete <span className="font-medium">{optimisticProducts.find((p) => p.id === confirmDeleteId)?.name}</span> and all its ICPs and cases?
             </p>
             <div className="mt-2 flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setConfirmDeleteId(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={isPending}
-                onClick={() => handleDelete(confirmDeleteId)}
-              >
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+              <Button variant="destructive" size="sm" disabled={isPending} onClick={() => handleDelete(confirmDeleteId)}>
                 {isPending ? "Deleting..." : "Delete"}
               </Button>
             </div>
@@ -170,12 +172,8 @@ export function ProductSelector({
                 <label className="text-xs font-medium text-muted-foreground">Description</label>
                 <Input name="shortDescription" placeholder="Optional" className="mt-1 h-8" />
               </div>
-              <Button type="submit" size="sm" disabled={isPending}>
-                {isPending ? "..." : "Add"}
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setShowAdd(false)}>
-                <X className="h-3.5 w-3.5" />
-              </Button>
+              <Button type="submit" size="sm" disabled={isPending}>{isPending ? "..." : "Add"}</Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowAdd(false)}><X className="h-3.5 w-3.5" /></Button>
             </form>
           </CardContent>
         </Card>
