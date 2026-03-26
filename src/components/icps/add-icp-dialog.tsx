@@ -20,14 +20,16 @@ export function AddIcpDialog({
   productName,
   existingIcps,
   onClose,
+  skipChooseStep = false,
 }: {
   productId: string;
   productName: string;
   existingIcps: ExistingIcp[];
   onClose: () => void;
+  skipChooseStep?: boolean;
 }) {
   const router = useRouter();
-  const [step, setStep] = useState<"choose" | "select">("choose");
+  const [step, setStep] = useState<"choose" | "select">(skipChooseStep ? "select" : "choose");
   const [selectedIcpId, setSelectedIcpId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 

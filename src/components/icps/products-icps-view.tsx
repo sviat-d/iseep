@@ -9,7 +9,6 @@ import { IcpListView } from "@/components/icps/icp-list-view";
 import { AddIcpDialog } from "@/components/icps/add-icp-dialog";
 import { CompanyShareBanner } from "@/components/shared/company-share-dialog";
 import { ContextExportButton } from "@/components/shared/context-export-button";
-import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Link2, Target } from "lucide-react";
 import type { GtmContextPackage } from "@/lib/context-export/types";
 
@@ -73,13 +72,13 @@ export function ProductsIcpsView({
     initialProductId ?? (products.length > 0 ? products[0].id : null)
   );
   const [showAddIcp, setShowAddIcp] = useState(false);
+  const [showExistingIcps, setShowExistingIcps] = useState(false);
 
   const filteredIcps = useMemo(() => {
     if (!selectedProductId) return allIcps;
     return allIcps.filter((icp) => icp.productId === selectedProductId);
   }, [allIcps, selectedProductId]);
 
-  // ICPs NOT linked to this product (for "Use existing" dialog)
   const unlinkedIcps = useMemo(() => {
     if (!selectedProductId) return [];
     const linkedIds = new Set(filteredIcps.map((i) => i.id));
@@ -89,8 +88,14 @@ export function ProductsIcpsView({
   const activeProduct = products.find((p) => p.id === selectedProductId);
 
   return (
-    <div className="space-y-6">
-      <CompanyBlock company={company} />
+    <div className="space-y-4">
+      {/* Company block + Copy full context */}
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <CompanyBlock company={company} />
+        </div>
+        <ContextExportButton context={exportContext} label="Copy full context" />
+      </div>
 
       <ProductSelector
         products={products}
@@ -125,18 +130,10 @@ export function ProductsIcpsView({
         allIcps={filteredIcps.map((i) => ({ id: i.id, name: i.name, status: i.status }))}
       />
 
-      {/* ICP header + actions */}
+      {/* ICP header + actions — compact */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">ICPs</h1>
-          {activeProduct && (
-            <p className="text-muted-foreground">
-              {activeProduct.shortDescription || `Ideal Customer Profiles for ${activeProduct.name}`}
-            </p>
-          )}
-        </div>
+        <h2 className="text-lg font-semibold">ICPs</h2>
         <div className="flex items-center gap-2">
-          <ContextExportButton context={exportContext} label="Copy all ICPs" />
           <Link
             href="/icps/import"
             className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium border border-border bg-background hover:bg-muted hover:text-foreground transition-colors"
@@ -172,32 +169,48 @@ export function ProductsIcpsView({
         />
       )}
 
+      {/* "Use existing" direct list (from empty state) */}
+      {showExistingIcps && selectedProductId && activeProduct && (
+        <AddIcpDialog
+          productId={selectedProductId}
+          productName={activeProduct.name}
+          existingIcps={unlinkedIcps.map((i) => ({
+            id: i.id,
+            name: i.name,
+            status: i.status,
+            productCount: i.productCount,
+          }))}
+          onClose={() => setShowExistingIcps(false)}
+          skipChooseStep
+        />
+      )}
+
       {/* ICP List or empty state */}
       {filteredIcps.length > 0 ? (
         <IcpListView icps={filteredIcps} />
-      ) : (
-        <div className="py-12 text-center">
-          <Target className="mx-auto h-8 w-8 text-muted-foreground/30" />
-          <p className="mt-3 text-sm font-medium">No ICPs yet for this product</p>
+      ) : !showAddIcp && !showExistingIcps && (
+        <div className="py-8 text-center">
+          <Target className="mx-auto h-7 w-7 text-muted-foreground/30" />
+          <p className="mt-2 text-sm font-medium">No ICPs yet for this product</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Create a new ICP or use an existing one from another product.
           </p>
           {selectedProductId && (
-            <div className="mt-4 flex justify-center gap-2">
+            <div className="mt-3 flex justify-center gap-2">
               <Link
                 href={`/icps/new?product=${selectedProductId}`}
-                className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+                className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
               >
-                <Plus className="mr-1.5 h-4 w-4" />
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
                 Create new ICP
               </Link>
               {unlinkedIcps.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setShowAddIcp(true)}
-                  className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+                  onClick={() => setShowExistingIcps(true)}
+                  className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
                 >
-                  <Link2 className="mr-1.5 h-4 w-4" />
+                  <Link2 className="mr-1.5 h-3.5 w-3.5" />
                   Use existing ICP
                 </button>
               )}
