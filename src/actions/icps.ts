@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { icps, criteria, personas, signals, segments, icpSnapshots, deals, productRequests } from "@/db/schema";
+import { icps, criteria, personas, signals, segments, icpSnapshots, deals, productRequests, productIcps } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { getAuthContext } from "@/lib/auth";
 import { icpSchema } from "@/lib/validators";
@@ -28,7 +28,6 @@ export async function createIcp(formData: FormData) {
     .insert(icps)
     .values({
       workspaceId: ctx.workspaceId,
-      productId,
       name: parsed.data.name,
       description: parsed.data.description ?? null,
       status: parsed.data.status,
@@ -36,6 +35,15 @@ export async function createIcp(formData: FormData) {
       createdBy: ctx.userId,
     })
     .returning();
+
+  // Link to product via many-to-many
+  if (productId) {
+    await db.insert(productIcps).values({
+      workspaceId: ctx.workspaceId,
+      productId,
+      icpId: icp.id,
+    });
+  }
 
   redirect(`/icps/${icp.id}`);
 }

@@ -112,6 +112,7 @@ export async function getIcpOverview(workspaceId: string) {
       personaCount: sql<number>`(select count(*) from personas where personas.icp_id = ${icps.id})::int`,
       segmentCount: sql<number>`(select count(*) from segments where segments.icp_id = ${icps.id})::int`,
       evidenceCount: sql<number>`(select count(*) from icp_evidence where icp_evidence.icp_id = ${icps.id})::int`,
+      productCount: sql<number>`(select count(*) from product_icps where product_icps.icp_id = ${icps.id})::int`,
     })
     .from(icps)
     .where(eq(icps.workspaceId, workspaceId))

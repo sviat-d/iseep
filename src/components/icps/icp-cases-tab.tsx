@@ -103,10 +103,12 @@ const outcomeConfig = {
 function AddCaseForm({
   icpId,
   segments,
+  productId,
   onClose,
 }: {
   icpId: string;
   segments: Segment[];
+  productId?: string;
   onClose: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -140,6 +142,7 @@ function AddCaseForm({
       <CardContent className="pt-4">
         <form action={handleSubmit} className="space-y-4">
           <input type="hidden" name="icpId" value={icpId} />
+          {productId && <input type="hidden" name="productId" value={productId} />}
 
           {/* Step 1: Company */}
           <div>
@@ -328,10 +331,12 @@ export function IcpCasesTab({
   icpId,
   cases,
   segments,
+  productId,
 }: {
   icpId: string;
   cases: CaseItem[];
   segments: Segment[];
+  productId?: string;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<"all" | "won" | "lost" | "in_progress">("all");
@@ -412,6 +417,7 @@ export function IcpCasesTab({
         <AddCaseForm
           icpId={icpId}
           segments={segments}
+          productId={productId}
           onClose={() => setShowForm(false)}
         />
       )}

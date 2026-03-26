@@ -6,9 +6,11 @@ import { ProductSelector } from "@/components/icps/product-selector";
 import { IcpProductContext } from "@/components/icps/icp-product-context";
 import { CompanyBlock } from "@/components/icps/company-block";
 import { IcpListView } from "@/components/icps/icp-list-view";
+import { AddIcpDialog } from "@/components/icps/add-icp-dialog";
 import { CompanyShareBanner } from "@/components/shared/company-share-dialog";
 import { ContextExportButton } from "@/components/shared/context-export-button";
-import { Plus, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, FileText, Link2, Target } from "lucide-react";
 import type { GtmContextPackage } from "@/lib/context-export/types";
 
 type CompanyData = {
@@ -38,6 +40,7 @@ type IcpItem = {
   status: string;
   version: number;
   productId: string | null;
+  productCount: number;
   createdAt: Date;
   updatedAt: Date;
   qualifyCount: number;
@@ -69,27 +72,32 @@ export function ProductsIcpsView({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(
     initialProductId ?? (products.length > 0 ? products[0].id : null)
   );
+  const [showAddIcp, setShowAddIcp] = useState(false);
 
   const filteredIcps = useMemo(() => {
     if (!selectedProductId) return allIcps;
     return allIcps.filter((icp) => icp.productId === selectedProductId);
   }, [allIcps, selectedProductId]);
 
+  // ICPs NOT linked to this product (for "Use existing" dialog)
+  const unlinkedIcps = useMemo(() => {
+    if (!selectedProductId) return [];
+    const linkedIds = new Set(filteredIcps.map((i) => i.id));
+    return allIcps.filter((i) => !linkedIds.has(i.id));
+  }, [allIcps, filteredIcps, selectedProductId]);
+
   const activeProduct = products.find((p) => p.id === selectedProductId);
 
   return (
     <div className="space-y-6">
-      {/* Company block — clickable, inline editable */}
       <CompanyBlock company={company} />
 
-      {/* Product Selector */}
       <ProductSelector
         products={products}
         selectedProductId={selectedProductId}
         onSelect={setSelectedProductId}
       />
 
-      {/* Product Context for selected product */}
       {activeProduct && (
         <IcpProductContext
           product={{
@@ -110,7 +118,6 @@ export function ProductsIcpsView({
         />
       )}
 
-      {/* Company Profile Sharing */}
       <CompanyShareBanner
         profileShareToken={wsShare.profileShareToken}
         profileShareMode={wsShare.profileShareMode}
@@ -137,17 +144,67 @@ export function ProductsIcpsView({
             <FileText className="mr-1.5 h-4 w-4" />
             Import
           </Link>
-          <Link
-            href={`/icps/new${selectedProductId ? `?product=${selectedProductId}` : ""}`}
-            className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
-          >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Create ICP
-          </Link>
+          {selectedProductId && (
+            <button
+              type="button"
+              onClick={() => setShowAddIcp(true)}
+              className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add ICP
+            </button>
+          )}
         </div>
       </div>
 
-      <IcpListView icps={filteredIcps} />
+      {/* Add ICP dialog */}
+      {showAddIcp && selectedProductId && activeProduct && (
+        <AddIcpDialog
+          productId={selectedProductId}
+          productName={activeProduct.name}
+          existingIcps={unlinkedIcps.map((i) => ({
+            id: i.id,
+            name: i.name,
+            status: i.status,
+            productCount: i.productCount,
+          }))}
+          onClose={() => setShowAddIcp(false)}
+        />
+      )}
+
+      {/* ICP List or empty state */}
+      {filteredIcps.length > 0 ? (
+        <IcpListView icps={filteredIcps} />
+      ) : (
+        <div className="py-12 text-center">
+          <Target className="mx-auto h-8 w-8 text-muted-foreground/30" />
+          <p className="mt-3 text-sm font-medium">No ICPs yet for this product</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Create a new ICP or use an existing one from another product.
+          </p>
+          {selectedProductId && (
+            <div className="mt-4 flex justify-center gap-2">
+              <Link
+                href={`/icps/new?product=${selectedProductId}`}
+                className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <Plus className="mr-1.5 h-4 w-4" />
+                Create new ICP
+              </Link>
+              {unlinkedIcps.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddIcp(true)}
+                  className="inline-flex items-center rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+                >
+                  <Link2 className="mr-1.5 h-4 w-4" />
+                  Use existing ICP
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

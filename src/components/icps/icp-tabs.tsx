@@ -104,6 +104,7 @@ type IcpTabsProps = {
   };
   snapshots: Snapshot[];
   cases: CaseItem[];
+  currentProductId?: string;
 };
 
 const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
@@ -112,7 +113,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
-export function IcpTabs({ icp, snapshots, cases }: IcpTabsProps) {
+export function IcpTabs({ icp, snapshots, cases, currentProductId }: IcpTabsProps) {
   return (
     <Tabs defaultValue="profile">
       <TabsList variant="line">
@@ -145,6 +146,7 @@ export function IcpTabs({ icp, snapshots, cases }: IcpTabsProps) {
           icpId={icp.id}
           cases={cases}
           segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
+          productId={currentProductId}
         />
       </TabsContent>
 

@@ -26,6 +26,7 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
     return { error: "Invalid outcome" };
   }
 
+  const productId = (formData.get("productId") as string) || null;
   const channel = (formData.get("channel") as string) || null;
   const channelDetail = (formData.get("channelDetail") as string)?.trim() || null;
   const segmentId = (formData.get("segmentId") as string) || null;
@@ -46,6 +47,7 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
   await db.insert(icpEvidence).values({
     workspaceId: ctx.workspaceId,
     icpId,
+    productId,
     companyName,
     companyDomain,
     outcome: outcome as "won" | "lost" | "in_progress",
@@ -77,13 +79,14 @@ export async function deleteCase(caseId: string, icpId: string): Promise<ActionR
   return { success: true };
 }
 
-export async function getCasesForIcp(icpId: string, workspaceId: string) {
+export async function getCasesForIcp(icpId: string, workspaceId: string, productId?: string) {
+  const conditions = [eq(icpEvidence.icpId, icpId), eq(icpEvidence.workspaceId, workspaceId)];
+  if (productId) conditions.push(eq(icpEvidence.productId, productId));
+
   return db
     .select()
     .from(icpEvidence)
-    .where(
-      and(eq(icpEvidence.icpId, icpId), eq(icpEvidence.workspaceId, workspaceId))
-    )
+    .where(and(...conditions))
     .orderBy(icpEvidence.createdAt);
 }
 

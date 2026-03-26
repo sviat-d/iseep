@@ -15,6 +15,7 @@ type IcpRow = {
   qualifyCount: number;
   excludeCount: number;
   personaCount: number;
+  productCount?: number;
   createdAt: Date;
   updatedAt: Date;
 };

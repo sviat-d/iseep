@@ -1,10 +1,21 @@
 import { db } from "@/db";
-import { icps, criteria, personas, signals, segments, icpSnapshots, deals } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { icps, criteria, personas, signals, segments, icpSnapshots, deals, productIcps, products } from "@/db/schema";
+import { eq, and, sql, inArray } from "drizzle-orm";
 
 export async function getIcps(workspaceId: string, productId?: string) {
+  // If productId specified, use join table for many-to-many
+  let icpIds: string[] | null = null;
+  if (productId) {
+    const links = await db
+      .select({ icpId: productIcps.icpId })
+      .from(productIcps)
+      .where(and(eq(productIcps.productId, productId), eq(productIcps.workspaceId, workspaceId)));
+    icpIds = links.map((l) => l.icpId);
+    if (icpIds.length === 0) return [];
+  }
+
   const conditions = [eq(icps.workspaceId, workspaceId)];
-  if (productId) conditions.push(eq(icps.productId, productId));
+  if (icpIds) conditions.push(inArray(icps.id, icpIds));
 
   const result = await db
     .select({
@@ -19,12 +30,27 @@ export async function getIcps(workspaceId: string, productId?: string) {
       qualifyCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'qualify')::int`,
       excludeCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'exclude')::int`,
       personaCount: sql<number>`(select count(*) from personas where personas.icp_id = ${icps.id})::int`,
+      productCount: sql<number>`(select count(*) from product_icps where product_icps.icp_id = ${icps.id})::int`,
     })
     .from(icps)
     .where(and(...conditions))
     .orderBy(sql`${icps.updatedAt} desc`);
 
   return result;
+}
+
+export async function getProductsForIcp(icpId: string, workspaceId: string) {
+  const links = await db
+    .select({ productId: productIcps.productId })
+    .from(productIcps)
+    .where(and(eq(productIcps.icpId, icpId), eq(productIcps.workspaceId, workspaceId)));
+
+  if (links.length === 0) return [];
+
+  return db
+    .select({ id: products.id, name: products.name })
+    .from(products)
+    .where(inArray(products.id, links.map((l) => l.productId)));
 }
 
 export async function getIcp(id: string, workspaceId: string) {
