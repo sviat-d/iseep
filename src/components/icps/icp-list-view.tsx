@@ -37,18 +37,38 @@ function getStoredView(): "table" | "grid" {
   return "table";
 }
 
+const STATUS_OPTIONS = ["all", "draft", "active", "archived"] as const;
+
 export function IcpListView({ icps }: { icps: IcpRow[] }) {
   const stored = useSyncExternalStore(subscribeStorage, getStoredView, () => "table" as const);
   const [view, setView] = useState(stored);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   function handleToggle(next: "table" | "grid") {
     setView(next);
     localStorage.setItem(STORAGE_KEY, next);
   }
 
+  const filteredIcps = statusFilter === "all"
+    ? icps
+    : icps.filter((icp) => icp.status === statusFilter);
+
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
+    <div className="space-y-3">
+      {/* Status filters + view toggle — one line */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1">
+          {STATUS_OPTIONS.map((status) => (
+            <Button
+              key={status}
+              variant={statusFilter === status ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter(status)}
+            >
+              {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
+            </Button>
+          ))}
+        </div>
         <div className="flex gap-1 rounded-lg border p-0.5">
           <Button
             variant={view === "table" ? "default" : "ghost"}
@@ -68,7 +88,7 @@ export function IcpListView({ icps }: { icps: IcpRow[] }) {
           </Button>
         </div>
       </div>
-      {view === "table" ? <IcpTable icps={icps} /> : <IcpCards icps={icps} />}
+      {view === "table" ? <IcpTable icps={filteredIcps} hideStatusFilter /> : <IcpCards icps={filteredIcps} />}
     </div>
   );
 }

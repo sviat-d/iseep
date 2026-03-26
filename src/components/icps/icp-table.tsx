@@ -47,7 +47,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
 
 const STATUS_OPTIONS = ["all", "draft", "active", "archived"] as const;
 
-export function IcpTable({ icps }: { icps: IcpRow[] }) {
+export function IcpTable({ icps, hideStatusFilter = false }: { icps: IcpRow[]; hideStatusFilter?: boolean }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -131,9 +131,9 @@ export function IcpTable({ icps }: { icps: IcpRow[] }) {
   );
 
   const filteredData = useMemo(() => {
-    if (statusFilter === "all") return icps;
+    if (hideStatusFilter || statusFilter === "all") return icps;
     return icps.filter((icp) => icp.status === statusFilter);
-  }, [icps, statusFilter]);
+  }, [icps, statusFilter, hideStatusFilter]);
 
   const table = useReactTable({
     data: filteredData,
@@ -146,19 +146,21 @@ export function IcpTable({ icps }: { icps: IcpRow[] }) {
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1">
-        {STATUS_OPTIONS.map((status) => (
-          <Button
-            key={status}
-            variant={statusFilter === status ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter(status)}
-          >
-            {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
-          </Button>
-        ))}
-      </div>
+    <div className="space-y-3">
+      {!hideStatusFilter && (
+        <div className="flex gap-1">
+          {STATUS_OPTIONS.map((status) => (
+            <Button
+              key={status}
+              variant={statusFilter === status ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter(status)}
+            >
+              {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
+            </Button>
+          ))}
+        </div>
+      )}
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
