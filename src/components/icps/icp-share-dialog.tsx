@@ -83,7 +83,7 @@ export function IcpShareDialog({ icp }: IcpShareDialogProps) {
         Share
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Share ICP Profile</DialogTitle>
             <DialogDescription>
@@ -97,11 +97,11 @@ export function IcpShareDialog({ icp }: IcpShareDialogProps) {
             {/* Mode selector */}
             <div className="space-y-1.5">
               <p className="text-sm font-medium">Sharing mode</p>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => handleModeChange("without_stats")}
-                  className={`flex-1 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                  className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                     shareMode === "without_stats"
                       ? "border-primary bg-primary/5"
                       : "hover:bg-muted/50"
@@ -114,7 +114,7 @@ export function IcpShareDialog({ icp }: IcpShareDialogProps) {
                 <button
                   type="button"
                   onClick={() => handleModeChange("with_stats")}
-                  className={`flex-1 rounded-md border px-3 py-2 text-left text-xs transition-colors ${
+                  className={`rounded-md border px-3 py-2 text-left text-xs transition-colors ${
                     shareMode === "with_stats"
                       ? "border-primary bg-primary/5"
                       : "hover:bg-muted/50"

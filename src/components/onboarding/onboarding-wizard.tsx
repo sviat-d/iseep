@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Target } from "lucide-react";
+import { goBackOnboarding } from "@/actions/onboarding";
 import { OnboardingStepper } from "@/components/onboarding/onboarding-stepper";
 import { StepContext } from "@/components/onboarding/step-context";
 import { StepClarify } from "@/components/onboarding/step-clarify";
@@ -35,7 +38,30 @@ type OnboardingWizardProps = {
 };
 
 export function OnboardingWizard({ step, parsedContext, revealData }: OnboardingWizardProps) {
+  const router = useRouter();
   const currentVisualStep = step + 1;
+
+  // Push history entry per step so browser back works
+  useEffect(() => {
+    window.history.replaceState({ onboardingStep: step }, "");
+
+    function handlePopState(e: PopStateEvent) {
+      const prevStep = e.state?.onboardingStep;
+      if (typeof prevStep === "number" && prevStep < step) {
+        goBackOnboarding(prevStep).then(() => router.refresh());
+      }
+    }
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [step, router]);
+
+  // Push new history entry when step advances
+  useEffect(() => {
+    if (step > 0) {
+      window.history.pushState({ onboardingStep: step }, "");
+    }
+  }, [step]);
 
   return (
     <div className="flex min-h-screen flex-col">

@@ -729,11 +729,14 @@ export function IcpCasesTab({
                     {ucNames.map((name) => (
                       <Badge key={name} variant="secondary" className="text-[10px]">{name}</Badge>
                     ))}
-                    {c.channel && (
+                    {c.channel && c.channel !== "other" && (
                       <Badge variant="secondary" className="text-[10px]">
-                        {c.channel === "in_progress" ? "In progress" : c.channel}
+                        {c.channel}
                         {c.channelDetail && `: ${c.channelDetail}`}
                       </Badge>
+                    )}
+                    {c.channel === "other" && c.channelDetail && (
+                      <Badge variant="secondary" className="text-[10px]">{c.channelDetail}</Badge>
                     )}
                     <span className="text-[10px] text-muted-foreground">
                       {new Date(c.createdAt).toLocaleDateString()}
