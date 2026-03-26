@@ -19,18 +19,13 @@ export default async function IcpsPage({
   if (!ctx) notFound();
 
   const { product: selectedProductId } = await searchParams;
-  const [allProducts, allIcps, wsShare, exportContext] = await Promise.all([
+  const [allProducts, allIcps, wsShare, exportContext, [ws]] = await Promise.all([
     getProducts(ctx.workspaceId),
     getIcps(ctx.workspaceId),
     getWorkspaceShareInfo(ctx.workspaceId),
     buildFullContext(ctx.workspaceId, { product: true, icps: true, scoring: false }),
+    db.select().from(workspaces).where(eq(workspaces.id, ctx.workspaceId)),
   ]);
-
-  // Get workspace for company info
-  const [ws] = await db
-    .select()
-    .from(workspaces)
-    .where(eq(workspaces.id, ctx.workspaceId));
 
   const company = {
     name: ws?.name ?? "Company",

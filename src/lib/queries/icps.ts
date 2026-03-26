@@ -3,21 +3,15 @@ import { icps, criteria, personas, signals, segments, icpSnapshots, deals, produ
 import { eq, and, sql, inArray } from "drizzle-orm";
 
 export async function getIcps(workspaceId: string, productId?: string) {
-  // If productId specified, use join table for many-to-many
-  let icpIds: string[] | null = null;
+  // Single query — use EXISTS for product filter instead of 2 sequential queries
+  const conditions = [eq(icps.workspaceId, workspaceId)];
   if (productId) {
-    const links = await db
-      .select({ icpId: productIcps.icpId })
-      .from(productIcps)
-      .where(and(eq(productIcps.productId, productId), eq(productIcps.workspaceId, workspaceId)));
-    icpIds = links.map((l) => l.icpId);
-    if (icpIds.length === 0) return [];
+    conditions.push(
+      sql`EXISTS (SELECT 1 FROM product_icps pi WHERE pi.icp_id = ${icps.id} AND pi.product_id = ${productId})`
+    );
   }
 
-  const conditions = [eq(icps.workspaceId, workspaceId)];
-  if (icpIds) conditions.push(inArray(icps.id, icpIds));
-
-  const result = await db
+  return db
     .select({
       id: icps.id,
       name: icps.name,
@@ -35,22 +29,19 @@ export async function getIcps(workspaceId: string, productId?: string) {
     .from(icps)
     .where(and(...conditions))
     .orderBy(sql`${icps.updatedAt} desc`);
-
-  return result;
 }
 
 export async function getProductsForIcp(icpId: string, workspaceId: string) {
-  const links = await db
-    .select({ productId: productIcps.productId })
-    .from(productIcps)
-    .where(and(eq(productIcps.icpId, icpId), eq(productIcps.workspaceId, workspaceId)));
-
-  if (links.length === 0) return [];
-
+  // Single JOIN query instead of 2 sequential
   return db
     .select({ id: products.id, name: products.name })
     .from(products)
-    .where(inArray(products.id, links.map((l) => l.productId)));
+    .where(
+      and(
+        eq(products.workspaceId, workspaceId),
+        sql`EXISTS (SELECT 1 FROM product_icps pi WHERE pi.product_id = ${products.id} AND pi.icp_id = ${icpId})`,
+      )
+    );
 }
 
 export async function getIcp(id: string, workspaceId: string) {
@@ -61,44 +52,28 @@ export async function getIcp(id: string, workspaceId: string) {
 
   if (!icp) return null;
 
-  const icpCriteria = await db
-    .select()
-    .from(criteria)
-    .where(and(eq(criteria.icpId, id), eq(criteria.workspaceId, workspaceId)))
-    .orderBy(criteria.group, criteria.category);
-
-  const icpPersonas = await db
-    .select()
-    .from(personas)
-    .where(and(eq(personas.icpId, id), eq(personas.workspaceId, workspaceId)))
-    .orderBy(personas.name);
-
-  const icpSignals = await db
-    .select()
-    .from(signals)
-    .where(and(eq(signals.icpId, id), eq(signals.workspaceId, workspaceId)))
-    .orderBy(signals.type, signals.label);
-
-  const icpSegments = await db
-    .select({
-      id: segments.id,
-      name: segments.name,
-      status: segments.status,
-      priorityScore: segments.priorityScore,
-    })
-    .from(segments)
-    .where(and(eq(segments.icpId, id), eq(segments.workspaceId, workspaceId)))
-    .orderBy(segments.priorityScore);
-
-  const dealStats = await db
-    .select({
+  // All queries in parallel — was 5 sequential, now 1 round trip
+  const [icpCriteria, icpPersonas, icpSignals, icpSegments, dealStatsArr] = await Promise.all([
+    db.select().from(criteria)
+      .where(and(eq(criteria.icpId, id), eq(criteria.workspaceId, workspaceId)))
+      .orderBy(criteria.group, criteria.category),
+    db.select().from(personas)
+      .where(and(eq(personas.icpId, id), eq(personas.workspaceId, workspaceId)))
+      .orderBy(personas.name),
+    db.select().from(signals)
+      .where(and(eq(signals.icpId, id), eq(signals.workspaceId, workspaceId)))
+      .orderBy(signals.type, signals.label),
+    db.select({ id: segments.id, name: segments.name, status: segments.status, priorityScore: segments.priorityScore })
+      .from(segments)
+      .where(and(eq(segments.icpId, id), eq(segments.workspaceId, workspaceId)))
+      .orderBy(segments.priorityScore),
+    db.select({
       total: sql<number>`count(*)::int`,
       won: sql<number>`count(*) filter (where outcome = 'won')::int`,
       lost: sql<number>`count(*) filter (where outcome = 'lost')::int`,
       open: sql<number>`count(*) filter (where outcome = 'open')::int`,
-    })
-    .from(deals)
-    .where(and(eq(deals.icpId, id), eq(deals.workspaceId, workspaceId)));
+    }).from(deals).where(and(eq(deals.icpId, id), eq(deals.workspaceId, workspaceId))),
+  ]);
 
   return {
     ...icp,
@@ -106,7 +81,7 @@ export async function getIcp(id: string, workspaceId: string) {
     personas: icpPersonas,
     signals: icpSignals,
     segments: icpSegments,
-    dealStats: dealStats[0] ?? { total: 0, won: 0, lost: 0, open: 0 },
+    dealStats: dealStatsArr[0] ?? { total: 0, won: 0, lost: 0, open: 0 },
   };
 }
 

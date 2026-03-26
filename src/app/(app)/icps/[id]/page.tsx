@@ -23,17 +23,15 @@ export default async function IcpDetailPage({
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icp, snapshots, exportContext, icpProducts] = await Promise.all([
+  const [icp, snapshots, exportContext, icpProducts, cases] = await Promise.all([
     getIcp(id, ctx.workspaceId),
     getIcpSnapshots(id, ctx.workspaceId),
     buildIcpContext(ctx.workspaceId, id),
     getProductsForIcp(id, ctx.workspaceId),
+    getCasesForIcp(id, ctx.workspaceId, currentProductId ?? undefined),
   ]);
 
   if (!icp) notFound();
-
-  // Cases scoped to current product context
-  const cases = await getCasesForIcp(id, ctx.workspaceId, currentProductId ?? undefined);
 
   // Determine current product for display
   const currentProduct = currentProductId
