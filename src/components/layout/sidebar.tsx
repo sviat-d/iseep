@@ -7,13 +7,14 @@ import {
   Target,
   FileSearch,
   Settings,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/icps", label: "ICPs", icon: Target },
+  { href: "/icps", label: "Product & ICPs", icon: Package },
   { href: "/scoring", label: "Score Leads", icon: FileSearch, badge: "Beta" },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

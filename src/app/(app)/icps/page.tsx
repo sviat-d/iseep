@@ -5,7 +5,7 @@ import { getIcps } from "@/lib/queries/icps";
 import { getProductContext } from "@/lib/queries/product-context";
 import { getWorkspaceShareInfo } from "@/lib/queries/workspace";
 import { IcpListView } from "@/components/icps/icp-list-view";
-import { ProductContextNudge } from "@/components/shared/product-context-nudge";
+import { IcpProductContext } from "@/components/icps/icp-product-context";
 import { CompanyShareBanner } from "@/components/shared/company-share-dialog";
 import { Plus, FileText } from "lucide-react";
 import { buildFullContext } from "@/lib/context-export/builders";
@@ -22,11 +22,23 @@ export default async function IcpsPage() {
     buildFullContext(ctx.workspaceId, { product: true, icps: true, scoring: false }),
   ]);
 
+  const productData = productCtx
+    ? {
+        companyName: productCtx.companyName,
+        productDescription: productCtx.productDescription,
+        coreUseCases: (productCtx.coreUseCases as string[]) ?? [],
+        keyValueProps: (productCtx.keyValueProps as string[]) ?? [],
+        industriesFocus: (productCtx.industriesFocus as string[]) ?? [],
+        geoFocus: (productCtx.geoFocus as string[]) ?? [],
+      }
+    : null;
+
   return (
     <div className="space-y-6">
-      {!productCtx && <ProductContextNudge />}
+      {/* Global Product Context — defines ICPs */}
+      <IcpProductContext product={productData} />
 
-      {/* Company Profile Sharing — prominent banner */}
+      {/* Company Profile Sharing */}
       <CompanyShareBanner
         profileShareToken={wsShare?.profileShareToken ?? null}
         profileShareMode={wsShare?.profileShareMode ?? null}

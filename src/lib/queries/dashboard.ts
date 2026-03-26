@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { icps, segments, deals, scoredUploads, scoredLeads } from "@/db/schema";
+import { icps, segments, deals, scoredUploads, scoredLeads, icpEvidence } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 
 export const MIN_DEALS_FOR_CONFIDENCE = 5;
@@ -95,6 +95,25 @@ export async function getDashboardState(workspaceId: string) {
     scoringRunCount: scoringCount?.count ?? 0,
     dealCount: dealCount?.count ?? 0,
   };
+}
+
+export async function getIcpOverview(workspaceId: string) {
+  return db
+    .select({
+      id: icps.id,
+      name: icps.name,
+      status: icps.status,
+      version: icps.version,
+      updatedAt: icps.updatedAt,
+      qualifyCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'qualify')::int`,
+      excludeCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'exclude')::int`,
+      personaCount: sql<number>`(select count(*) from personas where personas.icp_id = ${icps.id})::int`,
+      segmentCount: sql<number>`(select count(*) from segments where segments.icp_id = ${icps.id})::int`,
+      evidenceCount: sql<number>`(select count(*) from icp_evidence where icp_evidence.icp_id = ${icps.id})::int`,
+    })
+    .from(icps)
+    .where(eq(icps.workspaceId, workspaceId))
+    .orderBy(sql`${icps.updatedAt} desc`);
 }
 
 export async function getLatestScoringRun(workspaceId: string) {

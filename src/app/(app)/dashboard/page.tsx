@@ -3,13 +3,7 @@ import { getAuthContext } from "@/lib/auth";
 import { db } from "@/db";
 import { workspaces, icps, criteria, personas } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
-import {
-  getDashboardState,
-  getDashboardStats,
-  getIcpHealth,
-  getRecentActivity,
-  getLatestScoringRun,
-} from "@/lib/queries/dashboard";
+import { getIcpOverview } from "@/lib/queries/dashboard";
 import { getProductContext } from "@/lib/queries/product-context";
 import { getRecentActivity as getActivityEvents } from "@/lib/queries/activity";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
@@ -44,7 +38,6 @@ export default async function DashboardPage() {
       const productCtx = await getProductContext(ctx.workspaceId);
       const { inArray } = await import("drizzle-orm");
 
-      // Get ALL active ICPs
       const activeIcps = await db
         .select()
         .from(icps)
@@ -100,26 +93,16 @@ export default async function DashboardPage() {
     }
   }
 
-  // Step 3+ = onboarding complete, show normal dashboard
-  // Normal dashboard
-  const [state, stats, icpHealth, latestRun, recentActivity, productCtx, activityEvents] =
-    await Promise.all([
-      getDashboardState(ctx.workspaceId),
-      getDashboardStats(ctx.workspaceId),
-      getIcpHealth(ctx.workspaceId),
-      getLatestScoringRun(ctx.workspaceId),
-      getRecentActivity(ctx.workspaceId),
-      getProductContext(ctx.workspaceId),
-      getActivityEvents(ctx.workspaceId),
-    ]);
+  // Onboarding complete — ICP-focused dashboard
+  const [icpOverview, productCtx, activityEvents] = await Promise.all([
+    getIcpOverview(ctx.workspaceId),
+    getProductContext(ctx.workspaceId),
+    getActivityEvents(ctx.workspaceId),
+  ]);
 
   return (
     <DashboardView
-      state={state}
-      stats={stats}
-      icpHealth={icpHealth}
-      latestRun={latestRun}
-      recentActivity={recentActivity}
+      icps={icpOverview}
       hasProductContext={productCtx !== null}
       activityEvents={activityEvents}
       currentUserId={ctx.userId}
