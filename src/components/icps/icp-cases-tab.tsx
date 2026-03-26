@@ -17,6 +17,7 @@ import {
   Briefcase,
 } from "lucide-react";
 import { addCase, deleteCase } from "@/actions/evidence";
+import { createUseCase } from "@/actions/use-cases";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ type CaseItem = {
   companyDomain: string | null;
   outcome: string;
   segmentId: string | null;
+  useCaseId: string | null;
   channel: string | null;
   channelDetail: string | null;
   reasonTags: unknown;
@@ -35,6 +37,11 @@ type CaseItem = {
 };
 
 type Segment = {
+  id: string;
+  name: string;
+};
+
+type UseCase = {
   id: string;
   name: string;
 };
@@ -104,15 +111,20 @@ function AddCaseForm({
   icpId,
   segments,
   productId,
+  useCases,
   onClose,
 }: {
   icpId: string;
   segments: Segment[];
   productId?: string;
+  useCases: UseCase[];
   onClose: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [outcome, setOutcome] = useState<string>("");
+  const [selectedUseCaseId, setSelectedUseCaseId] = useState<string>("");
+  const [useCaseSearch, setUseCaseSearch] = useState("");
+  const [localUseCases, setLocalUseCases] = useState(useCases);
   const [channel, setChannel] = useState<string>("");
   const [selectedSegment, setSelectedSegment] = useState<string>("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -128,6 +140,7 @@ function AddCaseForm({
     formData.set("outcome", outcome);
     formData.set("channel", channel);
     formData.set("segmentId", selectedSegment);
+    formData.set("useCaseId", selectedUseCaseId);
     formData.set("reasonTags", selectedTags.join(","));
     startTransition(async () => {
       await addCase(formData);
@@ -210,6 +223,85 @@ function AddCaseForm({
               </div>
             </div>
           )}
+
+          {/* Use Case — select or create */}
+          {(localUseCases.length > 0 || useCaseSearch) ? (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Use case</label>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {localUseCases
+                  .filter((uc) => !useCaseSearch || uc.name.toLowerCase().includes(useCaseSearch.toLowerCase()))
+                  .map((uc) => (
+                    <button
+                      key={uc.id}
+                      type="button"
+                      onClick={() => setSelectedUseCaseId(selectedUseCaseId === uc.id ? "" : uc.id)}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        selectedUseCaseId === uc.id
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {uc.name}
+                    </button>
+                  ))}
+              </div>
+              <div className="mt-1.5 flex gap-1.5">
+                <Input
+                  value={useCaseSearch}
+                  onChange={(e) => setUseCaseSearch(e.target.value)}
+                  placeholder="Search or create new..."
+                  className="h-7 text-xs flex-1"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && useCaseSearch.trim()) {
+                      e.preventDefault();
+                      const trimmed = useCaseSearch.trim();
+                      startTransition(async () => {
+                        if (!productId) return;
+                        const result = await createUseCase(productId, trimmed);
+                        if (result.success && result.useCaseId) {
+                          setLocalUseCases((prev) => {
+                            if (prev.some((uc) => uc.id === result.useCaseId)) return prev;
+                            return [...prev, { id: result.useCaseId!, name: trimmed }];
+                          });
+                          setSelectedUseCaseId(result.useCaseId);
+                          setUseCaseSearch("");
+                        }
+                      });
+                    }
+                  }}
+                />
+                {useCaseSearch.trim() && !localUseCases.some((uc) => uc.name.toLowerCase() === useCaseSearch.trim().toLowerCase()) && (
+                  <button
+                    type="button"
+                    className="rounded border border-dashed px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                    onClick={() => {
+                      const trimmed = useCaseSearch.trim();
+                      startTransition(async () => {
+                        if (!productId) return;
+                        const result = await createUseCase(productId, trimmed);
+                        if (result.success && result.useCaseId) {
+                          setLocalUseCases((prev) => [...prev, { id: result.useCaseId!, name: trimmed }]);
+                          setSelectedUseCaseId(result.useCaseId);
+                          setUseCaseSearch("");
+                        }
+                      });
+                    }}
+                  >
+                    + Create &ldquo;{useCaseSearch.trim()}&rdquo;
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : productId ? (
+            <button
+              type="button"
+              onClick={() => setUseCaseSearch(" ")}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              + Add use case (optional)
+            </button>
+          ) : null}
 
           {/* Step 4: Channel */}
           <div>
@@ -332,14 +424,17 @@ export function IcpCasesTab({
   cases,
   segments,
   productId,
+  useCases = [],
 }: {
   icpId: string;
   cases: CaseItem[];
   segments: Segment[];
   productId?: string;
+  useCases?: UseCase[];
 }) {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState<"all" | "won" | "lost" | "in_progress">("all");
+  const [useCaseFilter, setUseCaseFilter] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
   const counts = {
@@ -348,10 +443,13 @@ export function IcpCasesTab({
     in_progress: cases.filter((c) => c.outcome === "in_progress").length,
   };
 
-  const filtered = filter === "all" ? cases : cases.filter((c) => c.outcome === filter);
+  const filtered = cases
+    .filter((c) => filter === "all" || c.outcome === filter)
+    .filter((c) => !useCaseFilter || c.useCaseId === useCaseFilter);
 
   // Build segment name lookup
   const segmentMap = new Map(segments.map((s) => [s.id, s.name]));
+  const useCaseMap = new Map(useCases.map((uc) => [uc.id, uc.name]));
 
   function handleDelete(caseId: string) {
     startTransition(async () => {
@@ -404,6 +502,33 @@ export function IcpCasesTab({
         )}
       </div>
 
+      {/* Use case filter */}
+      {useCases.length > 0 && cases.some((c) => c.useCaseId) && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setUseCaseFilter("")}
+            className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+              !useCaseFilter ? "bg-muted text-foreground" : "text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            All use cases
+          </button>
+          {useCases.filter((uc) => cases.some((c) => c.useCaseId === uc.id)).map((uc) => (
+            <button
+              key={uc.id}
+              type="button"
+              onClick={() => setUseCaseFilter(useCaseFilter === uc.id ? "" : uc.id)}
+              className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                useCaseFilter === uc.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {uc.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Add case button */}
       {!showForm && (
         <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
@@ -418,6 +543,7 @@ export function IcpCasesTab({
           icpId={icpId}
           segments={segments}
           productId={productId}
+          useCases={useCases}
           onClose={() => setShowForm(false)}
         />
       )}
@@ -440,6 +566,7 @@ export function IcpCasesTab({
             const cfg = outcomeConfig[c.outcome as keyof typeof outcomeConfig] ?? outcomeConfig.in_progress;
             const Icon = cfg.icon;
             const segName = c.segmentId ? segmentMap.get(c.segmentId) : null;
+            const ucName = c.useCaseId ? useCaseMap.get(c.useCaseId) : null;
 
             return (
               <div key={c.id} className="flex items-start gap-3 rounded-lg border px-4 py-3">
@@ -449,6 +576,9 @@ export function IcpCasesTab({
                     <span className="text-sm font-medium">{c.companyName}</span>
                     {segName && (
                       <Badge variant="outline" className="text-[10px]">{segName}</Badge>
+                    )}
+                    {ucName && (
+                      <Badge variant="secondary" className="text-[10px]">{ucName}</Badge>
                     )}
                     {c.channel && (
                       <Badge variant="secondary" className="text-[10px]">

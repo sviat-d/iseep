@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getIcp, getIcpSnapshots, getProductsForIcp } from "@/lib/queries/icps";
 import { getCasesForIcp } from "@/actions/evidence";
+import { getUseCasesForProduct } from "@/actions/use-cases";
 import { IcpTabs } from "@/components/icps/icp-tabs";
 import { IcpDeleteDialog } from "@/components/icps/icp-delete-dialog";
 import { IcpEditDialog } from "@/components/icps/icp-edit-dialog";
@@ -33,10 +34,14 @@ export default async function IcpDetailPage({
 
   if (!icp) notFound();
 
-  // Determine current product for display
+  // Determine current product + fetch its use cases
   const currentProduct = currentProductId
     ? icpProducts.find((p) => p.id === currentProductId)
     : icpProducts[0] ?? null;
+
+  const useCases = currentProduct
+    ? await getUseCasesForProduct(currentProduct.id, ctx.workspaceId)
+    : [];
   const otherProducts = icpProducts.filter((p) => p.id !== currentProduct?.id);
 
   return (
@@ -86,6 +91,7 @@ export default async function IcpDetailPage({
         snapshots={snapshots}
         cases={cases}
         currentProductId={currentProductId ?? currentProduct?.id}
+        useCases={useCases.map((uc) => ({ id: uc.id, name: uc.name }))}
       />
     </div>
   );

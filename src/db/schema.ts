@@ -120,6 +120,22 @@ export const products = pgTable("products", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── D0b. Product Use Cases ──────────────────────────────────────────────────
+
+export const productUseCases = pgTable("product_use_cases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  productId: uuid("product_id")
+    .references(() => products.id)
+    .notNull(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [unique("product_use_cases_product_norm").on(table.productId, table.normalizedName)]);
+
 // ─── D1. Product-ICP Links (many-to-many) ───────────────────────────────────
 
 export const productIcps = pgTable("product_icps", {
@@ -533,6 +549,7 @@ export const icpEvidence = pgTable("icp_evidence", {
     .references(() => icps.id)
     .notNull(),
   productId: uuid("product_id").references(() => products.id), // product-specific cases
+  useCaseId: uuid("use_case_id").references(() => productUseCases.id),
   companyName: text("company_name").notNull(),
   companyDomain: text("company_domain"),
   outcome: text("outcome", { enum: ["won", "lost", "in_progress"] }).notNull(),

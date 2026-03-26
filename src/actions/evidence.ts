@@ -27,6 +27,7 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
   }
 
   const productId = (formData.get("productId") as string) || null;
+  const useCaseId = (formData.get("useCaseId") as string) || null;
   const channel = (formData.get("channel") as string) || null;
   const channelDetail = (formData.get("channelDetail") as string)?.trim() || null;
   const segmentId = (formData.get("segmentId") as string) || null;
@@ -48,6 +49,7 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
     workspaceId: ctx.workspaceId,
     icpId,
     productId,
+    useCaseId,
     companyName,
     companyDomain,
     outcome: outcome as "won" | "lost" | "in_progress",

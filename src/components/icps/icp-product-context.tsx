@@ -18,6 +18,7 @@ type ProductData = {
   keyValueProps: string[];
   pricingModel?: string | null;
   avgTicket?: string | null;
+  useCases?: Array<{ id: string; name: string }>;
 };
 
 export function IcpProductContext({
@@ -102,6 +103,16 @@ export function IcpProductContext({
                     <div className="flex flex-wrap gap-1">
                       {product.keyValueProps.map((vp) => (
                         <Badge key={vp} variant="outline" className="text-[10px]">{vp}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {product.useCases && product.useCases.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Use cases</p>
+                    <div className="flex flex-wrap gap-1">
+                      {product.useCases.map((uc) => (
+                        <Badge key={uc.id} variant="secondary" className="text-[10px]">{uc.name}</Badge>
                       ))}
                     </div>
                   </div>

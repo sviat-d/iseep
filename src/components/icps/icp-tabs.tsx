@@ -67,6 +67,7 @@ type CaseItem = {
   companyDomain: string | null;
   outcome: string;
   segmentId: string | null;
+  useCaseId: string | null;
   channel: string | null;
   channelDetail: string | null;
   reasonTags: unknown;
@@ -105,6 +106,7 @@ type IcpTabsProps = {
   snapshots: Snapshot[];
   cases: CaseItem[];
   currentProductId?: string;
+  useCases?: Array<{ id: string; name: string }>;
 };
 
 const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
@@ -113,7 +115,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
-export function IcpTabs({ icp, snapshots, cases, currentProductId }: IcpTabsProps) {
+export function IcpTabs({ icp, snapshots, cases, currentProductId, useCases = [] }: IcpTabsProps) {
   return (
     <Tabs defaultValue="profile">
       <TabsList variant="line">
@@ -147,6 +149,7 @@ export function IcpTabs({ icp, snapshots, cases, currentProductId }: IcpTabsProp
           cases={cases}
           segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
           productId={currentProductId}
+          useCases={useCases}
         />
       </TabsContent>
 

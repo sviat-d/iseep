@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth";
 import { getIcps } from "@/lib/queries/icps";
 import { getWorkspaceShareInfo } from "@/lib/queries/workspace";
 import { getProducts } from "@/actions/products";
+import { getUseCasesForProduct } from "@/actions/use-cases";
 import { ProductsIcpsView } from "@/components/icps/products-icps-view";
 import { ProductSelector } from "@/components/icps/product-selector";
 import { buildFullContext } from "@/lib/context-export/builders";
@@ -51,7 +52,12 @@ export default async function IcpsPage({
     );
   }
 
-  const productsData = allProducts.map((p) => ({
+  // Fetch use cases for all products in parallel
+  const allUseCases = await Promise.all(
+    allProducts.map((p) => getUseCasesForProduct(p.id, ctx.workspaceId))
+  );
+
+  const productsData = allProducts.map((p, i) => ({
     id: p.id,
     name: p.name,
     shortDescription: p.shortDescription,
@@ -60,6 +66,7 @@ export default async function IcpsPage({
     keyValueProps: (p.keyValueProps as string[]) ?? [],
     pricingModel: p.pricingModel,
     avgTicket: p.avgTicket,
+    useCases: allUseCases[i].map((uc) => ({ id: uc.id, name: uc.name })),
   }));
 
   const initialProductId =
