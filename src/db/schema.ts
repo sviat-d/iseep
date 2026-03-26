@@ -480,7 +480,7 @@ export const rejectedIcps = pgTable("rejected_icps", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// ─── W. ICP Evidence (Feedback Loop) ──────────────────────────────────────
+// ─── W. ICP Cases (ICP Learning Loop) ─────────────────────────────────────
 
 export const icpEvidence = pgTable("icp_evidence", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -491,11 +491,16 @@ export const icpEvidence = pgTable("icp_evidence", {
     .references(() => icps.id)
     .notNull(),
   companyName: text("company_name").notNull(),
-  outcome: text("outcome", { enum: ["won", "lost"] }).notNull(),
+  companyDomain: text("company_domain"),
+  outcome: text("outcome", { enum: ["won", "lost", "in_progress"] }).notNull(),
+  segmentId: uuid("segment_id").references(() => segments.id),
+  channel: text("channel", { enum: ["linkedin", "conference", "referral", "inbound", "other"] }),
+  channelDetail: text("channel_detail"),
   reasonTags: jsonb("reason_tags").default([]).notNull(), // string[]
+  hypothesis: text("hypothesis"),
   note: text("note"),
-  industry: text("industry"),
-  region: text("region"),
+  industry: text("industry"), // legacy, kept for backward compat
+  region: text("region"), // legacy, kept for backward compat
   date: timestamp("date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

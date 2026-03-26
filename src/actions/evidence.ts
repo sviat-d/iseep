@@ -7,62 +7,77 @@ import { icpEvidence } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import type { ActionResult } from "@/lib/types";
 
-export async function addEvidence(formData: FormData): Promise<ActionResult> {
+const VALID_OUTCOMES = ["won", "lost", "in_progress"] as const;
+const VALID_CHANNELS = ["linkedin", "conference", "referral", "inbound", "other"] as const;
+
+export async function addCase(formData: FormData): Promise<ActionResult> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
 
   const icpId = formData.get("icpId") as string;
   const companyName = (formData.get("companyName") as string)?.trim();
   const outcome = formData.get("outcome") as string;
-  const note = (formData.get("note") as string)?.trim() || null;
-  const industry = (formData.get("industry") as string)?.trim() || null;
-  const region = (formData.get("region") as string)?.trim() || null;
-  const dateStr = formData.get("date") as string;
-  const tagsRaw = formData.get("reasonTags") as string;
 
   if (!icpId || !companyName || !outcome) {
     return { error: "Company name and outcome are required" };
   }
 
-  if (outcome !== "won" && outcome !== "lost") {
-    return { error: "Outcome must be won or lost" };
+  if (!VALID_OUTCOMES.includes(outcome as typeof VALID_OUTCOMES[number])) {
+    return { error: "Invalid outcome" };
   }
+
+  const channel = (formData.get("channel") as string) || null;
+  const channelDetail = (formData.get("channelDetail") as string)?.trim() || null;
+  const segmentId = (formData.get("segmentId") as string) || null;
+  const hypothesis = (formData.get("hypothesis") as string)?.trim() || null;
+  const note = (formData.get("note") as string)?.trim() || null;
+  const tagsRaw = formData.get("reasonTags") as string;
 
   const reasonTags = tagsRaw
     ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean)
     : [];
 
+  // Extract domain from company name if it looks like a URL
+  let companyDomain: string | null = null;
+  if (companyName.includes(".")) {
+    companyDomain = companyName.replace(/^https?:\/\//, "").replace(/\/.*$/, "").toLowerCase();
+  }
+
   await db.insert(icpEvidence).values({
     workspaceId: ctx.workspaceId,
     icpId,
     companyName,
-    outcome,
+    companyDomain,
+    outcome: outcome as "won" | "lost" | "in_progress",
+    segmentId: segmentId || null,
+    channel: channel && VALID_CHANNELS.includes(channel as typeof VALID_CHANNELS[number])
+      ? (channel as "linkedin" | "conference" | "referral" | "inbound" | "other")
+      : null,
+    channelDetail,
     reasonTags,
+    hypothesis,
     note,
-    industry,
-    region,
-    date: dateStr ? new Date(dateStr) : null,
   });
 
   revalidatePath(`/icps/${icpId}`);
   return { success: true };
 }
 
-export async function deleteEvidence(evidenceId: string, icpId: string): Promise<ActionResult> {
+export async function deleteCase(caseId: string, icpId: string): Promise<ActionResult> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
 
   await db
     .delete(icpEvidence)
     .where(
-      and(eq(icpEvidence.id, evidenceId), eq(icpEvidence.workspaceId, ctx.workspaceId))
+      and(eq(icpEvidence.id, caseId), eq(icpEvidence.workspaceId, ctx.workspaceId))
     );
 
   revalidatePath(`/icps/${icpId}`);
   return { success: true };
 }
 
-export async function getEvidenceForIcp(icpId: string, workspaceId: string) {
+export async function getCasesForIcp(icpId: string, workspaceId: string) {
   return db
     .select()
     .from(icpEvidence)
@@ -71,3 +86,8 @@ export async function getEvidenceForIcp(icpId: string, workspaceId: string) {
     )
     .orderBy(icpEvidence.createdAt);
 }
+
+// Keep old names as aliases for backward compatibility
+export const addEvidence = addCase;
+export const deleteEvidence = deleteCase;
+export const getEvidenceForIcp = getCasesForIcp;

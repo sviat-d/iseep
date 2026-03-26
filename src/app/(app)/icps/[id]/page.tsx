@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getIcp, getIcpSnapshots } from "@/lib/queries/icps";
-import { getEvidenceForIcp } from "@/actions/evidence";
+import { getCasesForIcp } from "@/actions/evidence";
 import { IcpTabs } from "@/components/icps/icp-tabs";
 import { IcpDeleteDialog } from "@/components/icps/icp-delete-dialog";
 import { IcpEditDialog } from "@/components/icps/icp-edit-dialog";
@@ -19,11 +19,11 @@ export default async function IcpDetailPage({
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icp, snapshots, exportContext, evidence] = await Promise.all([
+  const [icp, snapshots, exportContext, cases] = await Promise.all([
     getIcp(id, ctx.workspaceId),
     getIcpSnapshots(id, ctx.workspaceId),
     buildIcpContext(ctx.workspaceId, id),
-    getEvidenceForIcp(id, ctx.workspaceId),
+    getCasesForIcp(id, ctx.workspaceId),
   ]);
 
   if (!icp) notFound();
@@ -49,7 +49,7 @@ export default async function IcpDetailPage({
         </div>
       </div>
 
-      <IcpTabs icp={icp} snapshots={snapshots} evidence={evidence} />
+      <IcpTabs icp={icp} snapshots={snapshots} cases={cases} />
     </div>
   );
 }

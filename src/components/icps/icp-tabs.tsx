@@ -12,7 +12,7 @@ import { CriteriaGroupedList } from "@/components/criteria/criteria-grouped-list
 import { PersonaList } from "@/components/personas/persona-list";
 import { SignalList } from "@/components/signals/signal-list";
 import { IcpVersionHistory } from "@/components/icps/icp-version-history";
-import { IcpFeedbackTab } from "@/components/icps/icp-feedback-tab";
+import { IcpCasesTab } from "@/components/icps/icp-cases-tab";
 
 type Criterion = {
   id: string;
@@ -61,15 +61,17 @@ type Segment = {
   priorityScore: number;
 };
 
-type EvidenceItem = {
+type CaseItem = {
   id: string;
   companyName: string;
+  companyDomain: string | null;
   outcome: string;
+  segmentId: string | null;
+  channel: string | null;
+  channelDetail: string | null;
   reasonTags: unknown;
+  hypothesis: string | null;
   note: string | null;
-  industry: string | null;
-  region: string | null;
-  date: Date | null;
   createdAt: Date;
 };
 
@@ -101,7 +103,7 @@ type IcpTabsProps = {
     dealStats: { total: number; won: number; lost: number; open: number };
   };
   snapshots: Snapshot[];
-  evidence: EvidenceItem[];
+  cases: CaseItem[];
 };
 
 const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
@@ -110,7 +112,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
-export function IcpTabs({ icp, snapshots, evidence }: IcpTabsProps) {
+export function IcpTabs({ icp, snapshots, cases }: IcpTabsProps) {
   return (
     <Tabs defaultValue="profile">
       <TabsList variant="line">
@@ -118,7 +120,7 @@ export function IcpTabs({ icp, snapshots, evidence }: IcpTabsProps) {
         <TabsTrigger value="personas">Personas</TabsTrigger>
         <TabsTrigger value="signals">Signals</TabsTrigger>
         <TabsTrigger value="segments">Segments</TabsTrigger>
-        <TabsTrigger value="feedback">Feedback</TabsTrigger>
+        <TabsTrigger value="cases">Cases</TabsTrigger>
         <TabsTrigger value="history">Versions</TabsTrigger>
       </TabsList>
 
@@ -138,8 +140,12 @@ export function IcpTabs({ icp, snapshots, evidence }: IcpTabsProps) {
         <SegmentsTab segments={icp.segments} icpId={icp.id} />
       </TabsContent>
 
-      <TabsContent value="feedback" className="pt-4">
-        <IcpFeedbackTab icpId={icp.id} evidence={evidence} />
+      <TabsContent value="cases" className="pt-4">
+        <IcpCasesTab
+          icpId={icp.id}
+          cases={cases}
+          segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
+        />
       </TabsContent>
 
       <TabsContent value="history" className="pt-4">
