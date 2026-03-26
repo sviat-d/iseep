@@ -523,14 +523,14 @@ export function AiSettingsForm({
         </CardContent>
       </Card>
 
-      {/* Link to product settings */}
+      {/* Link to products & ICPs */}
       <div className="text-center text-sm text-muted-foreground">
-        Looking for product context?{" "}
+        Looking for company or product info?{" "}
         <Link
-          href="/settings/product"
+          href="/icps"
           className="underline underline-offset-2 hover:text-foreground"
         >
-          Configure product settings
+          Go to Products &amp; ICPs
         </Link>
       </div>
     </div>
