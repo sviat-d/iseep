@@ -68,6 +68,7 @@ type CaseItem = {
   outcome: string;
   segmentId: string | null;
   useCaseId: string | null;
+  useCaseIds: unknown;
   channel: string | null;
   channelDetail: string | null;
   reasonTags: unknown;

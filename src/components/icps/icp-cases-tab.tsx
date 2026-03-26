@@ -29,6 +29,7 @@ type CaseItem = {
   outcome: string;
   segmentId: string | null;
   useCaseId: string | null;
+  useCaseIds: unknown;
   channel: string | null;
   channelDetail: string | null;
   reasonTags: unknown;
@@ -123,7 +124,7 @@ function AddCaseForm({
 }) {
   const [isPending, startTransition] = useTransition();
   const [outcome, setOutcome] = useState<string>("");
-  const [selectedUseCaseId, setSelectedUseCaseId] = useState<string>("");
+  const [selectedUseCaseIds, setSelectedUseCaseIds] = useState<string[]>([]);
   const [useCaseSearch, setUseCaseSearch] = useState("");
   const [localUseCases, setLocalUseCases] = useState(useCases);
   const [channel, setChannel] = useState<string>("");
@@ -141,7 +142,7 @@ function AddCaseForm({
     formData.set("outcome", outcome);
     formData.set("channel", channel);
     formData.set("segmentId", selectedSegment);
-    formData.set("useCaseId", selectedUseCaseId);
+    formData.set("useCaseIds", selectedUseCaseIds.join(","));
     formData.set("reasonTags", selectedTags.join(","));
     startTransition(async () => {
       await addCase(formData);
@@ -236,9 +237,11 @@ function AddCaseForm({
                     <button
                       key={uc.id}
                       type="button"
-                      onClick={() => setSelectedUseCaseId(selectedUseCaseId === uc.id ? "" : uc.id)}
+                      onClick={() => setSelectedUseCaseIds((prev) =>
+                        prev.includes(uc.id) ? prev.filter((id) => id !== uc.id) : [...prev, uc.id]
+                      )}
                       className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                        selectedUseCaseId === uc.id
+                        selectedUseCaseIds.includes(uc.id)
                           ? "bg-primary text-primary-foreground border-primary"
                           : "border-border text-muted-foreground hover:bg-muted"
                       }`}
@@ -265,7 +268,7 @@ function AddCaseForm({
                             if (prev.some((uc) => uc.id === result.useCaseId)) return prev;
                             return [...prev, { id: result.useCaseId!, name: trimmed }];
                           });
-                          setSelectedUseCaseId(result.useCaseId);
+                          setSelectedUseCaseIds((prev) => [...prev, result.useCaseId!]);
                           setUseCaseSearch("");
                         }
                       });
@@ -283,7 +286,7 @@ function AddCaseForm({
                         const result = await createUseCase(productId, trimmed);
                         if (result.success && result.useCaseId) {
                           setLocalUseCases((prev) => [...prev, { id: result.useCaseId!, name: trimmed }]);
-                          setSelectedUseCaseId(result.useCaseId);
+                          setSelectedUseCaseIds((prev) => [...prev, result.useCaseId!]);
                           setUseCaseSearch("");
                         }
                       });
@@ -297,7 +300,7 @@ function AddCaseForm({
           ) : productId ? (
             <button
               type="button"
-              onClick={() => setUseCaseSearch(" ")}
+              onClick={() => setUseCaseSearch("")}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               + Add use case (optional)
@@ -441,7 +444,8 @@ function EditCaseInline({
   const tags = Array.isArray(caseItem.reasonTags) ? (caseItem.reasonTags as string[]) : [];
   const [outcome, setOutcome] = useState(caseItem.outcome);
   const [selectedTags, setSelectedTags] = useState<string[]>(tags);
-  const [selectedUseCaseId, setSelectedUseCaseId] = useState(caseItem.useCaseId ?? "");
+  const existingUcIds = Array.isArray(caseItem.useCaseIds) ? (caseItem.useCaseIds as string[]) : caseItem.useCaseId ? [caseItem.useCaseId] : [];
+  const [selectedUseCaseIds, setSelectedUseCaseIds] = useState<string[]>(existingUcIds);
   const [channel, setChannel] = useState(caseItem.channel ?? "");
   const [selectedSegment, setSelectedSegment] = useState(caseItem.segmentId ?? "");
 
@@ -453,7 +457,7 @@ function EditCaseInline({
     formData.set("outcome", outcome);
     formData.set("channel", channel);
     formData.set("segmentId", selectedSegment);
-    formData.set("useCaseId", selectedUseCaseId);
+    formData.set("useCaseIds", selectedUseCaseIds.join(","));
     formData.set("reasonTags", selectedTags.join(","));
     startTransition(async () => {
       await updateCase(caseItem.id, icpId, formData);
@@ -505,8 +509,8 @@ function EditCaseInline({
               <label className="text-xs font-medium text-muted-foreground">Use case</label>
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {useCases.map((uc) => (
-                  <button key={uc.id} type="button" onClick={() => setSelectedUseCaseId(selectedUseCaseId === uc.id ? "" : uc.id)}
-                    className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${selectedUseCaseId === uc.id ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                  <button key={uc.id} type="button" onClick={() => setSelectedUseCaseIds((prev) => prev.includes(uc.id) ? prev.filter((id) => id !== uc.id) : [...prev, uc.id])}
+                    className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${selectedUseCaseIds.includes(uc.id) ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
                     {uc.name}
                   </button>
                 ))}
@@ -696,7 +700,8 @@ export function IcpCasesTab({
             const cfg = outcomeConfig[c.outcome as keyof typeof outcomeConfig] ?? outcomeConfig.in_progress;
             const Icon = cfg.icon;
             const segName = c.segmentId ? segmentMap.get(c.segmentId) : null;
-            const ucName = c.useCaseId ? useCaseMap.get(c.useCaseId) : null;
+            const ucIds = Array.isArray(c.useCaseIds) ? (c.useCaseIds as string[]) : c.useCaseId ? [c.useCaseId] : [];
+            const ucNames = ucIds.map((id) => useCaseMap.get(id)).filter(Boolean) as string[];
 
             if (editingCaseId === c.id) {
               return (
@@ -721,9 +726,9 @@ export function IcpCasesTab({
                     {segName && (
                       <Badge variant="outline" className="text-[10px]">{segName}</Badge>
                     )}
-                    {ucName && (
-                      <Badge variant="secondary" className="text-[10px]">{ucName}</Badge>
-                    )}
+                    {ucNames.map((name) => (
+                      <Badge key={name} variant="secondary" className="text-[10px]">{name}</Badge>
+                    ))}
                     {c.channel && (
                       <Badge variant="secondary" className="text-[10px]">
                         {c.channel === "in_progress" ? "In progress" : c.channel}

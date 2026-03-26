@@ -27,7 +27,8 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
   }
 
   const productId = (formData.get("productId") as string) || null;
-  const useCaseId = (formData.get("useCaseId") as string) || null;
+  const useCaseIdsRaw = (formData.get("useCaseIds") as string) || "";
+  const useCaseIds = useCaseIdsRaw ? useCaseIdsRaw.split(",").filter(Boolean) : [];
   const channel = (formData.get("channel") as string) || null;
   const channelDetail = (formData.get("channelDetail") as string)?.trim() || null;
   const segmentId = (formData.get("segmentId") as string) || null;
@@ -49,7 +50,7 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
     workspaceId: ctx.workspaceId,
     icpId,
     productId,
-    useCaseId,
+    useCaseIds,
     companyName,
     companyDomain,
     outcome: outcome as "won" | "lost" | "in_progress",
@@ -75,7 +76,8 @@ export async function updateCase(caseId: string, icpId: string, formData: FormDa
   const outcome = formData.get("outcome") as string;
   if (!companyName || !outcome) return { error: "Company and outcome are required" };
 
-  const useCaseId = (formData.get("useCaseId") as string) || null;
+  const useCaseIdsRaw = (formData.get("useCaseIds") as string) || "";
+  const useCaseIds = useCaseIdsRaw ? useCaseIdsRaw.split(",").filter(Boolean) : [];
   const channel = (formData.get("channel") as string) || null;
   const channelDetail = (formData.get("channelDetail") as string)?.trim() || null;
   const segmentId = (formData.get("segmentId") as string) || null;
@@ -89,7 +91,7 @@ export async function updateCase(caseId: string, icpId: string, formData: FormDa
     .set({
       companyName,
       outcome: outcome as "won" | "lost" | "in_progress",
-      useCaseId,
+      useCaseIds,
       channel: channel && VALID_CHANNELS.includes(channel as typeof VALID_CHANNELS[number])
         ? (channel as "linkedin" | "email" | "conference" | "referral" | "inbound" | "other")
         : null,

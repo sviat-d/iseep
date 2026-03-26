@@ -549,7 +549,8 @@ export const icpEvidence = pgTable("icp_evidence", {
     .references(() => icps.id)
     .notNull(),
   productId: uuid("product_id").references(() => products.id), // product-specific cases
-  useCaseId: uuid("use_case_id").references(() => productUseCases.id),
+  useCaseId: uuid("use_case_id").references(() => productUseCases.id), // legacy single
+  useCaseIds: jsonb("use_case_ids").default([]), // string[] — multiple use cases
   companyName: text("company_name").notNull(),
   companyDomain: text("company_domain"),
   outcome: text("outcome", { enum: ["won", "lost", "in_progress"] }).notNull(),
