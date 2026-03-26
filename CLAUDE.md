@@ -82,7 +82,7 @@ src/
 │   ├── settings/             # product-context-form, ai-settings-form (with API token card)
 │   ├── export/               # export-page-view (format picker, preview, copy/download)
 │   ├── drafts/               # draft-import-form, drafts-inbox, draft-review-view, draft-diff
-│   ├── onboarding/           # onboarding-wizard, stepper, step-product, step-icp, step-scoring, step-done
+│   ├── onboarding/           # onboarding-wizard, stepper, step-context, step-clarify, step-reveal
 │   └── shared/               # product-context-nudge, ai-nudge, context-export-button, company-share-dialog, industry-picker
 ├── actions/                  # Server actions
 │   ├── scoring.ts            # processUpload, processSampleData, deleteUpload
@@ -94,7 +94,7 @@ src/
 │   ├── product-context.ts    # saveProductContext
 │   ├── company-sharing.ts    # enableCompanySharing, disableCompanySharing, updateCompanyShareConfig
 │   ├── drafts.ts             # createDrafts, approveDraft, rejectDraft, generateApiToken
-│   ├── onboarding.ts         # advanceOnboarding, runOnboardingScoring
+│   ├── onboarding.ts         # advanceOnboarding, goBackOnboarding, parseContext, refineContext
 │   ├── team.ts               # inviteMember, removeMember, cancelInvite, acceptInvite, switchWorkspace
 │   └── auth.ts               # signIn, signUp, signOut, requestPasswordReset
 ├── db/
@@ -118,6 +118,7 @@ src/
 │   ├── ai-client.ts          # AI provider factory (Anthropic/OpenAI, BYOK)
 │   ├── ai-usage.ts           # Rate limiting (20 ops/month platform, unlimited BYOK)
 │   ├── icp-parser.ts         # AI text-to-ICP extraction
+│   ├── onboarding-parser.ts  # AI context parser (product + ICPs + missing questions)
 │   ├── cluster-draft.ts      # Generate cluster drafts from unmatched leads
 │   ├── cluster-evaluation.ts # Evaluate clusters (ICP similarity + product fit)
 │   ├── sample-data.ts        # 20 sample leads for demo scoring
@@ -404,20 +405,30 @@ Two-level hierarchical taxonomy (~25 sectors → ~350 industries) stored as Type
 
 ## 18. Onboarding Wizard [IMPLEMENTED]
 
-3-step guided wizard replacing dashboard empty state for new workspaces.
+Context-driven 3-step wizard replacing dashboard empty state. Fullscreen layout (no sidebar/topbar).
 
-**Data model:** `workspaces.onboardingStep` integer (0=not started, 1-3=in progress, 4=completed). DB default is 4 (existing workspaces skip wizard). New workspaces get 0 via signUp action.
+**Data model:** `workspaces.onboardingStep` integer (0=not started, 1-2=in progress, 3+=completed). DB default is 4 (existing workspaces skip). New workspaces get 0 via signUp.
 
 **Steps:**
-1. **Product Context** — simplified 4-field form (company name, description, industries, regions). Skippable.
-2. **First ICP** — AI text-to-ICP import, manual create link, or skip. Uses existing `parseIcpAction` + `confirmImportIcps`.
-3. **Sample Scoring** — auto-runs 20 demo leads via `processSampleData`. Creates demo ICP if user skipped step 2. Shows inline results (stats bar + top 5 leads).
-4. **Done** — "You're ready!" with CTAs: Upload leads or Explore dashboard.
+1. **Context** (`step-context.tsx`) — User pastes free text about company/product/customers OR uses AI prompt template OR uploads .md/.txt file. Animated progress checklist during AI analysis (5 stages with timed transitions). AI parses text via `onboarding-parser.ts` → extracts product context + 3-5 ICPs + identifies missing info.
+2. **Clarify** (`step-clarify.tsx`) — Shows "What we understood" summary (company, product, industries, geos, detected ICPs) + 3-5 AI-generated clarification questions with clickable hint suggestions ("Use suggestion" button fills input). Back navigation to step 1.
+3. **Reveal** (`step-reveal.tsx`) — "Your GTM profile is ready" screen showing: Company Profile card, Share link CTA (generates public profile URL via `enableCompanySharing`), ALL generated ICPs (3-5) with criteria grouped by intent (qualify/risk/exclude) + personas. Next actions: Upload leads, Review ICPs, Invite team, Explore dashboard.
 
-**Sidebar:** During onboarding (step < 4), shows only 4 items: Dashboard, Product, ICPs, Score Leads. After completion, all 12 items. Prop chain: layout (async) → AppShell → Sidebar.
+**Key design decisions:**
+- ICPs created as **ACTIVE** (not draft) — immediate value
+- Multiple ICPs generated (3-5 per industry vertical), not one generic
+- No boring forms — single free-text input + AI does the work
+- Fullscreen wizard (no sidebar) during onboarding (`onboardingStep < 3`)
+- Share link prominently featured on reveal step
 
-**Components:** `src/components/onboarding/` — wizard container, stepper, 4 step components.
-**Actions:** `src/actions/onboarding.ts` — `advanceOnboarding`, `runOnboardingScoring`.
+**AI Parser** (`src/lib/onboarding-parser.ts`):
+- `parseOnboardingContext(text, workspaceId)` → `ParsedContext` with product, icps[], missingQuestions[], confidence
+- `refineOnboardingContext(existing, answers, workspaceId)` → refined ParsedContext
+
+**Actions** (`src/actions/onboarding.ts`):
+- `parseContext(text)` — AI parse + save product context + advance to step 1
+- `refineContext(answers)` — AI refine + create ACTIVE ICPs + advance to step 2
+- `advanceOnboarding(step)` / `goBackOnboarding(step)` — step navigation
 
 ## 19. MCP Server [IMPLEMENTED]
 
@@ -529,7 +540,7 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Feature | Status | Notes |
 |---------|--------|-------|
 | ICP management (CRUD, criteria, personas, signals) | [IMPLEMENTED] | Full CRUD with versioning, sharing |
-| Scoring engine (deterministic + AI) | [IMPLEMENTED] | 6-step resolution, 3 intents, confidence |
+| Scoring engine (deterministic + AI) | [IMPLEMENTED] | 7-step resolution (taxonomy added), 3 intents, confidence |
 | AI-assisted value mapping | [IMPLEMENTED] | Claude/GPT with fallback chain |
 | Workspace memory (learning) | [IMPLEMENTED] | Auto-persisted from AI mappings |
 | CSV upload & column mapping | [IMPLEMENTED] | Drag-drop + column mapper |
@@ -541,7 +552,7 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Cluster rejection + learning | [IMPLEMENTED] | Excluded industries persist |
 | Product context (separate entity) | [IMPLEMENTED] | Dedicated table, all target fields |
 | Product context nudges | [PARTIAL] | Dismissible banner, no persistent dismissal state |
-| Onboarding wizard | [IMPLEMENTED] | 3-step wizard: Product Context → ICP → Sample Scoring |
+| Onboarding wizard | [IMPLEMENTED] | Context-driven 3-step: paste context → AI clarify → reveal profile + multiple active ICPs |
 | Team collaboration | [IMPLEMENTED] | Email invites, Owner/Member roles, activity feed |
 | BYOK (Anthropic + OpenAI) | [IMPLEMENTED] | Key management, test, rate limits, security fix (masked keys) |
 | ICP import from text/file | [IMPLEMENTED] | 3-step wizard with AI parsing |
@@ -560,7 +571,7 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Segment builder with condition logic | [IMPLEMENTED] | Flat Include/Exclude/Risk rules |
 | Match explanation layer | [IMPLEMENTED] | matchReasons[] with per-criterion detail |
 | AI key encryption | [MISSING] | Plain text in MVP |
-| Onboarding flow | [MISSING] | No guided setup wizard |
+| Onboarding flow | [IMPLEMENTED] | Context-driven wizard with AI parsing |
 | Inline draft editing | [MISSING] | Edit suggestion before approve (currently approve as-is or reject) |
 | MCP server for Claude Desktop | [IMPLEMENTED] | 4 tools: get_context, list_icps, get_scoring_results, submit_suggestions |
 
