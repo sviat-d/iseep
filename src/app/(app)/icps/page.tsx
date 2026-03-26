@@ -63,6 +63,8 @@ export default async function IcpsPage({
     description: p.description,
     coreUseCases: (p.coreUseCases as string[]) ?? [],
     keyValueProps: (p.keyValueProps as string[]) ?? [],
+    pricingModel: p.pricingModel,
+    avgTicket: p.avgTicket,
   }));
 
   const initialProductId =

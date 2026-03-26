@@ -27,6 +27,8 @@ type Product = {
   description: string | null;
   coreUseCases: string[];
   keyValueProps: string[];
+  pricingModel: string | null;
+  avgTicket: string | null;
 };
 
 type IcpItem = {
@@ -97,6 +99,13 @@ export function ProductsIcpsView({
             contextDescription: activeProduct.description,
             coreUseCases: activeProduct.coreUseCases,
             keyValueProps: activeProduct.keyValueProps,
+            pricingModel: activeProduct.pricingModel,
+            avgTicket: activeProduct.avgTicket,
+          }}
+          onDeleted={() => {
+            const remaining = products.filter((p) => p.id !== activeProduct.id);
+            if (remaining.length > 0) setSelectedProductId(remaining[0].id);
+            else setSelectedProductId(null);
           }}
         />
       )}
