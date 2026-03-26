@@ -494,7 +494,7 @@ export const icpEvidence = pgTable("icp_evidence", {
   companyDomain: text("company_domain"),
   outcome: text("outcome", { enum: ["won", "lost", "in_progress"] }).notNull(),
   segmentId: uuid("segment_id").references(() => segments.id),
-  channel: text("channel", { enum: ["linkedin", "conference", "referral", "inbound", "other"] }),
+  channel: text("channel", { enum: ["linkedin", "email", "conference", "referral", "inbound", "other"] }),
   channelDetail: text("channel_detail"),
   reasonTags: jsonb("reason_tags").default([]).notNull(), // string[]
   hypothesis: text("hypothesis"),

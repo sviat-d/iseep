@@ -8,7 +8,7 @@ import { eq, and } from "drizzle-orm";
 import type { ActionResult } from "@/lib/types";
 
 const VALID_OUTCOMES = ["won", "lost", "in_progress"] as const;
-const VALID_CHANNELS = ["linkedin", "conference", "referral", "inbound", "other"] as const;
+const VALID_CHANNELS = ["linkedin", "email", "conference", "referral", "inbound", "other"] as const;
 
 export async function addCase(formData: FormData): Promise<ActionResult> {
   const ctx = await getAuthContext();
@@ -51,7 +51,7 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
     outcome: outcome as "won" | "lost" | "in_progress",
     segmentId: segmentId || null,
     channel: channel && VALID_CHANNELS.includes(channel as typeof VALID_CHANNELS[number])
-      ? (channel as "linkedin" | "conference" | "referral" | "inbound" | "other")
+      ? (channel as "linkedin" | "email" | "conference" | "referral" | "inbound" | "other")
       : null,
     channelDetail,
     reasonTags,

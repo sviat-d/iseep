@@ -85,6 +85,7 @@ function getTagsForOutcome(outcome: string) {
 
 const CHANNELS = [
   { value: "linkedin", label: "LinkedIn" },
+  { value: "email", label: "Email" },
   { value: "conference", label: "Conference" },
   { value: "referral", label: "Referral" },
   { value: "inbound", label: "Inbound" },
@@ -229,12 +230,14 @@ function AddCaseForm({
           </div>
 
           {/* Step 5: Channel detail (dynamic) */}
-          {channel === "conference" && (
+          {(channel === "conference" || channel === "other") && (
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Conference name</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {channel === "conference" ? "Conference name" : "Channel details"}
+              </label>
               <Input
                 name="channelDetail"
-                placeholder="e.g., Money20/20, Web Summit"
+                placeholder={channel === "conference" ? "e.g., Money20/20, Web Summit" : "e.g., Partner portal, Cold call"}
                 className="mt-1"
               />
             </div>
