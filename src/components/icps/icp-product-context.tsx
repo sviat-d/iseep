@@ -39,7 +39,7 @@ export function IcpProductContext({
 
   if (!product) return null;
 
-  const hasContext = product.contextDescription || product.coreUseCases.length > 0 || product.keyValueProps.length > 0;
+  const hasContext = product.contextDescription || product.keyValueProps.length > 0 || (product.useCases && product.useCases.length > 0);
   const isEmpty = !hasContext && !product.shortDescription;
 
   function handleSave(formData: FormData) {
@@ -90,16 +90,6 @@ export function IcpProductContext({
                 <p className="text-sm text-muted-foreground">{product.contextDescription}</p>
               )}
               <div className="flex flex-wrap gap-3">
-                {product.coreUseCases.length > 0 && (
-                  <div>
-                    <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Use cases</p>
-                    <div className="flex flex-wrap gap-1">
-                      {product.coreUseCases.map((uc) => (
-                        <Badge key={uc} variant="secondary" className="text-[10px]">{uc}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {product.keyValueProps.length > 0 && (
                   <div>
                     <p className="text-[10px] font-medium text-muted-foreground mb-0.5">Value props</p>
