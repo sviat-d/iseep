@@ -194,9 +194,6 @@ export function CriterionFormDialog({
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {tier.label}
                     </span>
-                    <span className="ml-2 text-[11px] text-muted-foreground/60">
-                      {tier.description}
-                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {tier.properties.map((prop) => (
@@ -205,7 +202,7 @@ export function CriterionFormDialog({
                         type="button"
                         onClick={() => handlePickProperty(prop.category)}
                         className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                          tier.tier === "core"
+                          tier.tier === "basics"
                             ? "border-foreground/20 text-foreground hover:bg-primary/10 hover:border-primary"
                             : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                         }`}

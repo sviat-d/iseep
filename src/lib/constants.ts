@@ -69,18 +69,18 @@ export const PROPERTY_OPTIONS: Array<{
   { label: "Keywords", category: "keyword", group: "keyword" },
 ];
 
-// ─── Tiered picker groups for the modal ─────────────────────────────────────
+// ─── Guided picker groups for the modal ──────────────────────────────────────
 
 export const PICKER_TIERS: Array<{
-  tier: "core" | "additional" | "advanced";
+  tier: string;
   label: string;
   description: string;
   properties: Array<{ label: string; category: string; group: string }>;
 }> = [
   {
-    tier: "core",
-    label: "Core",
-    description: "Define who your ideal customer is",
+    tier: "basics",
+    label: "Start with basics",
+    description: "",
     properties: [
       { label: "Industry", category: "industry", group: "firmographic" },
       { label: "Region", category: "region", group: "firmographic" },
@@ -89,9 +89,9 @@ export const PICKER_TIERS: Array<{
     ],
   },
   {
-    tier: "additional",
-    label: "Additional",
-    description: "Other ways to describe your ICP",
+    tier: "details",
+    label: "Add more details",
+    description: "",
     properties: [
       { label: "Platform", category: "platform", group: "technographic" },
       { label: "Payment method", category: "payment_method", group: "technographic" },
@@ -103,8 +103,8 @@ export const PICKER_TIERS: Array<{
   },
   {
     tier: "advanced",
-    label: "Advanced",
-    description: "For regulated products or industries",
+    label: "Advanced (optional)",
+    description: "",
     properties: [
       { label: "Regulatory status", category: "regulatory_status", group: "compliance" },
       { label: "License type", category: "license_type", group: "compliance" },
@@ -112,15 +112,6 @@ export const PICKER_TIERS: Array<{
     ],
   },
 ];
-
-// Core criteria categories — used for ICP strength tracking
-export const CORE_CRITERIA_CATEGORIES = ["industry", "region", "company_size", "business_model"];
-
-// Additional criteria DB groups
-export const ADDITIONAL_GROUPS = ["technographic", "behavioral", "keyword"];
-
-// Advanced criteria DB groups
-export const ADVANCED_GROUPS = ["compliance"];
 
 // Business model preset options for multi-select
 export const BUSINESS_MODEL_PRESETS = [

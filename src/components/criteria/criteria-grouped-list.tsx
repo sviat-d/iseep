@@ -21,9 +21,6 @@ import {
   EXCLUSION_EMPTY_SUGGESTIONS,
   RISK_DESCRIPTION,
   RISK_EMPTY_SUGGESTIONS,
-  CORE_CRITERIA_CATEGORIES,
-  ADDITIONAL_GROUPS,
-  ADVANCED_GROUPS,
 } from "@/lib/constants";
 
 type Criterion = {
@@ -42,76 +39,48 @@ type Criterion = {
   updatedAt: Date;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Visual grouping (human-friendly, not system-driven) ──────────────────────
 
-function isCoreCriterion(c: Criterion) {
-  return c.group === "firmographic";
-}
+const VISUAL_GROUPS: Array<{
+  key: string;
+  label: string;
+  match: (c: Criterion) => boolean;
+}> = [
+  {
+    key: "company",
+    label: "Company",
+    match: (c) => c.group === "firmographic",
+  },
+  {
+    key: "product-tech",
+    label: "Product & Tech",
+    match: (c) => c.group === "technographic",
+  },
+  {
+    key: "growth",
+    label: "Growth",
+    match: (c) => c.group === "behavioral",
+  },
+  {
+    key: "compliance",
+    label: "Compliance",
+    match: (c) => c.group === "compliance",
+  },
+  {
+    key: "keywords",
+    label: "Keywords",
+    match: (c) => c.group === "keyword",
+  },
+];
 
-function isAdditionalCriterion(c: Criterion) {
-  return ADDITIONAL_GROUPS.includes(c.group);
-}
-
-function isAdvancedCriterion(c: Criterion) {
-  return ADVANCED_GROUPS.includes(c.group);
-}
-
-const CORE_LABELS: Record<string, string> = {
+// Key basics for completeness tracking
+const KEY_BASICS = ["industry", "region", "company_size", "business_model"];
+const KEY_BASICS_LABELS: Record<string, string> = {
   industry: "Industry",
   region: "Region",
   company_size: "Company size",
   business_model: "Business model",
 };
-
-// ─── ICP Strength Bar ─────────────────────────────────────────────────────────
-
-function IcpStrengthBar({ criteria }: { criteria: Criterion[] }) {
-  const existingCategories = new Set(criteria.map((c) => c.category));
-  const defined = CORE_CRITERIA_CATEGORIES.filter((c) => existingCategories.has(c));
-  const missing = CORE_CRITERIA_CATEGORIES.filter((c) => !existingCategories.has(c));
-  const total = CORE_CRITERIA_CATEGORIES.length;
-  const pct = Math.round((defined.length / total) * 100);
-
-  if (defined.length === total) {
-    return (
-      <div className="rounded-lg border border-green-200 bg-green-50/50 px-4 py-3 dark:border-green-800 dark:bg-green-950/30">
-        <div className="flex items-center gap-2">
-          <Check className="h-4 w-4 text-green-600" />
-          <span className="text-sm font-medium text-green-800 dark:text-green-300">
-            All core criteria defined
-          </span>
-          <span className="text-xs text-green-600 dark:text-green-400">
-            {total}/{total}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50/50 px-4 py-3 space-y-2 dark:border-amber-800 dark:bg-amber-950/30">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-amber-900 dark:text-amber-200">
-          ICP Strength
-        </span>
-        <span className="text-xs text-amber-700 dark:text-amber-400">
-          {defined.length} of {total} core criteria
-        </span>
-      </div>
-      <div className="h-1.5 w-full rounded-full bg-amber-200/50 dark:bg-amber-800/30">
-        <div
-          className="h-1.5 rounded-full bg-amber-500 transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      {missing.length > 0 && (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          Consider adding: {missing.map((c) => CORE_LABELS[c] ?? c).join(", ")}
-        </p>
-      )}
-    </div>
-  );
-}
 
 // ─── Criterion Row ────────────────────────────────────────────────────────────
 
@@ -130,7 +99,7 @@ function CriterionRow({
 
   return (
     <div>
-      <div className="flex items-center justify-between px-4 py-2.5">
+      <div className="flex items-center justify-between py-2">
         <div className="flex items-center gap-3 text-sm min-w-0">
           {criterion.intent === "qualify" && (
             <Check className="h-3.5 w-3.5 text-green-600 shrink-0" />
@@ -174,136 +143,8 @@ function CriterionRow({
         </div>
       </div>
       {showNote && criterion.note && (
-        <div className="px-4 pb-2 pl-11">
+        <div className="pb-1 pl-7">
           <p className="text-xs text-muted-foreground italic">{criterion.note}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Core Criteria Section ────────────────────────────────────────────────────
-
-function CoreSection({
-  criteria,
-  onAdd,
-  onEdit,
-  onDelete,
-  isPending,
-}: {
-  criteria: Criterion[];
-  onAdd: () => void;
-  onEdit: (c: Criterion) => void;
-  onDelete: (id: string) => void;
-  isPending: boolean;
-}) {
-  return (
-    <div className="rounded-lg border-2 border-foreground/10">
-      <div className="flex items-center justify-between px-4 py-3">
-        <div>
-          <h3 className="font-semibold">Core criteria</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Define who your ideal customer is
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={onAdd}>
-          <Plus className="mr-1 h-3 w-3" />
-          Add criterion
-        </Button>
-      </div>
-      <div className="border-t">
-        {criteria.length === 0 ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Start by defining the basics of your ideal customer
-            </p>
-            <p className="mt-2 text-xs text-muted-foreground/70">
-              Most teams begin with Industry and Region, then add Company size and Business model to sharpen the profile.
-            </p>
-          </div>
-        ) : (
-          <div className="divide-y">
-            {criteria.map((c) => (
-              <CriterionRow
-                key={c.id}
-                criterion={c}
-                onEdit={() => onEdit(c)}
-                onDelete={() => onDelete(c.id)}
-                isPending={isPending}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Collapsible Section ──────────────────────────────────────────────────────
-
-function CollapsibleSection({
-  title,
-  description,
-  emptyTitle,
-  emptyDescription,
-  criteria,
-  isOpen,
-  onToggle,
-  onEdit,
-  onDelete,
-  isPending,
-}: {
-  title: string;
-  description: string;
-  emptyTitle: string;
-  emptyDescription: string;
-  criteria: Criterion[];
-  isOpen: boolean;
-  onToggle: () => void;
-  onEdit: (c: Criterion) => void;
-  onDelete: (id: string) => void;
-  isPending: boolean;
-}) {
-  return (
-    <div className="rounded-lg border">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/50"
-      >
-        <div className="flex items-center gap-2">
-          {isOpen ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )}
-          <span className="font-medium">{title}</span>
-          {criteria.length > 0 && (
-            <Badge variant="secondary">{criteria.length}</Badge>
-          )}
-        </div>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </button>
-      {isOpen && (
-        <div className="border-t">
-          {criteria.length === 0 ? (
-            <div className="px-4 py-4 text-center">
-              <p className="text-sm text-muted-foreground">{emptyTitle}</p>
-              <p className="mt-1 text-xs text-muted-foreground/70">{emptyDescription}</p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {criteria.map((c) => (
-                <CriterionRow
-                  key={c.id}
-                  criterion={c}
-                  onEdit={() => onEdit(c)}
-                  onDelete={() => onDelete(c.id)}
-                  isPending={isPending}
-                />
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -320,18 +161,28 @@ export function CriteriaGroupedList({
   icpId: string;
 }) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(["additional", "advanced", "__risk", "__exclusions"])
+    new Set(["__risk", "__exclusions"])
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCriterion, setEditingCriterion] = useState<Criterion | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Tier-based grouping
-  const coreCriteria = criteria.filter(isCoreCriterion);
-  const additionalCriteria = criteria.filter(isAdditionalCriterion);
-  const advancedCriteria = criteria.filter(isAdvancedCriterion);
+  // Cross-cutting intent views
   const riskCriteria = criteria.filter((c) => c.intent === "risk");
   const excludeCriteria = criteria.filter((c) => c.intent === "exclude");
+
+  // Build visual groups — only groups that have criteria
+  const groupedCriteria = VISUAL_GROUPS
+    .map((vg) => ({
+      ...vg,
+      items: criteria.filter(vg.match),
+    }))
+    .filter((vg) => vg.items.length > 0);
+
+  // Completeness
+  const existingCategories = new Set(criteria.map((c) => c.category));
+  const definedBasics = KEY_BASICS.filter((c) => existingCategories.has(c));
+  const missingBasics = KEY_BASICS.filter((c) => !existingCategories.has(c));
 
   function toggleSection(key: string) {
     setExpandedSections((prev) => {
@@ -359,54 +210,69 @@ export function CriteriaGroupedList({
   }
 
   return (
-    <div className="space-y-4">
-      {/* ICP Strength */}
-      <IcpStrengthBar criteria={criteria} />
+    <div className="space-y-5">
+      {/* Completeness hint — subtle, one line */}
+      {criteria.length > 0 && missingBasics.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          ICP completeness: {definedBasics.length} of {KEY_BASICS.length} key basics defined
+          {missingBasics.length > 0 && (
+            <> · Consider adding: {missingBasics.map((c) => KEY_BASICS_LABELS[c]).join(", ")}</>
+          )}
+        </p>
+      )}
 
-      {/* Core Criteria — always open, visually dominant */}
-      <CoreSection
-        criteria={coreCriteria}
-        onAdd={handleAdd}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        isPending={isPending}
-      />
-
-      {/* Additional Criteria — collapsible */}
-      <CollapsibleSection
-        title="Additional criteria"
-        description="Other ways to describe your ICP"
-        emptyTitle="No additional criteria yet"
-        emptyDescription="Add platform, tech stack, growth stage, keywords, or other signals that help identify your ideal customer beyond the basics."
-        criteria={additionalCriteria}
-        isOpen={expandedSections.has("additional")}
-        onToggle={() => toggleSection("additional")}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        isPending={isPending}
-      />
-
-      {/* Advanced Criteria — collapsible */}
-      <CollapsibleSection
-        title="Advanced criteria"
-        description="Compliance & regulation"
-        emptyTitle="No compliance criteria yet"
-        emptyDescription="Add regulatory status, license type, or jurisdiction requirements if your product operates in regulated industries."
-        criteria={advancedCriteria}
-        isOpen={expandedSections.has("advanced")}
-        onToggle={() => toggleSection("advanced")}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        isPending={isPending}
-      />
-
-      {/* Global add button */}
-      <div className="flex justify-center">
-        <Button variant="outline" onClick={handleAdd}>
-          <Plus className="mr-1.5 h-4 w-4" />
-          Add criterion
-        </Button>
+      {/* Unified criteria list with light visual group labels */}
+      <div className="rounded-lg border">
+        {criteria.length === 0 ? (
+          <div className="px-4 py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No criteria defined yet
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground/70">
+              Start by defining what makes a company your ideal customer — industry, region, size, or business model.
+            </p>
+            <Button variant="outline" size="sm" className="mt-4" onClick={handleAdd}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Add criterion
+            </Button>
+          </div>
+        ) : (
+          <div className="px-4 py-1">
+            {groupedCriteria.map((group, gi) => (
+              <div key={group.key}>
+                {/* Light group label — just a divider, not a section */}
+                <div className={`flex items-center gap-2 pt-3 pb-1 ${gi > 0 ? "border-t border-dashed" : ""}`}>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/50">
+                    {group.label}
+                  </span>
+                </div>
+                {/* Criteria rows */}
+                <div className="divide-y divide-border/50">
+                  {group.items.map((c) => (
+                    <CriterionRow
+                      key={c.id}
+                      criterion={c}
+                      onEdit={() => handleEdit(c)}
+                      onDelete={() => handleDelete(c.id)}
+                      isPending={isPending}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Add criterion button */}
+      {criteria.length > 0 && (
+        <div className="flex justify-center">
+          <Button variant="outline" onClick={handleAdd}>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add criterion
+          </Button>
+        </div>
+      )}
 
       {/* Risk summary */}
       <div className="rounded-lg border border-border">
@@ -443,7 +309,7 @@ export function CriteriaGroupedList({
                 </ul>
               </div>
             ) : (
-              <div className="border-t divide-y">
+              <div className="border-t divide-y px-4">
                 {riskCriteria.map((c) => (
                   <CriterionRow
                     key={`risk-${c.id}`}
@@ -492,7 +358,7 @@ export function CriteriaGroupedList({
                 </ul>
               </div>
             ) : (
-              <div className="border-t border-destructive/20 divide-y divide-destructive/10">
+              <div className="border-t border-destructive/20 divide-y divide-destructive/10 px-4">
                 {excludeCriteria.map((c) => (
                   <CriterionRow
                     key={`excl-${c.id}`}
@@ -508,7 +374,7 @@ export function CriteriaGroupedList({
         )}
       </div>
 
-      {/* Dialog — no defaultGroup, picker always shows for new criteria */}
+      {/* Dialog */}
       <CriterionFormDialog
         icpId={icpId}
         open={dialogOpen}
