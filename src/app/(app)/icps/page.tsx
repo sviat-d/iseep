@@ -28,6 +28,16 @@ export default async function IcpsPage({
     db.select().from(workspaces).where(eq(workspaces.id, ctx.workspaceId)),
   ]);
 
+  // DEBUG: check linkedProductIds format
+  if (allIcps.length > 0) {
+    console.log("[DEBUG] ICP linkedProductIds sample:", JSON.stringify({
+      name: allIcps[0].name,
+      linkedProductIds: allIcps[0].linkedProductIds,
+      type: typeof allIcps[0].linkedProductIds,
+      isArray: Array.isArray(allIcps[0].linkedProductIds),
+    }));
+  }
+
   const company = {
     name: ws?.name ?? "Company",
     website: ws?.website ?? null,
