@@ -2,12 +2,11 @@
 
 import { useState, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, X, Package, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { createProduct, deleteProduct } from "@/actions/products";
+import { Plus, X, Package } from "lucide-react";
+import { createProduct } from "@/actions/products";
 
 type Product = {
   id: string;
@@ -26,11 +25,8 @@ export function ProductSelector({
 }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Optimistic products list for instant add
   const [optimisticProducts, addOptimistic] = useOptimistic(
     products,
     (state, newProduct: Product) => [...state, newProduct]
@@ -41,7 +37,6 @@ export function ProductSelector({
     const shortDescription = (formData.get("shortDescription") as string)?.trim() || null;
     if (!name) return;
 
-    // Optimistic: add immediately with temp ID
     const tempId = `temp-${Date.now()}`;
     addOptimistic({ id: tempId, name, shortDescription });
     onSelect(tempId);
@@ -56,77 +51,25 @@ export function ProductSelector({
     });
   }
 
-  function handleDelete(productId: string) {
-    startTransition(async () => {
-      await deleteProduct(productId);
-      setConfirmDeleteId(null);
-      const remaining = optimisticProducts.filter((p) => p.id !== productId);
-      if (remaining.length > 0) onSelect(remaining[0].id);
-      router.refresh();
-    });
-  }
-
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         {optimisticProducts.map((p) => {
           const isSelected = p.id === selectedProductId;
-
           return (
-            <div key={p.id} className="relative flex items-center">
-              <button
-                type="button"
-                onClick={() => onSelect(p.id)}
-                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                  isSelected
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <Package className="h-3.5 w-3.5" />
-                {p.name}
-              </button>
-
-              {!p.id.startsWith("temp-") && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuOpenId(menuOpenId === p.id ? null : p.id);
-                  }}
-                  className="ml-0.5 rounded p-0.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                >
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </button>
-              )}
-
-              {menuOpenId === p.id && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)} />
-                  <div className="absolute left-0 top-full z-50 mt-1 w-36 rounded-md border bg-popover p-1 shadow-md">
-                    <Link
-                      href={`/icps/products/${p.id}`}
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted"
-                      onClick={() => setMenuOpenId(null)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </Link>
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-destructive hover:bg-destructive/10"
-                      onClick={() => {
-                        setConfirmDeleteId(p.id);
-                        setMenuOpenId(null);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onSelect(p.id)}
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                isSelected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Package className="h-3.5 w-3.5" />
+              {p.name}
+            </button>
           );
         })}
 
@@ -142,24 +85,6 @@ export function ProductSelector({
         )}
       </div>
 
-      {/* Delete confirmation */}
-      {confirmDeleteId && (
-        <Card className="border-destructive/30">
-          <CardContent className="py-3">
-            <p className="text-sm">
-              Delete <span className="font-medium">{optimisticProducts.find((p) => p.id === confirmDeleteId)?.name}</span> and all its ICPs and cases?
-            </p>
-            <div className="mt-2 flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-              <Button variant="destructive" size="sm" disabled={isPending} onClick={() => handleDelete(confirmDeleteId)}>
-                {isPending ? "Deleting..." : "Delete"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Add product form */}
       {showAdd && (
         <Card>
           <CardContent className="pt-3 pb-3">
