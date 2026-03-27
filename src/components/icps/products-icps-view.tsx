@@ -41,6 +41,7 @@ type IcpItem = {
   version: number;
   productId: string | null;
   productCount: number;
+  linkedProductIds: string[];
   createdAt: Date;
   updatedAt: Date;
   qualifyCount: number;
@@ -77,14 +78,17 @@ export function ProductsIcpsView({
 
   const filteredIcps = useMemo(() => {
     if (!selectedProductId) return allIcps;
-    return allIcps.filter((icp) => icp.productId === selectedProductId);
+    return allIcps.filter((icp) =>
+      icp.linkedProductIds?.includes(selectedProductId)
+    );
   }, [allIcps, selectedProductId]);
 
   const unlinkedIcps = useMemo(() => {
     if (!selectedProductId) return [];
-    const linkedIds = new Set(filteredIcps.map((i) => i.id));
-    return allIcps.filter((i) => !linkedIds.has(i.id));
-  }, [allIcps, filteredIcps, selectedProductId]);
+    return allIcps.filter((icp) =>
+      !icp.linkedProductIds?.includes(selectedProductId)
+    );
+  }, [allIcps, selectedProductId]);
 
   const activeProduct = products.find((p) => p.id === selectedProductId);
 
