@@ -17,7 +17,7 @@ import {
   Briefcase,
   Pencil,
 } from "lucide-react";
-import { addCase, deleteCase, updateCase } from "@/actions/evidence";
+import { addCase, deleteCase, updateCase, findRelatedCases } from "@/actions/evidence";
 import { createUseCase } from "@/actions/use-cases";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -114,12 +114,14 @@ function AddCaseForm({
   segments,
   productId,
   useCases,
+  workspaceId,
   onClose,
 }: {
   icpId: string;
   segments: Segment[];
   productId?: string;
   useCases: UseCase[];
+  workspaceId?: string;
   onClose: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -131,6 +133,34 @@ function AddCaseForm({
   const [selectedSegment, setSelectedSegment] = useState<string>("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [relatedCases, setRelatedCases] = useState<Array<{ id: string; companyName: string; outcome: string; note: string | null; reasonTags: unknown; productId: string | null }>>([]);
+  const [companyValue, setCompanyValue] = useState("");
+  const [lookupTimer, setLookupTimer] = useState<NodeJS.Timeout | null>(null);
+
+  function handleCompanyChange(value: string) {
+    setCompanyValue(value);
+    // Debounced lookup for related cases
+    if (lookupTimer) clearTimeout(lookupTimer);
+    if (value.trim().length >= 3 && workspaceId) {
+      const timer = setTimeout(() => {
+        findRelatedCases(value, workspaceId, productId).then((cases) => {
+          setRelatedCases(cases);
+        });
+      }, 500);
+      setLookupTimer(timer);
+    } else {
+      setRelatedCases([]);
+    }
+  }
+
+  function handleReuseDraft(relatedCase: typeof relatedCases[0]) {
+    setCompanyValue(relatedCase.companyName);
+    if (relatedCase.outcome) setOutcome(relatedCase.outcome);
+    if (relatedCase.note) setShowAdvanced(true);
+    const tags = Array.isArray(relatedCase.reasonTags) ? (relatedCase.reasonTags as string[]) : [];
+    if (tags.length > 0) setSelectedTags(tags);
+    setRelatedCases([]);
+  }
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -164,11 +194,38 @@ function AddCaseForm({
             <label className="text-xs font-medium text-muted-foreground">Company *</label>
             <Input
               name="companyName"
+              value={companyValue}
+              onChange={(e) => handleCompanyChange(e.target.value)}
               placeholder="Company name or domain"
               required
               className="mt-1"
               autoFocus
             />
+            {/* Related cases from other products */}
+            {relatedCases.length > 0 && (
+              <div className="mt-2 rounded-md border bg-muted/30 p-2 space-y-1.5">
+                <p className="text-[10px] font-medium text-muted-foreground">Related cases found in other products</p>
+                {relatedCases.map((rc) => {
+                  const rcCfg = outcomeConfig[rc.outcome as keyof typeof outcomeConfig];
+                  return (
+                    <div key={rc.id} className="flex items-center justify-between rounded px-2 py-1 hover:bg-muted/50">
+                      <div className="flex items-center gap-2 text-xs">
+                        {rcCfg && <rcCfg.icon className={`h-3 w-3 ${rcCfg.color}`} />}
+                        <span>{rc.companyName}</span>
+                        <span className="text-muted-foreground">{rc.outcome}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleReuseDraft(rc)}
+                        className="text-[10px] font-medium text-primary hover:underline"
+                      >
+                        Reuse as draft
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Step 2: Outcome */}
@@ -558,12 +615,14 @@ export function IcpCasesTab({
   segments,
   productId,
   useCases = [],
+  workspaceId,
 }: {
   icpId: string;
   cases: CaseItem[];
   segments: Segment[];
   productId?: string;
   useCases?: UseCase[];
+  workspaceId?: string;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
@@ -678,6 +737,7 @@ export function IcpCasesTab({
           segments={segments}
           productId={productId}
           useCases={useCases}
+          workspaceId={workspaceId}
           onClose={() => setShowForm(false)}
         />
       )}

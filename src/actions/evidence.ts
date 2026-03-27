@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/db";
 import { icpEvidence } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/types";
 
 const VALID_OUTCOMES = ["won", "lost", "in_progress"] as const;
@@ -131,6 +131,31 @@ export async function getCasesForIcp(icpId: string, workspaceId: string, product
     .from(icpEvidence)
     .where(and(...conditions))
     .orderBy(icpEvidence.createdAt);
+}
+
+/** Find related cases for a company across other products */
+export async function findRelatedCases(
+  companyName: string,
+  workspaceId: string,
+  excludeProductId?: string,
+) {
+  const normalized = companyName.trim().toLowerCase();
+  if (!normalized) return [];
+
+  const conditions = [
+    eq(icpEvidence.workspaceId, workspaceId),
+    sql`lower(trim(${icpEvidence.companyName})) = ${normalized}`,
+  ];
+  if (excludeProductId) {
+    conditions.push(sql`(${icpEvidence.productId} IS NULL OR ${icpEvidence.productId} != ${excludeProductId})`);
+  }
+
+  return db
+    .select()
+    .from(icpEvidence)
+    .where(and(...conditions))
+    .orderBy(icpEvidence.createdAt)
+    .limit(5);
 }
 
 // Keep old names as aliases for backward compatibility

@@ -90,7 +90,7 @@ export default async function IcpDetailPage({
         <div className="flex items-center gap-2">
           <ContextExportButton context={exportContext} label="Copy ICP" />
           <IcpShareDialog icp={{ id: icp.id, shareToken: icp.shareToken, shareMode: icp.shareMode }} />
-          <IcpEditDialog icp={icp} />
+          <IcpEditDialog icp={icp} productCount={icpProducts.length} currentProductId={currentProduct?.id} />
           <IcpDeleteDialog icpId={icp.id} icpName={icp.name} />
         </div>
       </div>
@@ -101,6 +101,7 @@ export default async function IcpDetailPage({
         cases={cases}
         currentProductId={currentProductId ?? currentProduct?.id}
         useCases={useCases.map((uc) => ({ id: uc.id, name: uc.name }))}
+        workspaceId={ctx.workspaceId}
       />
     </div>
   );
