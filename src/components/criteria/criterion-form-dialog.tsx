@@ -19,8 +19,11 @@ import {
   PROPERTY_OPTIONS,
   PICKER_TIERS,
   BUSINESS_MODEL_PRESETS,
+  SIGNAL_STRENGTHS,
+  weightToStrength,
+  strengthToWeight,
 } from "@/lib/constants";
-import { Info, Check, AlertTriangle, X, ArrowLeft } from "lucide-react";
+import { Check, AlertTriangle, ShieldOff, ArrowLeft } from "lucide-react";
 import { IndustryPicker } from "@/components/shared/industry-picker";
 import { Badge } from "@/components/ui/badge";
 import { resolveIndustry, getTemplates } from "@/lib/taxonomy/lookup";
@@ -28,24 +31,6 @@ import { resolveIndustry, getTemplates } from "@/lib/taxonomy/lookup";
 const CUSTOM_PROPERTY = "__custom__";
 
 const TEXT_PROPERTIES = new Set(["keyword", "tech_stack", "hiring_activity"]);
-
-const IMPORTANCE_HELP: Record<string, { label: string; helper: string; tooltip: string }> = {
-  qualify: {
-    label: "Importance (1-10)",
-    helper: "1 = weak positive signal, 5 = useful signal, 10 = core requirement",
-    tooltip: "How strongly this criterion indicates a good ICP match.\n1 = weak signal, 10 = core requirement.",
-  },
-  risk: {
-    label: "Risk severity (1-10)",
-    helper: "1 = minor concern, 5 = noticeable risk, 10 = major risk",
-    tooltip: "How serious this risk is.\n1 = small concern, 10 = major risk.",
-  },
-  exclude: {
-    label: "Restriction strength (1-10)",
-    helper: "1 = soft restriction, 5 = strong restriction, 10 = hard blocker",
-    tooltip: "How strict this restriction is.\n1 = soft blocker, 10 = hard blocker.",
-  },
-};
 
 type CriterionFormDialogProps = {
   icpId: string;
@@ -87,16 +72,17 @@ export function CriterionFormDialog({
     ? (existingProperty ? defaultValues.category : CUSTOM_PROPERTY)
     : null;
 
-  // Editing → go straight to configure. Adding → always start at picker.
   const [step, setStep] = useState<"pick" | "configure">(
     isEditing ? "configure" : "pick"
   );
   const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
+  const [strength, setStrength] = useState<string>(
+    defaultValues ? weightToStrength(defaultValues.weight) : "medium"
+  );
   const [property, setProperty] = useState<string | null>(initialProperty);
   const [customCategory, setCustomCategory] = useState(
     defaultValues && !existingProperty ? (defaultValues.category ?? "") : ""
   );
-  const [showTooltip, setShowTooltip] = useState(false);
   const [industryValue, setIndustryValue] = useState(defaultValues?.value ?? "");
   const [businessModelValues, setBusinessModelValues] = useState<string[]>(
     defaultValues?.category === "business_model" && defaultValues?.value
@@ -105,16 +91,15 @@ export function CriterionFormDialog({
   );
   const [customBusinessModel, setCustomBusinessModel] = useState("");
 
-  // Reset all state when dialog opens/closes or switches between add/edit
   useEffect(() => {
     const opt = defaultValues ? findPropertyOption(defaultValues.category) : null;
     const editing = !!defaultValues;
 
     setStep(editing ? "configure" : "pick");
     setIntent(defaultValues?.intent ?? "qualify");
+    setStrength(defaultValues ? weightToStrength(defaultValues.weight) : "medium");
     setProperty(editing ? (opt ? defaultValues!.category : CUSTOM_PROPERTY) : null);
     setCustomCategory(defaultValues && !opt ? (defaultValues.category ?? "") : "");
-    setShowTooltip(false);
     setIndustryValue(defaultValues?.value ?? "");
     setBusinessModelValues(
       defaultValues?.category === "business_model" && defaultValues?.value
@@ -127,12 +112,12 @@ export function CriterionFormDialog({
   const resolvedCategory =
     property === CUSTOM_PROPERTY ? customCategory : (property ?? "");
   const operator = TEXT_PROPERTIES.has(resolvedCategory) ? "contains" : "equals";
-
   const selectedOption = PROPERTY_OPTIONS.find((p) => p.category === property);
   const resolvedGroup = selectedOption?.group ?? "firmographic";
-
-  const importanceConfig = IMPORTANCE_HELP[intent] ?? IMPORTANCE_HELP.qualify;
   const businessModelValue = businessModelValues.join(", ");
+
+  // Convert strength to weight for form submission
+  const resolvedWeight = strengthToWeight(strength);
 
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
@@ -179,12 +164,12 @@ export function CriterionFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         {step === "pick" ? (
-          /* ── STEP 1: Criterion Picker ── always shown for new criteria ─ */
+          /* ── STEP 1: Select attribute ── */
           <>
             <DialogHeader>
-              <DialogTitle>Define a criterion</DialogTitle>
+              <DialogTitle>Add signal</DialogTitle>
               <DialogDescription>
-                What do you want to define about your ideal customer?
+                Describe a characteristic of your ideal customer
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-5 py-2">
@@ -219,19 +204,19 @@ export function CriterionFormDialog({
                   onClick={handlePickCustom}
                   className="rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
                 >
-                  + Custom criterion
+                  + Custom signal
                 </button>
               </div>
             </div>
           </>
         ) : (
-          /* ── STEP 2: Configure ── */
+          /* ── STEP 2: Configure signal ── */
           <>
             <DialogHeader>
               <DialogTitle>
-                {isEditing ? "Edit criterion" : (
+                {isEditing ? "Edit signal" : (
                   <span className="flex items-center gap-2">
-                    Add criterion
+                    Add signal
                     <Badge variant="outline" className="text-[10px] font-normal">
                       {findPropertyLabel(property === CUSTOM_PROPERTY ? customCategory || "Custom" : property ?? "")}
                     </Badge>
@@ -248,7 +233,7 @@ export function CriterionFormDialog({
                     className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <ArrowLeft className="h-3 w-3" />
-                    Choose a different criterion
+                    Choose a different attribute
                   </button>
                 )}
               </DialogDescription>
@@ -259,6 +244,7 @@ export function CriterionFormDialog({
               <input type="hidden" name="category" value={resolvedCategory} />
               <input type="hidden" name="operator" value={operator} />
               <input type="hidden" name="intent" value={intent} />
+              <input type="hidden" name="weight" value={resolvedWeight} />
 
               {state?.error && (
                 <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
@@ -266,10 +252,10 @@ export function CriterionFormDialog({
                 </div>
               )}
 
-              {/* Custom property name */}
+              {/* Custom attribute name */}
               {property === CUSTOM_PROPERTY && (
                 <div className="space-y-2">
-                  <Label htmlFor="crit-custom-category">Criterion name</Label>
+                  <Label htmlFor="crit-custom-category">Attribute name</Label>
                   <Input
                     id="crit-custom-category"
                     value={customCategory}
@@ -280,50 +266,7 @@ export function CriterionFormDialog({
                 </div>
               )}
 
-              {/* Intent — visual buttons */}
-              <div className="space-y-2">
-                <Label>This criterion means</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIntent("qualify")}
-                    className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
-                      intent === "qualify"
-                        ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    Good fit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIntent("risk")}
-                    className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
-                      intent === "risk"
-                        ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Risk
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIntent("exclude")}
-                    className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
-                      intent === "exclude"
-                        ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    <X className="h-3.5 w-3.5" />
-                    Not a fit
-                  </button>
-                </div>
-              </div>
-
-              {/* Value — smart input */}
+              {/* Value */}
               <div className="space-y-2">
                 {resolvedCategory === "industry" ? (
                   <>
@@ -342,7 +285,7 @@ export function CriterionFormDialog({
                       return (
                         <div className="rounded-md border border-dashed p-2.5 space-y-1.5">
                           <p className="text-xs font-medium text-muted-foreground">
-                            Suggested criteria for {node.name}:
+                            Suggested signals for {node.name}:
                           </p>
                           <div className="flex flex-wrap gap-1">
                             {templates.map((t) => (
@@ -357,7 +300,7 @@ export function CriterionFormDialog({
                             ))}
                           </div>
                           <p className="text-[10px] text-muted-foreground">
-                            Add these as separate criteria after saving this one.
+                            Add these as separate signals after saving this one.
                           </p>
                         </div>
                       );
@@ -425,13 +368,7 @@ export function CriterionFormDialog({
                     <Input
                       id="crit-value"
                       name="value"
-                      placeholder={
-                        intent === "qualify"
-                          ? "e.g. FinTech, iGaming, EU"
-                          : intent === "risk"
-                            ? "e.g. UK, USA"
-                            : "e.g. sanctioned jurisdictions"
-                      }
+                      placeholder="e.g. FinTech, EU, Series A"
                       defaultValue={defaultValues?.value ?? ""}
                       required
                     />
@@ -442,34 +379,71 @@ export function CriterionFormDialog({
                 )}
               </div>
 
-              {/* Weight */}
+              {/* Signal strength */}
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Label htmlFor="crit-weight">{importanceConfig.label}</Label>
+                <Label>Signal strength</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {SIGNAL_STRENGTHS.map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      onClick={() => setStrength(s.key)}
+                      className={`rounded-lg border-2 px-2 py-2 text-center transition-colors ${
+                        strength === s.key
+                          ? "border-primary bg-primary/5 text-foreground"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <div className="text-xs font-medium">{s.label}</div>
+                      {s.description && (
+                        <div className="text-[10px] text-muted-foreground">{s.description}</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Intent */}
+              <div className="space-y-2">
+                <Label>This signal means</Label>
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    className="text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowTooltip(!showTooltip)}
+                    onClick={() => setIntent("qualify")}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
+                      intent === "qualify"
+                        ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
                   >
-                    <Info className="h-3.5 w-3.5" />
+                    <Check className="h-3.5 w-3.5" />
+                    Good fit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntent("risk")}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
+                      intent === "risk"
+                        ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5" />
+                    Risk
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntent("exclude")}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
+                      intent === "exclude"
+                        ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <ShieldOff className="h-3.5 w-3.5" />
+                    Not a fit
                   </button>
                 </div>
-                {showTooltip && (
-                  <div className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground whitespace-pre-line">
-                    {importanceConfig.tooltip}
-                  </div>
-                )}
-                <Input
-                  id="crit-weight"
-                  name="weight"
-                  type="number"
-                  min={1}
-                  max={10}
-                  defaultValue={defaultValues?.weight ?? 5}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {importanceConfig.helper}
-                </p>
               </div>
 
               {/* Note */}
@@ -496,8 +470,8 @@ export function CriterionFormDialog({
                   {isPending
                     ? "Saving..."
                     : isEditing
-                      ? "Update"
-                      : "Add criterion"}
+                      ? "Update signal"
+                      : "Add signal"}
                 </Button>
               </DialogFooter>
             </form>

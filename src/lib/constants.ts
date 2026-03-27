@@ -16,24 +16,6 @@ export const GROUP_DESCRIPTIONS: Record<string, string> = {
   keyword: "Additional context and business-specific nuances.",
 };
 
-export const EXCLUSIONS_DESCRIPTION =
-  "Hard disqualifiers. If any of these match, the company is not your ICP — even if everything else fits.";
-
-export const RISK_DESCRIPTION =
-  "Borderline factors that need case-by-case evaluation. Not a hard exclusion, but requires attention.";
-
-export const EXCLUSION_EMPTY_SUGGESTIONS = [
-  "Restricted jurisdictions",
-  "Unsupported business models",
-  "Compliance blockers",
-];
-
-export const RISK_EMPTY_SUGGESTIONS = [
-  "Region with licensing restrictions",
-  "Industry with regulatory uncertainty",
-  "Company size at edge of capacity",
-];
-
 export const OPERATOR_LABELS: Record<string, string> = {
   equals: "equals — exact match",
   contains: "contains — includes this text",
@@ -69,18 +51,16 @@ export const PROPERTY_OPTIONS: Array<{
   { label: "Keywords", category: "keyword", group: "keyword" },
 ];
 
-// ─── Guided picker groups for the modal ──────────────────────────────────────
+// ─── Guided picker groups for the add signal modal ──────────────────────────
 
 export const PICKER_TIERS: Array<{
   tier: string;
   label: string;
-  description: string;
   properties: Array<{ label: string; category: string; group: string }>;
 }> = [
   {
     tier: "basics",
-    label: "Start with basics",
-    description: "",
+    label: "Basics",
     properties: [
       { label: "Industry", category: "industry", group: "firmographic" },
       { label: "Region", category: "region", group: "firmographic" },
@@ -90,8 +70,7 @@ export const PICKER_TIERS: Array<{
   },
   {
     tier: "details",
-    label: "Add more details",
-    description: "",
+    label: "Additional",
     properties: [
       { label: "Platform", category: "platform", group: "technographic" },
       { label: "Payment method", category: "payment_method", group: "technographic" },
@@ -104,7 +83,6 @@ export const PICKER_TIERS: Array<{
   {
     tier: "advanced",
     label: "Advanced (optional)",
-    description: "",
     properties: [
       { label: "Regulatory status", category: "regulatory_status", group: "compliance" },
       { label: "License type", category: "license_type", group: "compliance" },
@@ -112,6 +90,35 @@ export const PICKER_TIERS: Array<{
     ],
   },
 ];
+
+// ─── Signal strength ─────────────────────────────────────────────────────────
+
+export const SIGNAL_STRENGTHS = [
+  { key: "strong", label: "Strong", description: "Very important", weight: 9 },
+  { key: "medium", label: "Medium", description: "", weight: 5 },
+  { key: "weak", label: "Weak", description: "Nice to have", weight: 2 },
+] as const;
+
+export function weightToStrength(weight: number | null): "strong" | "medium" | "weak" {
+  if (weight == null) return "medium";
+  if (weight >= 8) return "strong";
+  if (weight >= 4) return "medium";
+  return "weak";
+}
+
+export function strengthToWeight(strength: string): number {
+  const found = SIGNAL_STRENGTHS.find((s) => s.key === strength);
+  return found?.weight ?? 5;
+}
+
+// Key basics for completeness tracking
+export const KEY_BASICS = ["industry", "region", "company_size", "business_model"];
+export const KEY_BASICS_LABELS: Record<string, string> = {
+  industry: "Industry",
+  region: "Region",
+  company_size: "Company size",
+  business_model: "Business model",
+};
 
 // Business model preset options for multi-select
 export const BUSINESS_MODEL_PRESETS = [
