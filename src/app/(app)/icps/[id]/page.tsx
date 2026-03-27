@@ -52,27 +52,29 @@ export default async function IcpDetailPage({
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div className="space-y-1">
-          {/* Product usage block */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {currentProduct && (
+          {/* Product switcher */}
+          {icpProducts.length > 0 && (
+          <div className="flex items-center gap-1.5 text-xs">
+            {icpProducts.map((p) => (
               <Link
-                href={`/icps?product=${currentProduct.id}`}
-                className="hover:text-foreground transition-colors"
+                key={p.id}
+                href={`/icps/${id}?product=${p.id}`}
+                className={`rounded-full border px-2.5 py-0.5 font-medium transition-colors ${
+                  p.id === currentProduct?.id
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "border-border text-muted-foreground hover:bg-muted"
+                }`}
               >
-                {currentProduct.name}
+                {p.name}
               </Link>
-            )}
-            {otherProducts.length > 0 && (
-              <span>
-                · Also in: {otherProducts.map((p) => p.name).join(", ")}
-              </span>
-            )}
+            ))}
             {icpProducts.length > 1 && (
               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 Shared
               </Badge>
             )}
           </div>
+          )}
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight">{icp.name}</h1>
             <Badge variant="outline">{icp.status}</Badge>
