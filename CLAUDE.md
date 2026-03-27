@@ -100,7 +100,11 @@ src/
 │   ├── drafts.ts             # createDrafts, approveDraft, rejectDraft, generateApiToken
 │   ├── onboarding.ts         # advanceOnboarding, goBackOnboarding, parseContext, refineContext
 │   ├── team.ts               # inviteMember, removeMember, cancelInvite, acceptInvite, switchWorkspace
-│   ├── evidence.ts           # addEvidence, deleteEvidence, getEvidenceForIcp
+│   ├── evidence.ts           # addCase, updateCase, deleteCase, getCasesForIcp, findRelatedCases
+│   ├── products.ts           # createProduct, updateProduct, updateProductFull, deleteProduct, getProducts
+│   ├── product-icps.ts       # linkIcpToProduct, unlinkIcpFromProduct, duplicateIcpForProduct
+│   ├── use-cases.ts          # createUseCase, renameUseCase, deleteUseCase, getUseCasesForProduct
+│   ├── company.ts            # updateCompanyInfo
 │   └── auth.ts               # signIn, signUp, signOut, requestPasswordReset
 ├── db/
 │   ├── schema.ts             # Drizzle schema (23 tables)
@@ -596,11 +600,18 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Deals with win/loss tracking | [REPLACED] | Replaced by Cases (lightweight ICP-scoped learning loop) |
 | Product requests lifecycle | [HIDDEN] | Routes exist but removed from sidebar |
 | Insights analytics | [HIDDEN] | Routes exist but removed from sidebar |
-| Cases (ICP learning loop) | [IMPLEMENTED] | Cases tab in ICP detail, product-scoped, won/lost/in-progress, use cases, channels, reason tags |
-| Product Use Cases | [IMPLEMENTED] | Per-product entities, select-or-create in Cases, normalized duplicates prevention |
-| Shared ICPs across products | [IMPLEMENTED] | Many-to-many via product_icps, link/duplicate/fork, usage badges |
-| Product restructure (IA simplification) | [IMPLEMENTED] | Sidebar: 4 items, Company block, Product selector, inline editing |
-| Performance optimization | [IMPLEMENTED] | Parallel queries, loading skeletons, client-side product switching, max 5 DB connections |
+| Cases (ICP learning loop) | [IMPLEMENTED] | Cases tab in ICP detail, product-scoped, won/lost/in-progress, multi-select use cases, channels, reason tags, edit/delete inline |
+| Product Use Cases | [IMPLEMENTED] | Per-product entities, chip-based manager in product edit, select-or-create in Cases, multi-select, normalized duplicate prevention, bidirectional sync |
+| Shared ICPs across products | [IMPLEMENTED] | Many-to-many via product_icps, link/duplicate/fork, usage badges, edit warning for shared ICPs |
+| Shared ICP edit safeguards | [IMPLEMENTED] | Warning interstitial: "Used in X products, changes apply everywhere" + "Duplicate for this product" option |
+| Case reuse as draft | [IMPLEMENTED] | Cross-product company match (debounced), "Reuse as draft" prefills safe fields, does NOT copy use cases/channel |
+| Product restructure (IA simplification) | [IMPLEMENTED] | Sidebar: 4 items, Company block, Product selector (no ⋯ menu), inline editing |
+| Performance optimization | [IMPLEMENTED] | Parallel queries (Promise.all everywhere), loading skeletons, client-side product switching, max 5 DB connections, linkedProductIds via separate query |
+| Onboarding browser back | [IMPLEMENTED] | Browser back button works in onboarding wizard (pushState + popstate listener) |
+| Dialog width fix | [IMPLEMENTED] | Base DialogContent sm:max-w-md (was sm:max-w-sm causing overflow in all dialogs) |
+| Channel "other" display fix | [IMPLEMENTED] | channel="other" hidden in case display, shows channelDetail only |
+| Old product edit page removed | [IMPLEMENTED] | /icps/products/[id] deleted, all editing inline in product context block |
+| Settings product redirect | [IMPLEMENTED] | /settings/product redirects to /icps, removed from settings nav |
 | Industry taxonomy (normalized) | [IMPLEMENTED] | Two-level hierarchy (25 sectors, ~350 industries), aliases, hierarchical scoring, picker UI |
 | Segment builder with condition logic | [IMPLEMENTED] | Flat Include/Exclude/Risk rules |
 | Match explanation layer | [IMPLEMENTED] | matchReasons[] with per-criterion detail |
@@ -622,10 +633,14 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 6. **Inline draft editing** — edit suggestion payload before approving
 7. **Batch approve drafts** — approve multiple suggestions at once from inbox
 8. **Segment discovery (Level 2)** — auto-generated segments from scoring patterns
+11. **Email invites (Resend)** — invite system creates DB records but does NOT send emails yet. Needs Resend integration.
+12. **Onboarding → new data model** — onboarding now writes to workspaces + products (not legacy product_context), but AI parser prompt may need tuning for better field separation
+13. **Legacy product_context cleanup** — table still exists in DB, no longer written to by onboarding. Can be dropped after confirming no other code reads from it.
 
 ### P3 — Scale
 9. **Batch scoring optimization** — current per-lead loop, could batch DB inserts better
 10. **Token tracking enforcement** — tokens logged but not enforced in limits
+14. **product_icps query optimization** — linkedProductIds built via separate query + Map merge (workaround for Drizzle sql subquery serialization issue)
 
 ## 25. Conventions
 
@@ -646,3 +661,11 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 - DB pool: max 5 connections (for parallel queries)
 - All heavy pages use Promise.all for parallel DB queries
 - Loading skeletons via loading.tsx on all main routes
+- linkedProductIds: built from separate product_icps query + Map merge on server (Drizzle sql subquery unreliable for RSC serialization)
+- Use cases: multi-select via useCaseIds jsonb array on icp_evidence (legacy useCaseId single FK kept)
+- Product selector: no ⋯ menu, edit/delete only via collapsible product context block
+- Shared ICP edit: warning interstitial when productCount > 1
+- Case reuse: findRelatedCases() matches by normalized company name across products
+- Onboarding: writes to workspaces (company) + products (product) + product_icps (links), NOT to product_context
+- Browser back in onboarding: pushState per step + popstate listener calls goBackOnboarding()
+- Dialog base width: sm:max-w-md (changed from sm:max-w-sm in dialog.tsx)
