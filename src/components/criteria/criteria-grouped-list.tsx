@@ -15,6 +15,7 @@ import {
   X,
   ShieldAlert,
   AlertTriangle,
+  Lightbulb,
 } from "lucide-react";
 import {
   GROUP_LABELS,
@@ -22,6 +23,8 @@ import {
   GROUP_EMPTY_SUGGESTIONS,
   EXCLUSIONS_DESCRIPTION,
   EXCLUSION_EMPTY_SUGGESTIONS,
+  RISK_DESCRIPTION,
+  RISK_EMPTY_SUGGESTIONS,
 } from "@/lib/constants";
 
 type Criterion = {
@@ -47,6 +50,23 @@ const GROUPS = [
   "compliance",
   "keyword",
 ] as const;
+
+// Core criteria that make an ICP strong
+const CORE_CRITERIA = ["industry", "region", "company_size", "business_model"];
+
+function getStrengthNudge(criteria: Criterion[]): string[] {
+  const existingCategories = new Set(criteria.map((c) => c.category));
+  const missing = CORE_CRITERIA.filter((c) => !existingCategories.has(c));
+  if (missing.length === 0 || criteria.length === 0) return [];
+  // Only show nudge if they have at least 1 criterion but are missing core ones
+  const labels: Record<string, string> = {
+    industry: "Industry",
+    region: "Region",
+    company_size: "Company size",
+    business_model: "Business model",
+  };
+  return missing.map((c) => labels[c] ?? c);
+}
 
 export function CriteriaGroupedList({
   criteria,
@@ -76,6 +96,9 @@ export function CriteriaGroupedList({
     },
     {} as Record<string, Criterion[]>
   );
+
+  // ICP strength nudge
+  const missingCoreLabels = getStrengthNudge(criteria);
 
   function toggleGroup(group: string) {
     setExpandedGroups((prev) => {
@@ -109,7 +132,22 @@ export function CriteriaGroupedList({
 
   return (
     <div className="space-y-4">
-      {/* All criteria grouped by type — shows qualify, risk, and exclude in context */}
+      {/* ICP strength nudge */}
+      {missingCoreLabels.length > 0 && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-dashed border-amber-300 bg-amber-50/50 px-4 py-3 dark:border-amber-700 dark:bg-amber-950/30">
+          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div>
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+              Make this ICP stronger
+            </p>
+            <p className="mt-0.5 text-xs text-amber-700 dark:text-amber-400">
+              Consider also defining: {missingCoreLabels.join(", ")}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* All criteria grouped by type */}
       {GROUPS.map((group) => {
         const items = grouped[group];
         const isExpanded = expandedGroups.has(group);
@@ -174,7 +212,7 @@ export function CriteriaGroupedList({
         );
       })}
 
-      {/* Risk summary section — duplicates risk rules from groups above */}
+      {/* Risk summary section */}
       <div className="rounded-lg border border-border">
         <div className="flex items-center justify-between px-4 py-3">
           <button
@@ -201,15 +239,15 @@ export function CriteriaGroupedList({
         {expandedGroups.has("__risk") && (
           <>
             <p className="border-t px-4 pt-2 pb-1 text-xs text-muted-foreground">
-              Borderline factors that need case-by-case evaluation. Not a hard exclusion, but requires attention.
+              {RISK_DESCRIPTION}
             </p>
             {riskCriteria.length === 0 ? (
               <div className="px-4 py-3 text-sm text-muted-foreground">
                 <p>No risk factors yet. Examples:</p>
                 <ul className="mt-1 list-disc list-inside">
-                  <li>Region with licensing restrictions</li>
-                  <li>Industry with regulatory uncertainty</li>
-                  <li>Company size at the edge of your capacity</li>
+                  {RISK_EMPTY_SUGGESTIONS.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
                 </ul>
               </div>
             ) : (
@@ -229,7 +267,7 @@ export function CriteriaGroupedList({
         )}
       </div>
 
-      {/* Exclusions summary section — duplicates exclude rules from groups above */}
+      {/* Exclusions summary section */}
       <div className="rounded-lg border border-destructive/30">
         <div className="flex items-center justify-between px-4 py-3">
           <button
