@@ -25,7 +25,7 @@ export async function getIcps(workspaceId: string, productId?: string) {
       excludeCount: sql<number>`(select count(*) from criteria where criteria.icp_id = ${icps.id} and criteria.intent = 'exclude')::int`,
       personaCount: sql<number>`(select count(*) from personas where personas.icp_id = ${icps.id})::int`,
       productCount: sql<number>`(select count(*) from product_icps where product_icps.icp_id = ${icps.id})::int`,
-      linkedProductIds: sql<string[]>`(select coalesce(array_agg(pi.product_id::text), '{}') from product_icps pi where pi.icp_id = ${icps.id})`,
+      linkedProductIds: sql<string[]>`(select coalesce(json_agg(pi.product_id::text), '[]'::json) from product_icps pi where pi.icp_id = ${icps.id})`,
     })
     .from(icps)
     .where(and(...conditions))
