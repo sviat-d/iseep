@@ -106,6 +106,7 @@ export function ProductsIcpsView({
 
       {activeProduct && (
         <IcpProductContext
+          key={activeProduct.id}
           product={{
             id: activeProduct.id,
             name: activeProduct.name,

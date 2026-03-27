@@ -37,6 +37,17 @@ export function IcpProductContext({
   const [newUcName, setNewUcName] = useState("");
   const [localUseCases, setLocalUseCases] = useState(product?.useCases ?? []);
 
+  // Reset local state when product changes
+  const productId = product?.id;
+  const [prevProductId, setPrevProductId] = useState(productId);
+  if (productId !== prevProductId) {
+    setPrevProductId(productId);
+    setLocalUseCases(product?.useCases ?? []);
+    setOpen(false);
+    setEditing(false);
+    setNewUcName("");
+  }
+
   if (!product) return null;
 
   const hasContext = product.contextDescription || product.keyValueProps.length > 0 || (product.useCases && product.useCases.length > 0);
