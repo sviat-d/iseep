@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getIcps } from "@/lib/queries/icps";
 import { getWorkspaceShareInfo } from "@/lib/queries/workspace";
+import { productIcps } from "@/db/schema";
 import { getProducts } from "@/actions/products";
 import { getUseCasesForProduct } from "@/actions/use-cases";
 import { ProductsIcpsView } from "@/components/icps/products-icps-view";
@@ -20,23 +21,30 @@ export default async function IcpsPage({
   if (!ctx) notFound();
 
   const { product: selectedProductId } = await searchParams;
-  const [allProducts, allIcps, wsShare, exportContext, [ws]] = await Promise.all([
+  const [allProducts, allIcps, wsShare, exportContext, [ws], allLinks] = await Promise.all([
     getProducts(ctx.workspaceId),
     getIcps(ctx.workspaceId),
     getWorkspaceShareInfo(ctx.workspaceId),
     buildFullContext(ctx.workspaceId, { product: true, icps: true, scoring: false }),
     db.select().from(workspaces).where(eq(workspaces.id, ctx.workspaceId)),
+    db.select({ productId: productIcps.productId, icpId: productIcps.icpId })
+      .from(productIcps)
+      .where(eq(productIcps.workspaceId, ctx.workspaceId)),
   ]);
 
-  // DEBUG: check linkedProductIds format
-  if (allIcps.length > 0) {
-    console.log("[DEBUG] ICP linkedProductIds sample:", JSON.stringify({
-      name: allIcps[0].name,
-      linkedProductIds: allIcps[0].linkedProductIds,
-      type: typeof allIcps[0].linkedProductIds,
-      isArray: Array.isArray(allIcps[0].linkedProductIds),
-    }));
+  // Build reliable linkedProductIds map from product_icps table
+  const linkMap = new Map<string, string[]>();
+  for (const link of allLinks) {
+    const existing = linkMap.get(link.icpId) ?? [];
+    existing.push(link.productId);
+    linkMap.set(link.icpId, existing);
   }
+
+  // Enrich ICPs with reliable linkedProductIds
+  const enrichedIcps = allIcps.map((icp) => ({
+    ...icp,
+    linkedProductIds: linkMap.get(icp.id) ?? [],
+  }));
 
   const company = {
     name: ws?.name ?? "Company",
@@ -88,7 +96,7 @@ export default async function IcpsPage({
     <ProductsIcpsView
       company={company}
       products={productsData}
-      allIcps={allIcps}
+      allIcps={enrichedIcps}
       wsShare={{
         profileShareToken: wsShare?.profileShareToken ?? null,
         profileShareMode: wsShare?.profileShareMode ?? null,
