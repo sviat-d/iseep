@@ -29,7 +29,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
-export function IcpCards({ icps }: { icps: IcpRow[] }) {
+export function IcpCards({ icps, productId }: { icps: IcpRow[]; productId?: string }) {
   if (icps.length === 0) {
     return (
       <p className="py-8 text-center text-muted-foreground">No ICPs found.</p>
@@ -39,7 +39,7 @@ export function IcpCards({ icps }: { icps: IcpRow[] }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {icps.map((icp) => (
-        <Link key={icp.id} href={`/icps/${icp.id}`} className="group">
+        <Link key={icp.id} href={productId ? `/icps/${icp.id}?product=${productId}` : `/icps/${icp.id}`} className="group">
           <Card className="transition-shadow group-hover:shadow-md">
             <CardHeader>
               <div className="flex items-center justify-between">

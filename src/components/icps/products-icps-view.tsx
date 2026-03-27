@@ -196,7 +196,7 @@ export function ProductsIcpsView({
 
       {/* ICP List or empty state */}
       {filteredIcps.length > 0 ? (
-        <IcpListView icps={filteredIcps} />
+        <IcpListView icps={filteredIcps} productId={selectedProductId ?? undefined} />
       ) : !showAddIcp && !showExistingIcps && (
         <div className="py-8 text-center">
           <Target className="mx-auto h-7 w-7 text-muted-foreground/30" />

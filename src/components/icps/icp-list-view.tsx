@@ -39,7 +39,7 @@ function getStoredView(): "table" | "grid" {
 
 const STATUS_OPTIONS = ["all", "draft", "active", "archived"] as const;
 
-export function IcpListView({ icps }: { icps: IcpRow[] }) {
+export function IcpListView({ icps, productId }: { icps: IcpRow[]; productId?: string }) {
   const stored = useSyncExternalStore(subscribeStorage, getStoredView, () => "table" as const);
   const [view, setView] = useState(stored);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -88,7 +88,7 @@ export function IcpListView({ icps }: { icps: IcpRow[] }) {
           </Button>
         </div>
       </div>
-      {view === "table" ? <IcpTable icps={filteredIcps} hideStatusFilter /> : <IcpCards icps={filteredIcps} />}
+      {view === "table" ? <IcpTable icps={filteredIcps} hideStatusFilter productId={productId} /> : <IcpCards icps={filteredIcps} productId={productId} />}
     </div>
   );
 }

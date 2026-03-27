@@ -24,32 +24,27 @@ export default async function IcpDetailPage({
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icp, snapshots, exportContext, icpProducts, cases] = await Promise.all([
+  const [icp, snapshots, exportContext, icpProducts] = await Promise.all([
     getIcp(id, ctx.workspaceId),
     getIcpSnapshots(id, ctx.workspaceId),
     buildIcpContext(ctx.workspaceId, id),
     getProductsForIcp(id, ctx.workspaceId),
-    getCasesForIcp(id, ctx.workspaceId, currentProductId ?? undefined),
   ]);
 
   if (!icp) notFound();
 
-  // Determine current product + fetch use cases from ALL linked products
+  // Determine current product — URL param or default to first linked product
   const currentProduct = currentProductId
     ? icpProducts.find((p) => p.id === currentProductId)
     : icpProducts[0] ?? null;
 
-  // Get use cases from all products this ICP belongs to
-  const allUseCaseLists = await Promise.all(
-    icpProducts.map((p) => getUseCasesForProduct(p.id, ctx.workspaceId))
-  );
-  // Deduplicate by ID
-  const seenIds = new Set<string>();
-  const useCases = allUseCaseLists.flat().filter((uc) => {
-    if (seenIds.has(uc.id)) return false;
-    seenIds.add(uc.id);
-    return true;
-  });
+  // Fetch cases scoped to the resolved product (not just the URL param)
+  const cases = await getCasesForIcp(id, ctx.workspaceId, currentProduct?.id);
+
+  // Get use cases only from the current product (not all linked products)
+  const useCases = currentProduct
+    ? await getUseCasesForProduct(currentProduct.id, ctx.workspaceId)
+    : [];
 
   const otherProducts = icpProducts.filter((p) => p.id !== currentProduct?.id);
 

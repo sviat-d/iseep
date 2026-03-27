@@ -47,7 +47,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
 
 const STATUS_OPTIONS = ["all", "draft", "active", "archived"] as const;
 
-export function IcpTable({ icps, hideStatusFilter = false }: { icps: IcpRow[]; hideStatusFilter?: boolean }) {
+export function IcpTable({ icps, hideStatusFilter = false, productId }: { icps: IcpRow[]; hideStatusFilter?: boolean; productId?: string }) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -66,7 +66,7 @@ export function IcpTable({ icps, hideStatusFilter = false }: { icps: IcpRow[]; h
         ),
         cell: (info) => (
           <Link
-            href={`/icps/${info.row.original.id}`}
+            href={productId ? `/icps/${info.row.original.id}?product=${productId}` : `/icps/${info.row.original.id}`}
             className="font-medium text-primary hover:underline"
           >
             {info.getValue()}
@@ -127,7 +127,7 @@ export function IcpTable({ icps, hideStatusFilter = false }: { icps: IcpRow[]; h
         ),
       }),
     ],
-    []
+    [productId]
   );
 
   const filteredData = useMemo(() => {

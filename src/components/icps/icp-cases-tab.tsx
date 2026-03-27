@@ -638,7 +638,11 @@ export function IcpCasesTab({
 
   const filtered = cases
     .filter((c) => filter === "all" || c.outcome === filter)
-    .filter((c) => !useCaseFilter || c.useCaseId === useCaseFilter);
+    .filter((c) => {
+      if (!useCaseFilter) return true;
+      const ucIds = Array.isArray(c.useCaseIds) ? (c.useCaseIds as string[]) : c.useCaseId ? [c.useCaseId] : [];
+      return ucIds.includes(useCaseFilter);
+    });
 
   // Build segment name lookup
   const segmentMap = new Map(segments.map((s) => [s.id, s.name]));
@@ -696,7 +700,10 @@ export function IcpCasesTab({
       </div>
 
       {/* Use case filter */}
-      {useCases.length > 0 && cases.some((c) => c.useCaseId) && (
+      {useCases.length > 0 && cases.some((c) => {
+        const ucIds = Array.isArray(c.useCaseIds) ? (c.useCaseIds as string[]) : c.useCaseId ? [c.useCaseId] : [];
+        return ucIds.length > 0;
+      }) && (
         <div className="flex flex-wrap gap-1.5">
           <button
             type="button"
@@ -707,7 +714,10 @@ export function IcpCasesTab({
           >
             All use cases
           </button>
-          {useCases.filter((uc) => cases.some((c) => c.useCaseId === uc.id)).map((uc) => (
+          {useCases.filter((uc) => cases.some((c) => {
+            const ucIds = Array.isArray(c.useCaseIds) ? (c.useCaseIds as string[]) : c.useCaseId ? [c.useCaseId] : [];
+            return ucIds.includes(uc.id);
+          })).map((uc) => (
             <button
               key={uc.id}
               type="button"
