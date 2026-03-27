@@ -34,14 +34,23 @@ export default async function IcpDetailPage({
 
   if (!icp) notFound();
 
-  // Determine current product + fetch its use cases
+  // Determine current product + fetch use cases from ALL linked products
   const currentProduct = currentProductId
     ? icpProducts.find((p) => p.id === currentProductId)
     : icpProducts[0] ?? null;
 
-  const useCases = currentProduct
-    ? await getUseCasesForProduct(currentProduct.id, ctx.workspaceId)
-    : [];
+  // Get use cases from all products this ICP belongs to
+  const allUseCaseLists = await Promise.all(
+    icpProducts.map((p) => getUseCasesForProduct(p.id, ctx.workspaceId))
+  );
+  // Deduplicate by ID
+  const seenIds = new Set<string>();
+  const useCases = allUseCaseLists.flat().filter((uc) => {
+    if (seenIds.has(uc.id)) return false;
+    seenIds.add(uc.id);
+    return true;
+  });
+
   const otherProducts = icpProducts.filter((p) => p.id !== currentProduct?.id);
 
   return (

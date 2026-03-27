@@ -78,16 +78,18 @@ export function ProductsIcpsView({
 
   const filteredIcps = useMemo(() => {
     if (!selectedProductId) return allIcps;
-    return allIcps.filter((icp) =>
-      icp.linkedProductIds?.includes(selectedProductId)
-    );
+    return allIcps.filter((icp) => {
+      const ids = Array.isArray(icp.linkedProductIds) ? icp.linkedProductIds : [];
+      return ids.includes(selectedProductId);
+    });
   }, [allIcps, selectedProductId]);
 
   const unlinkedIcps = useMemo(() => {
     if (!selectedProductId) return [];
-    return allIcps.filter((icp) =>
-      !icp.linkedProductIds?.includes(selectedProductId)
-    );
+    return allIcps.filter((icp) => {
+      const ids = Array.isArray(icp.linkedProductIds) ? icp.linkedProductIds : [];
+      return !ids.includes(selectedProductId);
+    });
   }, [allIcps, selectedProductId]);
 
   const activeProduct = products.find((p) => p.id === selectedProductId);
