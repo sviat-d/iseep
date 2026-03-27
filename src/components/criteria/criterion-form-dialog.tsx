@@ -17,7 +17,7 @@ import { createCriterion, updateCriterion } from "@/actions/criteria";
 import type { ActionResult } from "@/lib/types";
 import {
   PROPERTY_OPTIONS,
-  PROPERTY_GROUPS,
+  PICKER_TIERS,
   BUSINESS_MODEL_PRESETS,
 } from "@/lib/constants";
 import { Info, Check, AlertTriangle, X, ArrowLeft } from "lucide-react";
@@ -27,7 +27,6 @@ import { resolveIndustry, getTemplates } from "@/lib/taxonomy/lookup";
 
 const CUSTOM_PROPERTY = "__custom__";
 
-// Properties where "contains" makes more sense than "is"
 const TEXT_PROPERTIES = new Set(["keyword", "tech_stack", "hiring_activity"]);
 
 const IMPORTANCE_HELP: Record<string, { label: string; helper: string; tooltip: string }> = {
@@ -60,7 +59,6 @@ type CriterionFormDialogProps = {
     weight: number | null;
     note: string | null;
   };
-  defaultGroup?: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
@@ -76,7 +74,6 @@ function findPropertyLabel(category: string) {
 export function CriterionFormDialog({
   icpId,
   defaultValues,
-  defaultGroup,
   open,
   onOpenChange,
 }: CriterionFormDialogProps) {
@@ -86,15 +83,13 @@ export function CriterionFormDialog({
     ? findPropertyOption(defaultValues.category)
     : null;
 
-  // When editing or adding from a specific group, skip the picker
-  const shouldSkipPicker = isEditing || !!defaultGroup;
-
   const initialProperty = defaultValues
     ? (existingProperty ? defaultValues.category : CUSTOM_PROPERTY)
     : null;
 
+  // Editing → go straight to configure. Adding → always start at picker.
   const [step, setStep] = useState<"pick" | "configure">(
-    shouldSkipPicker ? "configure" : "pick"
+    isEditing ? "configure" : "pick"
   );
   const [intent, setIntent] = useState(defaultValues?.intent ?? "qualify");
   const [property, setProperty] = useState<string | null>(initialProperty);
@@ -110,19 +105,14 @@ export function CriterionFormDialog({
   );
   const [customBusinessModel, setCustomBusinessModel] = useState("");
 
-  // Reset state when dialog opens or defaultValues change
+  // Reset all state when dialog opens/closes or switches between add/edit
   useEffect(() => {
     const opt = defaultValues ? findPropertyOption(defaultValues.category) : null;
     const editing = !!defaultValues;
-    const skipPicker = editing || !!defaultGroup;
 
-    setStep(skipPicker ? "configure" : "pick");
+    setStep(editing ? "configure" : "pick");
     setIntent(defaultValues?.intent ?? "qualify");
-    setProperty(
-      defaultValues
-        ? (opt ? defaultValues.category : CUSTOM_PROPERTY)
-        : defaultGroup ? null : null
-    );
+    setProperty(editing ? (opt ? defaultValues!.category : CUSTOM_PROPERTY) : null);
     setCustomCategory(defaultValues && !opt ? (defaultValues.category ?? "") : "");
     setShowTooltip(false);
     setIndustryValue(defaultValues?.value ?? "");
@@ -132,20 +122,16 @@ export function CriterionFormDialog({
         : []
     );
     setCustomBusinessModel("");
-  }, [defaultValues, defaultGroup, open]);
+  }, [defaultValues, open]);
 
-  // Auto-detect operator from property type
   const resolvedCategory =
     property === CUSTOM_PROPERTY ? customCategory : (property ?? "");
   const operator = TEXT_PROPERTIES.has(resolvedCategory) ? "contains" : "equals";
 
-  // Derive group from property selection
   const selectedOption = PROPERTY_OPTIONS.find((p) => p.category === property);
-  const resolvedGroup = selectedOption?.group ?? defaultGroup ?? "firmographic";
+  const resolvedGroup = selectedOption?.group ?? "firmographic";
 
   const importanceConfig = IMPORTANCE_HELP[intent] ?? IMPORTANCE_HELP.qualify;
-
-  // Compute the value for business model
   const businessModelValue = businessModelValues.join(", ");
 
   const [state, formAction, isPending] = useActionState<
@@ -175,10 +161,6 @@ export function CriterionFormDialog({
     setStep("configure");
   }
 
-  function handleBack() {
-    setStep("pick");
-  }
-
   function toggleBusinessModel(value: string) {
     setBusinessModelValues((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
@@ -193,43 +175,40 @@ export function CriterionFormDialog({
     }
   }
 
-  // Filter property groups when adding from a specific group
-  const pickerGroups = defaultGroup
-    ? PROPERTY_GROUPS.filter((g) => g.group === defaultGroup)
-    : PROPERTY_GROUPS;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         {step === "pick" ? (
-          /* ── STEP 1: Criterion Picker ─────────────────────────────── */
+          /* ── STEP 1: Criterion Picker ── always shown for new criteria ─ */
           <>
             <DialogHeader>
               <DialogTitle>Define a criterion</DialogTitle>
               <DialogDescription>
-                What do you want to define?
+                What do you want to define about your ideal customer?
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              {pickerGroups.map((group) => (
-                <div key={group.group}>
-                  <div className="mb-1.5">
+            <div className="space-y-5 py-2">
+              {PICKER_TIERS.map((tier) => (
+                <div key={tier.tier}>
+                  <div className="mb-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {group.label}
+                      {tier.label}
                     </span>
-                    {group.advanced && (
-                      <span className="ml-1.5 text-[10px] italic text-muted-foreground/60">
-                        advanced
-                      </span>
-                    )}
+                    <span className="ml-2 text-[11px] text-muted-foreground/60">
+                      {tier.description}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {group.properties.map((prop) => (
+                    {tier.properties.map((prop) => (
                       <button
                         key={prop.category}
                         type="button"
                         onClick={() => handlePickProperty(prop.category)}
-                        className="rounded-full border border-border px-3 py-1 text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                        className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                          tier.tier === "core"
+                            ? "border-foreground/20 text-foreground hover:bg-primary/10 hover:border-primary"
+                            : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
                       >
                         {prop.label}
                       </button>
@@ -237,12 +216,11 @@ export function CriterionFormDialog({
                   </div>
                 </div>
               ))}
-              {/* Custom criterion — always visible */}
-              <div className="flex flex-wrap gap-1.5">
+              <div>
                 <button
                   type="button"
                   onClick={handlePickCustom}
-                  className="rounded-full border border-dashed border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
+                  className="rounded-full border border-dashed border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-colors"
                 >
                   + Custom criterion
                 </button>
@@ -250,34 +228,31 @@ export function CriterionFormDialog({
             </div>
           </>
         ) : (
-          /* ── STEP 2: Configure Criterion ──────────────────────────── */
+          /* ── STEP 2: Configure ── */
           <>
             <DialogHeader>
               <DialogTitle>
-                {isEditing ? "Edit criterion" : "Add criterion"}
+                {isEditing ? "Edit criterion" : (
+                  <span className="flex items-center gap-2">
+                    Add criterion
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      {findPropertyLabel(property === CUSTOM_PROPERTY ? customCategory || "Custom" : property ?? "")}
+                    </Badge>
+                  </span>
+                )}
               </DialogTitle>
               <DialogDescription>
                 {isEditing ? (
                   <>Editing: <span className="font-medium text-foreground">{findPropertyLabel(defaultValues!.category)}</span></>
-                ) : property === CUSTOM_PROPERTY ? (
-                  "Custom criterion"
                 ) : (
-                  <>
-                    <span className="font-medium text-foreground">{findPropertyLabel(property ?? "")}</span>
-                    {!defaultGroup && !isEditing && (
-                      <>
-                        {" · "}
-                        <button
-                          type="button"
-                          onClick={handleBack}
-                          className="inline-flex items-center gap-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          <ArrowLeft className="h-3 w-3" />
-                          Change
-                        </button>
-                      </>
-                    )}
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => setStep("pick")}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArrowLeft className="h-3 w-3" />
+                    Choose a different criterion
+                  </button>
                 )}
               </DialogDescription>
             </DialogHeader>
@@ -294,7 +269,7 @@ export function CriterionFormDialog({
                 </div>
               )}
 
-              {/* Custom property name input */}
+              {/* Custom property name */}
               {property === CUSTOM_PROPERTY && (
                 <div className="space-y-2">
                   <Label htmlFor="crit-custom-category">Criterion name</Label>
@@ -351,10 +326,9 @@ export function CriterionFormDialog({
                 </div>
               </div>
 
-              {/* Value — smart input based on property */}
+              {/* Value — smart input */}
               <div className="space-y-2">
                 {resolvedCategory === "industry" ? (
-                  /* Industry — taxonomy picker */
                   <>
                     <Label>Value</Label>
                     <input type="hidden" name="value" value={industryValue || ""} />
@@ -393,7 +367,6 @@ export function CriterionFormDialog({
                     })()}
                   </>
                 ) : resolvedCategory === "business_model" ? (
-                  /* Business model — multi-select chips */
                   <>
                     <Label>Select business models</Label>
                     <input type="hidden" name="value" value={businessModelValue} />
@@ -412,7 +385,6 @@ export function CriterionFormDialog({
                           {bm}
                         </button>
                       ))}
-                      {/* Show custom values that aren't in presets */}
                       {businessModelValues
                         .filter((v) => !BUSINESS_MODEL_PRESETS.includes(v))
                         .map((v) => (
@@ -451,7 +423,6 @@ export function CriterionFormDialog({
                     </div>
                   </>
                 ) : (
-                  /* Default — text input */
                   <>
                     <Label htmlFor="crit-value">Value</Label>
                     <Input
@@ -474,7 +445,7 @@ export function CriterionFormDialog({
                 )}
               </div>
 
-              {/* Importance — with dynamic help */}
+              {/* Weight */}
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                   <Label htmlFor="crit-weight">{importanceConfig.label}</Label>

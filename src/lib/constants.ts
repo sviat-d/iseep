@@ -22,34 +22,6 @@ export const EXCLUSIONS_DESCRIPTION =
 export const RISK_DESCRIPTION =
   "Borderline factors that need case-by-case evaluation. Not a hard exclusion, but requires attention.";
 
-export const GROUP_EMPTY_SUGGESTIONS: Record<string, string[]> = {
-  firmographic: [
-    "Industry (e.g. FinTech, E-commerce)",
-    "Region (e.g. EU, US, APAC)",
-    "Company size (e.g. 50-500 employees)",
-    "Business model (e.g. Marketplace, SaaS)",
-  ],
-  technographic: [
-    "Platform (e.g. Shopify, WooCommerce)",
-    "Tech stack (e.g. crypto payments, PSP)",
-    "Payment method (e.g. cards, crypto, wire transfer)",
-  ],
-  behavioral: [
-    "Growth stage (e.g. Series A-C)",
-    "Hiring activity (e.g. hiring payments team)",
-  ],
-  compliance: [
-    "Regulatory status (e.g. PCI DSS certified)",
-    "License type (e.g. EMI, PI)",
-    "Jurisdiction (e.g. EU-regulated)",
-  ],
-  keyword: [
-    "Industry terms (e.g. cross-border payments)",
-    "Product-related (e.g. crypto gateway)",
-    "Market segment (e.g. B2B SaaS)",
-  ],
-};
-
 export const EXCLUSION_EMPTY_SUGGESTIONS = [
   "Restricted jurisdictions",
   "Unsupported business models",
@@ -71,7 +43,6 @@ export const OPERATOR_LABELS: Record<string, string> = {
   not_in: "none of — comma-separated values",
 };
 
-// Simplified condition labels for the rule builder
 export const CONDITION_LABELS: Record<string, string> = {
   equals: "is",
   contains: "contains",
@@ -98,64 +69,58 @@ export const PROPERTY_OPTIONS: Array<{
   { label: "Keywords", category: "keyword", group: "keyword" },
 ];
 
-// Grouped property options for the criterion picker
-export const PROPERTY_GROUPS: Array<{
-  group: string;
+// ─── Tiered picker groups for the modal ─────────────────────────────────────
+
+export const PICKER_TIERS: Array<{
+  tier: "core" | "additional" | "advanced";
   label: string;
   description: string;
-  advanced?: boolean;
-  properties: Array<{ label: string; category: string }>;
+  properties: Array<{ label: string; category: string; group: string }>;
 }> = [
   {
-    group: "firmographic",
-    label: "Company basics",
-    description: "Core attributes of your ideal customer",
+    tier: "core",
+    label: "Core",
+    description: "Define who your ideal customer is",
     properties: [
-      { label: "Industry", category: "industry" },
-      { label: "Region", category: "region" },
-      { label: "Company size", category: "company_size" },
-      { label: "Business model", category: "business_model" },
+      { label: "Industry", category: "industry", group: "firmographic" },
+      { label: "Region", category: "region", group: "firmographic" },
+      { label: "Company size", category: "company_size", group: "firmographic" },
+      { label: "Business model", category: "business_model", group: "firmographic" },
     ],
   },
   {
-    group: "technographic",
-    label: "Tech & product",
-    description: "Tools, platforms, or infrastructure they use",
+    tier: "additional",
+    label: "Additional",
+    description: "Other ways to describe your ICP",
     properties: [
-      { label: "Platform", category: "platform" },
-      { label: "Payment method", category: "payment_method" },
-      { label: "Tech stack", category: "tech_stack" },
+      { label: "Platform", category: "platform", group: "technographic" },
+      { label: "Payment method", category: "payment_method", group: "technographic" },
+      { label: "Tech stack", category: "tech_stack", group: "technographic" },
+      { label: "Growth stage", category: "growth_stage", group: "behavioral" },
+      { label: "Hiring activity", category: "hiring_activity", group: "behavioral" },
+      { label: "Keywords", category: "keyword", group: "keyword" },
     ],
   },
   {
-    group: "behavioral",
-    label: "Growth & activity",
-    description: "Maturity, momentum, and market activity",
+    tier: "advanced",
+    label: "Advanced",
+    description: "For regulated products or industries",
     properties: [
-      { label: "Growth stage", category: "growth_stage" },
-      { label: "Hiring activity", category: "hiring_activity" },
-    ],
-  },
-  {
-    group: "compliance",
-    label: "Compliance & regulation",
-    description: "Important for regulated products or industries",
-    advanced: true,
-    properties: [
-      { label: "Regulatory status", category: "regulatory_status" },
-      { label: "License type", category: "license_type" },
-      { label: "Jurisdiction", category: "jurisdiction" },
-    ],
-  },
-  {
-    group: "keyword",
-    label: "Keywords & custom",
-    description: "Additional context and business-specific nuances",
-    properties: [
-      { label: "Keywords", category: "keyword" },
+      { label: "Regulatory status", category: "regulatory_status", group: "compliance" },
+      { label: "License type", category: "license_type", group: "compliance" },
+      { label: "Jurisdiction", category: "jurisdiction", group: "compliance" },
     ],
   },
 ];
+
+// Core criteria categories — used for ICP strength tracking
+export const CORE_CRITERIA_CATEGORIES = ["industry", "region", "company_size", "business_model"];
+
+// Additional criteria DB groups
+export const ADDITIONAL_GROUPS = ["technographic", "behavioral", "keyword"];
+
+// Advanced criteria DB groups
+export const ADVANCED_GROUPS = ["compliance"];
 
 // Business model preset options for multi-select
 export const BUSINESS_MODEL_PRESETS = [
