@@ -81,7 +81,10 @@ src/
 │   ├── ui/                   # shadcn/ui components
 │   ├── layout/               # sidebar, topbar, app-shell
 │   ├── dashboard/            # dashboard-view
-│   ├── icps/                 # ICP management components (incl. icp-product-context, icp-feedback-tab)
+│   ├── icps/                 # ICP management components (incl. icp-manage-products-dialog, icp-cases-tab)
+│   ├── hypotheses/           # hypothesis-tab (form dialog + cards + metrics)
+│   ├── personas/             # persona-list, persona-card, persona-form-dialog (with decision context)
+│   ├── criteria/             # criteria-grouped-list, criterion-form-dialog (signal modal)
 │   ├── scoring/              # scoring-results, upload-wizard, cluster-review, reject-icp-dialog
 │   ├── settings/             # product-context-form, ai-settings-form, settings-nav (hub sub-nav)
 │   ├── export/               # export-page-view (format picker, preview, copy/download)
@@ -102,12 +105,13 @@ src/
 │   ├── team.ts               # inviteMember, removeMember, cancelInvite, acceptInvite, switchWorkspace
 │   ├── evidence.ts           # addCase, updateCase, deleteCase, getCasesForIcp, findRelatedCases
 │   ├── products.ts           # createProduct, updateProduct, updateProductFull, deleteProduct, getProducts
-│   ├── product-icps.ts       # linkIcpToProduct, unlinkIcpFromProduct, duplicateIcpForProduct
+│   ├── product-icps.ts       # linkIcpToProduct, unlinkIcpFromProduct, duplicateIcpForProduct, updateIcpProducts
+│   ├── hypotheses.ts         # createHypothesis, updateHypothesis, deleteHypothesis, getHypothesesForIcp
 │   ├── use-cases.ts          # createUseCase, renameUseCase, deleteUseCase, getUseCasesForProduct
 │   ├── company.ts            # updateCompanyInfo
 │   └── auth.ts               # signIn, signUp, signOut, requestPasswordReset
 ├── db/
-│   ├── schema.ts             # Drizzle schema (23 tables)
+│   ├── schema.ts             # Drizzle schema (~32 tables including hypotheses)
 │   ├── index.ts              # DB client (pooler-aware)
 │   └── seed.ts               # Seed script
 ├── lib/
@@ -157,15 +161,16 @@ src/
 | `icps` | Ideal Customer Profiles (shared definitions) | name, status (draft/active/archived), version, shareToken, shareMode |
 | `product_icps` | Many-to-many: Product ↔ ICP links | productId, icpId, unique per pair |
 | `criteria` | Scoring rules per ICP | group (5 types), category, value, intent (qualify/risk/exclude), weight (1-10) |
-| `personas` | Target buyer personas | name (job title), description |
-| `segments` | Audience segments with condition trees | logicJson (JSONB), status, priorityScore |
+| `personas` | Target buyer personas | name, description, goals, painPoints, triggers, decisionCriteria, objections, desiredOutcome |
+| `hypotheses` | GTM hypotheses per ICP | name, selectedCriteriaIds[], selectedPersonaIds[], selectedSignalIds[], productIds[], problem, solution, outcome, status, metrics (recipients/replies/sqls/wonDeals/lostDeals) |
+| `segments` | [LEGACY] Audience segments with condition trees | logicJson (JSONB), status, priorityScore — Segments tab removed from UI, entity still in DB |
 | `signals` | Behavioral indicators | type (positive/negative/neutral), label, strength |
 | `icp_snapshots` | Version history | version, snapshotData (JSONB), changeSummary |
 
 ### Cases (ICP Learning Loop, Product-Scoped)
 | Table | Purpose | Key Fields |
 |-------|---------|------------|
-| `icp_evidence` | Won/lost/in-progress cases | companyName, outcome, productId, useCaseId, segmentId, channel, channelDetail, reasonTags[], hypothesis, note |
+| `icp_evidence` | Won/lost/in-progress cases | companyName, outcome, productId, productIds[], useCaseIds[], hypothesisId, dealValue, dealType, whyWon, whyLost, channel, channelDetail, reasonTags[], note |
 
 ### Scoring System
 | Table | Purpose | Key Fields |
@@ -531,7 +536,7 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | `/icps` | ICP list + company share banner |
 | `/icps/new` | Create ICP manually |
 | `/icps/import` | Import ICP from text/file (AI) |
-| `/icps/[id]?product=X` | ICP detail (tabs: Signals, Personas, Signals-behavioral, Segments, Cases, Versions). Product switcher for shared ICPs. |
+| `/icps/[id]?product=X` | ICP detail (tabs: Criteria, Personas, Signals, Hypotheses, Cases, Versions). Product switcher + Manage products. |
 | `/personas/[id]` | Persona detail with linked criteria |
 | `/segments` | Segment list grouped by ICP |
 | `/segments/new` | Create segment |
@@ -651,7 +656,145 @@ UI uses "signal" everywhere. DB model unchanged (still `criteria` table with gro
 - `src/components/criteria/criterion-form-dialog.tsx` — add/edit signal modal (2-step)
 - `src/lib/constants.ts` — PICKER_TIERS, SIGNAL_STRENGTHS, BUSINESS_MODEL_PRESETS, weightToStrength/strengthToWeight, KEY_BASICS
 
-## 25. Current State vs Target State
+## 25. Manage Products from ICP Detail [IMPLEMENTED]
+
+"Manage" button (dashed border, gear icon) next to product chips on ICP detail page. Opens modal to attach/detach ICP from products.
+
+**Safe unlink guardrails:** If a product is used by any hypothesis or case within the ICP, removal is blocked. Amber warning shows count + "View" links to navigate to filtered Hypotheses/Cases tabs.
+
+**Action:** `updateIcpProducts(icpId, selectedProductIds[])` — bulk attach/detach in one call.
+
+**Key file:** `src/components/icps/icp-manage-products-dialog.tsx`
+
+## 26. Personas with Decision Context [IMPLEMENTED]
+
+Personas upgraded from simple role-based (name + description) to full decision-making context.
+
+**New fields:** goals, painPoints, triggers, decisionCriteria, objections, desiredOutcome — each with helper text and examples in the form.
+
+**Form sections:** Goals & Pain → Triggers & Decision → Objections & Outcome
+
+**Card:** Expandable "Show details" reveals all filled fields.
+
+**Key files:** `src/components/personas/persona-form-dialog.tsx`, `persona-card.tsx`, `persona-list.tsx`
+
+## 27. Hypotheses System [IMPLEMENTED]
+
+Hypotheses are structured GTM assumptions that combine ICP criteria, personas, signals, and a narrative into a testable angle.
+
+### Mental Model
+- Criteria = WHO fits
+- Personas = WHO inside the company matters
+- Signals = WHEN to reach out
+- Hypothesis = HOW to position
+- Cases = RESULT
+
+### Data Model
+```ts
+type Hypothesis = {
+  id: string;
+  icpId: string;
+  productIds: string[];           // multi-product
+  selectedCriteriaIds: string[];  // chip-selected from ICP criteria
+  selectedPersonaIds: string[];   // chip-selected from ICP personas
+  selectedSignalIds: string[];    // chip-selected from ICP signals
+  name: string;
+  problem: string;
+  solution: string;
+  outcome: string;
+  notes?: string;
+  status: "draft" | "testing" | "validated" | "rejected";
+  // Outreach metrics (user-input)
+  recipients: number;
+  positiveReplies: number;
+  sqls: number;
+  wonDeals: number;
+  lostDeals: number;
+  // Auto-calculated in UI
+  // positiveReplyRate = positiveReplies / recipients
+  // sqlConversion = sqls / recipients
+  // revenue = from linked cases (future)
+};
+```
+
+### Hypothesis Modal (Create/Edit)
+Order: Name → ICP badge → **Products** → Included criteria (grouped by Good fit/Risk/Not a fit) → Personas → Signals (grouped by positive/neutral/negative) → Problem → Our solution → Expected outcome → Status → Outreach metrics → Notes
+
+**Criteria/Personas/Signals:** chip-based multi-select from current ICP's entities. All visible, click to select/deselect.
+
+**Products:** chip-based multi-select from ICP's attached products. At least 1 required. Preselects current product tab when creating from a product tab.
+
+**Metrics:** Always visible (create + edit). Recipients, Positive replies, SQLs, Won deals, Lost deals. Reply rate and SQL conversion shown inline under their respective fields, auto-calculated as user types. Percentage formatter: up to 2 decimal places, strips trailing zeros.
+
+**Metric inputs:** String-based controlled state with placeholder="0" — no leading-zero issue.
+
+### Hypothesis Cards
+**Collapsed:** name, status badge, product badges, criteria/persona/signal/cases counts, SQL conversion % or reply rate %
+
+**Expanded:** Selected criteria badges, persona badges, signal badges (colored by type), outreach funnel (recipients → replies → SQLs with %), won/lost counts, linked cases list (company name, outcome, deal value)
+
+### Segments Tab — Removed
+Segments removed from UI (tab hidden). Hypothesis now serves as the segmentation layer. DB table still exists.
+
+### Key Files
+- `src/components/hypotheses/hypothesis-tab.tsx` — full tab with form dialog + cards
+- `src/actions/hypotheses.ts` — CRUD server actions
+- `src/lib/validators.ts` — hypothesisSchema
+
+## 28. Cases Update [IMPLEMENTED]
+
+### New Fields
+- `dealValue` (numeric) — deal amount
+- `dealType` — MRR / One-time / All time / LTV estimated
+- `whyWon` / `whyLost` — contextual text fields (shown based on outcome)
+- `hypothesisId` — links case to hypothesis
+- `productIds` (jsonb string[]) — multi-product assignment
+
+### Hypothesis ↔ Case Product Matching
+Cases can link to hypotheses with partial product overlap (intersection ≥ 1).
+
+**Match states:**
+- `exact` — same products → valid, no extra UI
+- `partial` — at least 1 shared → valid, subtle helper text
+- `none` — zero overlap → invalid, save blocked
+
+**Dropdown:** Filters to show only compatible hypotheses. Controlled select re-evaluates on product change.
+
+### Multi-product Cases
+Cases have `productIds[]` for multi-product assignment. Products chip section in both Add and Edit forms. Preselects current product tab.
+
+### Key Files
+- `src/components/icps/icp-cases-tab.tsx` — AddCaseForm, EditCaseInline, card display
+- `src/actions/evidence.ts` — addCase, updateCase with productIds/dealValue/dealType/whyWon/whyLost/hypothesisId
+
+## 29. Multi-product Hypotheses and Cases [IMPLEMENTED]
+
+Both hypotheses and cases support `productIds[]` for multi-product assignment.
+
+**Product tab filtering:** Shows only hypotheses/cases whose productIds contain the selected product. Shared view shows all.
+
+**Create flow:** Preselects current product when creating from a product tab.
+
+**Safe unlink in Manage Products modal:** Blocks ICP product removal if that product is used by any hypothesis or case. Shows amber warning with counts + "View" links.
+
+**Convention:** Hypothesis and Case can have partial product overlap with each other — this is valid (client may adopt part of solution or expand later).
+
+## 30. Context Export — Products Included [IMPLEMENTED]
+
+`buildFullContext()` and `buildIcpContext()` now fetch and include all workspace products.
+
+**New `products` array in `GtmContextPackage`:** name, shortDescription, description, coreUseCases, keyValueProps, pricingModel, avgTicket.
+
+Rendered in all 3 export formats (JSON, Markdown, clipboard text).
+
+## 31. Signal Modal UX Improvements [IMPLEMENTED]
+
+- **Context-specific placeholders** per attribute (e.g., Growth stage → "Series A, Series B" not generic "FinTech, EU, Series A")
+- **Signal strength order:** Weak → Medium → Strong (left to right, ascending)
+- **Intent order:** Not a fit → Risk → Good fit (left to right, negative to positive)
+- **New signal types:** Revenue range, Funding stage, Geo complexity
+
+## 32. Current State vs Target State
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -707,8 +850,21 @@ UI uses "signal" everywhere. DB model unchanged (still `criteria` table with gro
 | Business model multi-select presets | [IMPLEMENTED] | 12 GTM-friendly preset chips + custom, comma-separated for DB compatibility |
 | Jurisdiction attribute | [IMPLEMENTED] | New compliance attribute alongside Regulatory status and License type |
 | Use case filter fix (useCaseIds) | [IMPLEMENTED] | Cases tab filter uses useCaseIds array, not legacy single useCaseId |
+| Manage products from ICP detail | [IMPLEMENTED] | Attach/detach ICP from products via modal, safe unlink guardrails |
+| Personas with decision context | [IMPLEMENTED] | Goals, pain points, triggers, decision criteria, objections, desired outcome |
+| Hypotheses system | [IMPLEMENTED] | Chip-based criteria/persona/signal selection, GTM narrative, status, outreach metrics, multi-product |
+| Hypothesis outreach metrics | [IMPLEMENTED] | Recipients, positive replies, SQLs, won/lost deals, auto-calculated reply rate + SQL conversion |
+| Hypothesis ↔ Case linking | [IMPLEMENTED] | Cases link to hypotheses via hypothesisId, filtered dropdown with product matching |
+| Case deal tracking | [IMPLEMENTED] | dealValue, dealType (MRR/One-time/All time/LTV), whyWon/whyLost |
+| Multi-product hypotheses & cases | [IMPLEMENTED] | productIds[] on both, product tab filtering, preselect current product on create |
+| Segments tab removed | [IMPLEMENTED] | Hypothesis replaces segments as segmentation layer, DB table kept |
+| Signals integrated into hypotheses | [IMPLEMENTED] | selectedSignalIds[], chip-based selection grouped by positive/neutral/negative |
+| Context export includes products | [IMPLEMENTED] | All products with descriptions, use cases, value props in export |
+| Signal modal UX improvements | [IMPLEMENTED] | Context-specific placeholders, reordered strength/intent, new signal types |
+| Hypothesis-case product matching | [IMPLEMENTED] | Intersection-based (≥1 shared product), exact/partial/none states, save blocked on none |
+| Safe product unlink guardrails | [IMPLEMENTED] | Block ICP product removal if used by hypotheses/cases, amber warning + View links |
 
-## 24. Known Gaps (Prioritized)
+## 33. Known Gaps (Prioritized)
 
 ### P0 — Security
 1. **AI key / API token encryption** — keys and tokens stored plain text. Must encrypt before production launch.
@@ -730,7 +886,7 @@ UI uses "signal" everywhere. DB model unchanged (still `criteria` table with gro
 10. **Token tracking enforcement** — tokens logged but not enforced in limits
 14. **product_icps query optimization** — linkedProductIds built via separate query + Map merge (workaround for Drizzle sql subquery serialization issue)
 
-## 25. Conventions
+## 34. Conventions
 
 - Use shadcn/ui components for all UI
 - Use server actions for mutations, not API routes (exception: `POST /api/drafts` for external agent access)
@@ -766,3 +922,19 @@ UI uses "signal" everywhere. DB model unchanged (still `criteria` table with gro
 - Use case filter: uses useCaseIds (jsonb array), not legacy useCaseId (single FK)
 - Removed from UI: "=" syntax, raw weight numbers (w:10), category grouping on main ICP page
 - Removed exports: EXCLUSION_EMPTY_SUGGESTIONS, RISK_EMPTY_SUGGESTIONS, RISK_DESCRIPTION, EXCLUSIONS_DESCRIPTION (inline in components now or removed)
+- Hypotheses: chip-based selection for criteria/personas/signals from current ICP — selectedCriteriaIds/selectedPersonaIds/selectedSignalIds (jsonb arrays)
+- Hypothesis productIds: multi-product assignment, must be subset of ICP's productIds, preselect current product tab on create
+- Case productIds: same pattern as hypothesis productIds, multi-product assignment
+- Hypothesis ↔ Case matching: intersection-based (≥1 shared product), not exact match — partial overlap is valid
+- Hypothesis metrics: user inputs recipients/positiveReplies/sqls/wonDeals/lostDeals, UI auto-calculates reply rate + SQL conversion
+- Percentage formatter: `fmtPct()` — up to 2 decimal places, strips trailing zeros, `parseFloat(pct.toFixed(2))`
+- Metric inputs: string state with placeholder="0" — avoids leading-zero issue
+- Deal types: MRR, One-time, All time, LTV estimated (no "Other")
+- Segments tab: removed from ICP detail UI, hypothesis is the segmentation layer now
+- Signals in hypotheses: selectedSignalIds[], displayed as chips grouped by positive/neutral/negative
+- Signal modal placeholders: context-specific per attribute (VALUE_PLACEHOLDERS map in criterion-form-dialog.tsx)
+- Signal strength order in modal: Weak → Medium → Strong (left to right)
+- Intent order in modal: Not a fit → Risk → Good fit (left to right)
+- Safe ICP product unlink: blocked if hypotheses/cases use that product, amber warning with counts + "View" links
+- Hypothesis product removal: NOT blocked by linked cases (partial overlap is valid per spec)
+- ICP detail page fetches ALL cases (not product-filtered), filtering happens client-side in icp-tabs.tsx
