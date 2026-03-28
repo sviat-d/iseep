@@ -141,11 +141,17 @@ type IcpTabsProps = {
 };
 
 export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
-  // Count linked cases per hypothesis
-  const linkedCasesCounts: Record<string, number> = {};
+  // Group linked cases per hypothesis
+  const linkedCasesMap: Record<string, Array<{ id: string; companyName: string; outcome: string; dealValue: string | null }>> = {};
   for (const c of cases) {
     if (c.hypothesisId) {
-      linkedCasesCounts[c.hypothesisId] = (linkedCasesCounts[c.hypothesisId] ?? 0) + 1;
+      if (!linkedCasesMap[c.hypothesisId]) linkedCasesMap[c.hypothesisId] = [];
+      linkedCasesMap[c.hypothesisId].push({
+        id: c.id,
+        companyName: c.companyName,
+        outcome: c.outcome,
+        dealValue: c.dealValue,
+      });
     }
   }
 
@@ -185,7 +191,7 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
             weight: c.weight,
           }))}
           personas={icp.personas.map((p) => ({ id: p.id, name: p.name }))}
-          linkedCasesCounts={linkedCasesCounts}
+          linkedCasesMap={linkedCasesMap}
         />
       </TabsContent>
 

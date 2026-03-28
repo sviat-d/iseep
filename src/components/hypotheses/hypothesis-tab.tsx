@@ -128,11 +128,17 @@ function HypothesisFormDialog({
   const [selectedPersonas, setSelectedPersonas] = useState<Set<string>>(
     new Set(asStringArray(defaultValues?.selectedPersonaIds)),
   );
+  const [formRecipients, setFormRecipients] = useState(defaultValues?.recipients ?? 0);
+  const [formReplies, setFormReplies] = useState(defaultValues?.positiveReplies ?? 0);
+  const [formSqls, setFormSqls] = useState(defaultValues?.sqls ?? 0);
 
   useEffect(() => {
     setStatus(defaultValues?.status ?? "draft");
     setSelectedCriteria(new Set(asStringArray(defaultValues?.selectedCriteriaIds)));
     setSelectedPersonas(new Set(asStringArray(defaultValues?.selectedPersonaIds)));
+    setFormRecipients(defaultValues?.recipients ?? 0);
+    setFormReplies(defaultValues?.positiveReplies ?? 0);
+    setFormSqls(defaultValues?.sqls ?? 0);
   }, [defaultValues, open]);
 
   function toggleCriterion(id: string) {
@@ -358,32 +364,37 @@ function HypothesisFormDialog({
           <div className="space-y-2">
             <Label>Outreach metrics</Label>
             <div className="grid grid-cols-5 gap-2">
-              {[
-                { name: "recipients", label: "Recipients" },
-                { name: "positiveReplies", label: "Positive replies" },
-                { name: "sqls", label: "SQLs" },
-                { name: "wonDeals", label: "Won deals" },
-                { name: "lostDeals", label: "Lost deals" },
-              ].map((m) => (
-                <div key={m.name} className="space-y-1">
-                  <label className="text-[10px] text-muted-foreground">{m.label}</label>
-                  <Input
-                    name={m.name}
-                    type="number"
-                    min={0}
-                    defaultValue={
-                      defaultValues
-                        ? ((defaultValues[m.name as keyof Hypothesis] as number | null) ?? 0)
-                        : 0
-                    }
-                    className="h-8 text-xs"
-                  />
-                </div>
-              ))}
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">Recipients</label>
+                <Input name="recipients" type="number" min={0} value={formRecipients} onChange={(e) => setFormRecipients(Number(e.target.value) || 0)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">Positive replies</label>
+                <Input name="positiveReplies" type="number" min={0} value={formReplies} onChange={(e) => setFormReplies(Number(e.target.value) || 0)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">SQLs</label>
+                <Input name="sqls" type="number" min={0} value={formSqls} onChange={(e) => setFormSqls(Number(e.target.value) || 0)} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">Won deals</label>
+                <Input name="wonDeals" type="number" min={0} defaultValue={defaultValues ? ((defaultValues.wonDeals as number | null) ?? 0) : 0} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">Lost deals</label>
+                <Input name="lostDeals" type="number" min={0} defaultValue={defaultValues ? ((defaultValues.lostDeals as number | null) ?? 0) : 0} className="h-8 text-xs" />
+              </div>
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              Reply rate and conversion are calculated automatically.
-            </p>
+            {formRecipients > 0 && (
+              <div className="flex gap-4 text-xs text-muted-foreground">
+                {formReplies > 0 && (
+                  <span>Reply rate: <span className="font-medium text-foreground">{Math.round((formReplies / formRecipients) * 100)}%</span></span>
+                )}
+                {formSqls > 0 && (
+                  <span>SQL conversion: <span className="font-medium text-foreground">{Math.round((formSqls / formRecipients) * 100)}%</span></span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -413,11 +424,18 @@ function HypothesisFormDialog({
 
 // ─── Hypothesis Card ────────────────────────────────────────────────────────
 
+type LinkedCase = {
+  id: string;
+  companyName: string;
+  outcome: string;
+  dealValue: string | null;
+};
+
 function HypothesisCard({
   hypothesis,
   criteria,
   personas,
-  linkedCasesCount,
+  linkedCases,
   onEdit,
   onDelete,
   isPending,
@@ -425,7 +443,7 @@ function HypothesisCard({
   hypothesis: Hypothesis;
   criteria: CriterionItem[];
   personas: PersonaItem[];
-  linkedCasesCount: number;
+  linkedCases: LinkedCase[];
   onEdit: () => void;
   onDelete: () => void;
   isPending: boolean;
@@ -470,10 +488,10 @@ function HypothesisCard({
                   <span>{personaIds.length} persona{personaIds.length > 1 ? "s" : ""}</span>
                 </>
               )}
-              {linkedCasesCount > 0 && (
+              {linkedCases.length > 0 && (
                 <>
                   {(critIds.length > 0 || personaIds.length > 0) && <span>·</span>}
-                  <span>{linkedCasesCount} case{linkedCasesCount > 1 ? "s" : ""}</span>
+                  <span>{linkedCases.length} case{linkedCases.length > 1 ? "s" : ""}</span>
                 </>
               )}
               {recipients > 0 && (hypothesis.sqls ?? 0) > 0 && (
@@ -502,7 +520,7 @@ function HypothesisCard({
           </div>
         </div>
 
-        {(selectedCriteria.length > 0 || selectedPersonas.length > 0 || problem || solution || outcome || hypothesis.notes) && (
+        {(selectedCriteria.length > 0 || selectedPersonas.length > 0 || problem || solution || outcome || hypothesis.notes || hasMetrics || linkedCases.length > 0) && (
           <div className="mt-2">
             <button
               type="button"
@@ -563,21 +581,56 @@ function HypothesisCard({
                   </div>
                 )}
                 {hasMetrics && (
-                  <div className="flex gap-4 pt-1">
-                    {[
-                      { label: "Recipients", value: recipients },
-                      { label: "Reply rate", value: replyRate > 0 ? `${replyRate}%` : null },
-                      { label: "SQLs", value: hypothesis.sqls },
-                      { label: "Won", value: hypothesis.wonDeals },
-                      { label: "Lost", value: hypothesis.lostDeals },
-                    ]
-                      .filter((m) => m.value != null && m.value !== 0 && m.value !== "0%")
-                      .map((m) => (
-                        <div key={m.label} className="text-center">
-                          <div className="text-sm font-semibold">{m.value}</div>
-                          <div className="text-[10px] text-muted-foreground">{m.label}</div>
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Outreach funnel</p>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="font-medium">{recipients} recipients</span>
+                      {replyRate > 0 && (
+                        <>
+                          <span className="text-muted-foreground">→</span>
+                          <span>{positiveReplies} positive replies <span className="text-muted-foreground">({replyRate}%)</span></span>
+                        </>
+                      )}
+                      {(hypothesis.sqls ?? 0) > 0 && (
+                        <>
+                          <span className="text-muted-foreground">→</span>
+                          <span>{hypothesis.sqls} SQLs {recipients > 0 && <span className="text-muted-foreground">({Math.round(((hypothesis.sqls ?? 0) / recipients) * 100)}%)</span>}</span>
+                        </>
+                      )}
+                    </div>
+                    {((hypothesis.wonDeals ?? 0) > 0 || (hypothesis.lostDeals ?? 0) > 0) && (
+                      <div className="flex items-center gap-3 text-xs">
+                        {(hypothesis.wonDeals ?? 0) > 0 && (
+                          <span className="text-green-600">{hypothesis.wonDeals} won</span>
+                        )}
+                        {(hypothesis.lostDeals ?? 0) > 0 && (
+                          <span className="text-red-500">{hypothesis.lostDeals} lost</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {linkedCases.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Linked cases ({linkedCases.filter((c) => c.outcome === "won").length} won, {linkedCases.filter((c) => c.outcome === "lost").length} lost{linkedCases.filter((c) => c.outcome === "in_progress").length > 0 ? `, ${linkedCases.filter((c) => c.outcome === "in_progress").length} in progress` : ""})
+                    </p>
+                    <div className="space-y-0.5">
+                      {linkedCases.map((c) => (
+                        <div key={c.id} className="flex items-center gap-2 text-xs">
+                          <span className={
+                            c.outcome === "won" ? "text-green-600" :
+                            c.outcome === "lost" ? "text-red-500" : "text-blue-500"
+                          }>
+                            {c.outcome === "won" ? "W" : c.outcome === "lost" ? "L" : "→"}
+                          </span>
+                          <span>{c.companyName}</span>
+                          {c.dealValue && (
+                            <span className="text-muted-foreground">${Number(c.dealValue).toLocaleString()}</span>
+                          )}
                         </div>
                       ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -597,14 +650,14 @@ export function HypothesisTab({
   hypotheses,
   criteria,
   personas,
-  linkedCasesCounts = {},
+  linkedCasesMap = {},
 }: {
   icpId: string;
   icpName: string;
   hypotheses: Hypothesis[];
   criteria: CriterionItem[];
   personas: PersonaItem[];
-  linkedCasesCounts?: Record<string, number>;
+  linkedCasesMap?: Record<string, LinkedCase[]>;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Hypothesis | null>(null);
@@ -656,7 +709,7 @@ export function HypothesisTab({
               hypothesis={h}
               criteria={criteria}
               personas={personas}
-              linkedCasesCount={linkedCasesCounts[h.id] ?? 0}
+              linkedCases={linkedCasesMap[h.id] ?? []}
               onEdit={() => handleEdit(h)}
               onDelete={() => handleDelete(h.id)}
               isPending={isPending}
