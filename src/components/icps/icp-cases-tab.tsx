@@ -57,7 +57,17 @@ type UseCase = {
 type HypothesisRef = {
   id: string;
   name: string;
+  productIds?: unknown;
 };
+
+function getProductMatch(caseProductIds: string[], hypProductIds: string[]): "exact" | "partial" | "none" {
+  const caseSet = new Set(caseProductIds);
+  const hypSet = new Set(hypProductIds);
+  const shared = caseProductIds.filter((id) => hypSet.has(id));
+  if (shared.length === 0) return "none";
+  if (caseSet.size === hypSet.size && shared.length === caseSet.size) return "exact";
+  return "partial";
+}
 
 // ─── Reason tags by outcome ─────────────────────────────────────────────────
 
@@ -146,6 +156,7 @@ function AddCaseForm({
   const [selectedUseCaseIds, setSelectedUseCaseIds] = useState<string[]>([]);
   const [useCaseSearch, setUseCaseSearch] = useState("");
   const [localUseCases, setLocalUseCases] = useState(useCases);
+  const [selectedHypId, setSelectedHypId] = useState<string>("");
   const [channel, setChannel] = useState<string>("");
   const [caseSelectedProducts, setCaseSelectedProducts] = useState<Set<string>>(
     new Set(currentProductId ? [currentProductId] : []),
@@ -202,6 +213,14 @@ function AddCaseForm({
   }
 
   const suggestedTags = getTagsForOutcome(outcome);
+
+  const hypMatchInvalid = selectedHypId ? (() => {
+    const hyp = hypotheses.find((h) => h.id === selectedHypId);
+    if (!hyp) return false;
+    const hPids = Array.isArray(hyp.productIds) ? (hyp.productIds as string[]) : [];
+    if (hPids.length === 0) return false;
+    return getProductMatch(Array.from(caseSelectedProducts), hPids) === "none";
+  })() : false;
 
   return (
     <Card>
@@ -309,23 +328,50 @@ function AddCaseForm({
           )}
 
           {/* Hypothesis */}
-          {hypotheses && hypotheses.length > 0 && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">
-                Hypothesis
-                <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">optional</span>
-              </label>
-              <select
-                name="hypothesisId"
-                className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-              >
-                <option value="">None</option>
-                {hypotheses.map((h) => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {hypotheses && hypotheses.length > 0 && (() => {
+            const caseProds = Array.from(caseSelectedProducts);
+            const compatible = hypotheses.filter((h) => {
+              const hPids = Array.isArray(h.productIds) ? (h.productIds as string[]) : [];
+              return hPids.length === 0 || getProductMatch(caseProds, hPids) !== "none";
+            });
+            const selectedHyp = selectedHypId ? hypotheses.find((h) => h.id === selectedHypId) : null;
+            const matchState = selectedHyp
+              ? getProductMatch(caseProds, Array.isArray(selectedHyp.productIds) ? (selectedHyp.productIds as string[]) : [])
+              : null;
+            // Clear selection if it became incompatible
+            if (selectedHypId && matchState === "none") {
+              // will show error
+            }
+            return (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Hypothesis
+                  <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">optional</span>
+                </label>
+                <input type="hidden" name="hypothesisId" value={selectedHypId} />
+                <select
+                  value={selectedHypId}
+                  onChange={(e) => setSelectedHypId(e.target.value)}
+                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                >
+                  <option value="">None</option>
+                  {compatible.map((h) => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </select>
+                {matchState === "partial" && (
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Partial match — this case matches part of the hypothesis. Common when a client adopts only part of the solution.
+                  </p>
+                )}
+                {matchState === "none" && (
+                  <p className="mt-1 text-[10px] text-destructive">
+                    This hypothesis is not related to the selected products. Choose another hypothesis or update the case products.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Use Case — select or create */}
           {(localUseCases.length > 0 || useCaseSearch) ? (
@@ -542,7 +588,7 @@ function AddCaseForm({
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={isPending || !outcome}>
+            <Button type="submit" size="sm" disabled={isPending || !outcome || hypMatchInvalid}>
               {isPending ? "Adding..." : "Add case"}
             </Button>
           </div>
@@ -585,14 +631,24 @@ function EditCaseInline({
   const [selectedSegment, setSelectedSegment] = useState(caseItem.segmentId ?? "");
   const existingProdIds = Array.isArray(caseItem.productIds) ? (caseItem.productIds as string[]) : [];
   const [editSelectedProducts, setEditSelectedProducts] = useState<Set<string>>(new Set(existingProdIds));
+  const [editHypId, setEditHypId] = useState(caseItem.hypothesisId ?? "");
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
   }
 
+  const editHypMatchInvalid = editHypId ? (() => {
+    const hyp = hypotheses.find((h) => h.id === editHypId);
+    if (!hyp) return false;
+    const hPids = Array.isArray(hyp.productIds) ? (hyp.productIds as string[]) : [];
+    if (hPids.length === 0) return false;
+    return getProductMatch(Array.from(editSelectedProducts), hPids) === "none";
+  })() : false;
+
   function handleSubmit(formData: FormData) {
     formData.set("outcome", outcome);
     formData.set("channel", channel);
+    formData.set("hypothesisId", editHypId);
     formData.set("productIds", JSON.stringify(Array.from(editSelectedProducts)));
     formData.set("segmentId", selectedSegment);
     formData.set("useCaseIds", selectedUseCaseIds.join(","));
@@ -657,21 +713,43 @@ function EditCaseInline({
               </div>
             </div>
           )}
-          {hypotheses.length > 0 && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
-              <select
-                name="hypothesisId"
-                defaultValue={caseItem.hypothesisId ?? ""}
-                className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-              >
-                <option value="">None</option>
-                {hypotheses.map((h) => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {hypotheses.length > 0 && (() => {
+            const editCaseProds = Array.from(editSelectedProducts);
+            const editCompatible = hypotheses.filter((h) => {
+              const hPids = Array.isArray(h.productIds) ? (h.productIds as string[]) : [];
+              return hPids.length === 0 || getProductMatch(editCaseProds, hPids) !== "none";
+            });
+            const editSelectedHyp = editHypId ? hypotheses.find((h) => h.id === editHypId) : null;
+            const editMatchState = editSelectedHyp
+              ? getProductMatch(editCaseProds, Array.isArray(editSelectedHyp.productIds) ? (editSelectedHyp.productIds as string[]) : [])
+              : null;
+            return (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
+                <input type="hidden" name="hypothesisId" value={editHypId} />
+                <select
+                  value={editHypId}
+                  onChange={(e) => setEditHypId(e.target.value)}
+                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                >
+                  <option value="">None</option>
+                  {editCompatible.map((h) => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </select>
+                {editMatchState === "partial" && (
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    Partial match — common when a client adopts only part of the solution.
+                  </p>
+                )}
+                {editMatchState === "none" && (
+                  <p className="mt-1 text-[10px] text-destructive">
+                    This hypothesis is not related to the selected products.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
           {useCases.length > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground">Use case</label>
@@ -731,7 +809,7 @@ function EditCaseInline({
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-            <Button type="submit" size="sm" disabled={isPending}>{isPending ? "Saving..." : "Save"}</Button>
+            <Button type="submit" size="sm" disabled={isPending || editHypMatchInvalid}>{isPending ? "Saving..." : "Save"}</Button>
           </div>
         </form>
       </CardContent>

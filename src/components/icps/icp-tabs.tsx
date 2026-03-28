@@ -229,7 +229,7 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, curren
           icpId={icp.id}
           cases={filteredCases}
           segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
-          hypotheses={filteredHypotheses.map((h) => ({ id: h.id, name: h.name }))}
+          hypotheses={filteredHypotheses.map((h) => ({ id: h.id, name: h.name, productIds: h.productIds }))}
           icpProducts={icpProducts}
           currentProductId={currentProductId}
           productId={currentProductId}
