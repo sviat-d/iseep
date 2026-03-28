@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useActionState } from "react";
+import { useState, useTransition, useActionState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +24,9 @@ import {
   FlaskConical,
   CheckCircle2,
   XCircle,
+  Check,
+  AlertTriangle,
+  ShieldOff,
 } from "lucide-react";
 import {
   createHypothesis,
@@ -31,15 +34,19 @@ import {
   deleteHypothesis,
 } from "@/actions/hypotheses";
 import type { ActionResult } from "@/lib/types";
+import { PROPERTY_OPTIONS } from "@/lib/constants";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type Hypothesis = {
   id: string;
   name: string;
-  segmentId: string | null;
-  personaId: string | null;
+  selectedCriteriaIds: unknown;
+  selectedPersonaIds: unknown;
   problem: string | null;
+  solution: string | null;
+  outcome: string | null;
+  // legacy fields
   valueProposition: string | null;
   expectedResult: string | null;
   status: string;
@@ -52,8 +59,25 @@ type Hypothesis = {
   createdAt: Date;
 };
 
-type Segment = { id: string; name: string };
-type Persona = { id: string; name: string };
+type CriterionItem = {
+  id: string;
+  category: string;
+  value: string;
+  intent: string;
+  weight: number | null;
+};
+
+type PersonaItem = { id: string; name: string };
+
+function asStringArray(val: unknown): string[] {
+  if (Array.isArray(val)) return val.filter((v) => typeof v === "string");
+  return [];
+}
+
+function getCriterionLabel(c: CriterionItem): string {
+  const propLabel = PROPERTY_OPTIONS.find((p) => p.category === c.category)?.label ?? c.category;
+  return `${propLabel}: ${c.value}`;
+}
 
 // ─── Status config ──────────────────────────────────────────────────────────
 
@@ -66,30 +90,68 @@ const STATUS_CONFIG = {
 
 const STATUS_OPTIONS = ["draft", "testing", "validated", "rejected"] as const;
 
+const INTENT_CONFIG = {
+  qualify: { label: "Good fit", icon: Check, color: "text-green-600" },
+  risk: { label: "Risk", icon: AlertTriangle, color: "text-amber-500" },
+  exclude: { label: "Not a fit", icon: ShieldOff, color: "text-red-500" },
+};
+
 // ─── Hypothesis Form Dialog ─────────────────────────────────────────────────
 
 function HypothesisFormDialog({
   icpId,
-  segments,
+  icpName,
+  criteria,
   personas,
   defaultValues,
   open,
   onOpenChange,
 }: {
   icpId: string;
-  segments: Segment[];
-  personas: Persona[];
+  icpName: string;
+  criteria: CriterionItem[];
+  personas: PersonaItem[];
   defaultValues?: Hypothesis;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [status, setStatus] = useState(defaultValues?.status ?? "draft");
+  const [selectedCriteria, setSelectedCriteria] = useState<Set<string>>(
+    new Set(asStringArray(defaultValues?.selectedCriteriaIds)),
+  );
+  const [selectedPersonas, setSelectedPersonas] = useState<Set<string>>(
+    new Set(asStringArray(defaultValues?.selectedPersonaIds)),
+  );
+
+  useEffect(() => {
+    setStatus(defaultValues?.status ?? "draft");
+    setSelectedCriteria(new Set(asStringArray(defaultValues?.selectedCriteriaIds)));
+    setSelectedPersonas(new Set(asStringArray(defaultValues?.selectedPersonaIds)));
+  }, [defaultValues, open]);
+
+  function toggleCriterion(id: string) {
+    setSelectedCriteria((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function togglePersona(id: string) {
+    setSelectedPersonas((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
     FormData
   >(async (_prev, formData) => {
     formData.set("status", status);
+    formData.set("selectedCriteriaIds", JSON.stringify(Array.from(selectedCriteria)));
+    formData.set("selectedPersonaIds", JSON.stringify(Array.from(selectedPersonas)));
     let result: ActionResult;
     if (defaultValues) {
       result = await updateHypothesis(defaultValues.id, formData);
@@ -100,15 +162,23 @@ function HypothesisFormDialog({
     return result;
   }, null);
 
+  const qualify = criteria.filter((c) => c.intent === "qualify");
+  const risk = criteria.filter((c) => c.intent === "risk");
+  const exclude = criteria.filter((c) => c.intent === "exclude");
+
+  // Resolve legacy solution/outcome from old fields
+  const defaultSolution = defaultValues?.solution ?? defaultValues?.valueProposition ?? "";
+  const defaultOutcome = defaultValues?.outcome ?? defaultValues?.expectedResult ?? "";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {defaultValues ? "Edit hypothesis" : "New hypothesis"}
+            {defaultValues ? "Edit hypothesis" : "Create hypothesis"}
           </DialogTitle>
           <DialogDescription>
-            A structured go-to-market assumption for a specific segment and persona.
+            Select criteria and personas from this ICP, then define the angle you want to test.
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
@@ -131,42 +201,95 @@ function HypothesisFormDialog({
             />
           </div>
 
-          {/* Segment + Persona */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="hyp-segment">Segment</Label>
-              <select
-                id="hyp-segment"
-                name="segmentId"
-                defaultValue={defaultValues?.segmentId ?? ""}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-              >
-                <option value="">None</option>
-                {segments.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="hyp-persona">Persona</Label>
-              <select
-                id="hyp-persona"
-                name="personaId"
-                defaultValue={defaultValues?.personaId ?? ""}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-              >
-                <option value="">None</option>
-                {personas.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <span className="text-xs text-muted-foreground">ICP:</span>{" "}
+            <Badge variant="outline" className="text-xs">{icpName}</Badge>
           </div>
 
-          {/* Problem / Value Proposition / Expected Result */}
+          {/* Included criteria */}
+          <div className="space-y-2">
+            <Label>Included criteria</Label>
+            {criteria.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">
+                No criteria yet. Add criteria in the Criteria tab first.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {([
+                  { key: "qualify", items: qualify },
+                  { key: "risk", items: risk },
+                  { key: "exclude", items: exclude },
+                ] as const)
+                  .filter((g) => g.items.length > 0)
+                  .map((group) => {
+                    const cfg = INTENT_CONFIG[group.key];
+                    const Icon = cfg.icon;
+                    return (
+                      <div key={group.key}>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <Icon className={`h-3 w-3 ${cfg.color}`} />
+                          <span className="text-[11px] font-medium text-muted-foreground">{cfg.label}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {group.items.map((c) => {
+                            const isSelected = selectedCriteria.has(c.id);
+                            return (
+                              <button
+                                key={c.id}
+                                type="button"
+                                onClick={() => toggleCriterion(c.id)}
+                                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                  isSelected
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border text-muted-foreground hover:bg-muted"
+                                }`}
+                              >
+                                {getCriterionLabel(c)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+
+          {/* Personas */}
+          <div className="space-y-2">
+            <Label>Personas</Label>
+            {personas.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-1">
+                No personas yet. Add personas in the Personas tab first.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {personas.map((p) => {
+                  const isSelected = selectedPersonas.has(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => togglePersona(p.id)}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Narrative */}
           <div className="space-y-1">
             <Label htmlFor="hyp-problem">Problem</Label>
-            <p className="text-[11px] text-muted-foreground">What specific problem does this segment face?</p>
+            <p className="text-[11px] text-muted-foreground">What specific problem does this audience face?</p>
             <Textarea
               id="hyp-problem"
               name="problem"
@@ -177,25 +300,25 @@ function HypothesisFormDialog({
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="hyp-vp">Our solution</Label>
-            <p className="text-[11px] text-muted-foreground">How does our product solve this problem?</p>
+            <Label htmlFor="hyp-solution">Our solution</Label>
+            <p className="text-[11px] text-muted-foreground">How does our product solve this?</p>
             <Textarea
-              id="hyp-vp"
-              name="valueProposition"
+              id="hyp-solution"
+              name="solution"
               placeholder="e.g., Instant crypto payouts with flat fees, no banking delays"
-              defaultValue={defaultValues?.valueProposition ?? ""}
+              defaultValue={defaultSolution}
               rows={2}
             />
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="hyp-result">Result client gets</Label>
-            <p className="text-[11px] text-muted-foreground">What outcome can the client expect?</p>
+            <Label htmlFor="hyp-outcome">Expected outcome</Label>
+            <p className="text-[11px] text-muted-foreground">What result can the client expect?</p>
             <Textarea
-              id="hyp-result"
-              name="expectedResult"
+              id="hyp-outcome"
+              name="outcome"
               placeholder="e.g., 70% cost reduction, same-day settlements globally"
-              defaultValue={defaultValues?.expectedResult ?? ""}
+              defaultValue={defaultOutcome}
               rows={2}
             />
           </div>
@@ -283,15 +406,15 @@ function HypothesisFormDialog({
 
 function HypothesisCard({
   hypothesis,
-  segments,
+  criteria,
   personas,
   onEdit,
   onDelete,
   isPending,
 }: {
   hypothesis: Hypothesis;
-  segments: Segment[];
-  personas: Persona[];
+  criteria: CriterionItem[];
+  personas: PersonaItem[];
   onEdit: () => void;
   onDelete: () => void;
   isPending: boolean;
@@ -299,12 +422,15 @@ function HypothesisCard({
   const [expanded, setExpanded] = useState(false);
   const cfg = STATUS_CONFIG[hypothesis.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.draft;
   const Icon = cfg.icon;
-  const segName = hypothesis.segmentId
-    ? segments.find((s) => s.id === hypothesis.segmentId)?.name
-    : null;
-  const personaName = hypothesis.personaId
-    ? personas.find((p) => p.id === hypothesis.personaId)?.name
-    : null;
+
+  const critIds = asStringArray(hypothesis.selectedCriteriaIds);
+  const personaIds = asStringArray(hypothesis.selectedPersonaIds);
+  const selectedCriteria = criteria.filter((c) => critIds.includes(c.id));
+  const selectedPersonas = personas.filter((p) => personaIds.includes(p.id));
+
+  const problem = hypothesis.problem;
+  const solution = hypothesis.solution ?? hypothesis.valueProposition;
+  const outcome = hypothesis.outcome ?? hypothesis.expectedResult;
 
   const hasMetrics =
     (hypothesis.metricsLeads ?? 0) > 0 ||
@@ -324,18 +450,19 @@ function HypothesisCard({
               </Badge>
             </div>
             <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-              {segName && <span>{segName}</span>}
-              {segName && personaName && <span>·</span>}
-              {personaName && <span>{personaName}</span>}
-              {hasMetrics && (
+              {critIds.length > 0 && (
+                <span>{critIds.length} criteria</span>
+              )}
+              {personaIds.length > 0 && (
                 <>
-                  <span>·</span>
-                  {(hypothesis.metricsMeetings ?? 0) > 0 && (
-                    <span>{hypothesis.metricsMeetings} meetings</span>
-                  )}
-                  {(hypothesis.metricsWins ?? 0) > 0 && (
-                    <span>{hypothesis.metricsWins} wins</span>
-                  )}
+                  {critIds.length > 0 && <span>·</span>}
+                  <span>{personaIds.length} persona{personaIds.length > 1 ? "s" : ""}</span>
+                </>
+              )}
+              {problem && (
+                <>
+                  {(critIds.length > 0 || personaIds.length > 0) && <span>·</span>}
+                  <span className="truncate max-w-[200px]">{problem}</span>
                 </>
               )}
             </div>
@@ -350,8 +477,7 @@ function HypothesisCard({
           </div>
         </div>
 
-        {/* Expand/collapse details */}
-        {(hypothesis.problem || hypothesis.valueProposition || hypothesis.expectedResult || hypothesis.notes) && (
+        {(selectedCriteria.length > 0 || selectedPersonas.length > 0 || problem || solution || outcome || hypothesis.notes) && (
           <div className="mt-2">
             <button
               type="button"
@@ -363,22 +489,46 @@ function HypothesisCard({
             </button>
             {expanded && (
               <div className="mt-2 space-y-2 pl-5">
-                {hypothesis.problem && (
+                {selectedCriteria.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Criteria</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedCriteria.map((c) => (
+                        <Badge key={c.id} variant="secondary" className="text-[10px]">
+                          {getCriterionLabel(c)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedPersonas.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Personas</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedPersonas.map((p) => (
+                        <Badge key={p.id} variant="outline" className="text-[10px]">
+                          {p.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {problem && (
                   <div>
                     <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Problem</p>
-                    <p className="text-xs">{hypothesis.problem}</p>
+                    <p className="text-xs">{problem}</p>
                   </div>
                 )}
-                {hypothesis.valueProposition && (
+                {solution && (
                   <div>
                     <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Our solution</p>
-                    <p className="text-xs">{hypothesis.valueProposition}</p>
+                    <p className="text-xs">{solution}</p>
                   </div>
                 )}
-                {hypothesis.expectedResult && (
+                {outcome && (
                   <div>
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Result client gets</p>
-                    <p className="text-xs">{hypothesis.expectedResult}</p>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Expected outcome</p>
+                    <p className="text-xs">{outcome}</p>
                   </div>
                 )}
                 {hypothesis.notes && (
@@ -418,14 +568,16 @@ function HypothesisCard({
 
 export function HypothesisTab({
   icpId,
+  icpName,
   hypotheses,
-  segments,
+  criteria,
   personas,
 }: {
   icpId: string;
+  icpName: string;
   hypotheses: Hypothesis[];
-  segments: Segment[];
-  personas: Persona[];
+  criteria: CriterionItem[];
+  personas: PersonaItem[];
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Hypothesis | null>(null);
@@ -475,7 +627,7 @@ export function HypothesisTab({
             <HypothesisCard
               key={h.id}
               hypothesis={h}
-              segments={segments}
+              criteria={criteria}
               personas={personas}
               onEdit={() => handleEdit(h)}
               onDelete={() => handleDelete(h.id)}
@@ -487,7 +639,8 @@ export function HypothesisTab({
 
       <HypothesisFormDialog
         icpId={icpId}
-        segments={segments}
+        icpName={icpName}
+        criteria={criteria}
         personas={personas}
         defaultValues={editing ?? undefined}
         open={dialogOpen}

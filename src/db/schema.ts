@@ -555,11 +555,15 @@ export const hypotheses = pgTable("hypotheses", {
     .references(() => icps.id)
     .notNull(),
   name: text("name").notNull(),
-  segmentId: uuid("segment_id").references(() => segments.id),
-  personaId: uuid("persona_id").references(() => personas.id),
+  selectedCriteriaIds: jsonb("selected_criteria_ids").default([]), // string[]
+  selectedPersonaIds: jsonb("selected_persona_ids").default([]), // string[]
+  segmentId: uuid("segment_id").references(() => segments.id), // legacy
+  personaId: uuid("persona_id").references(() => personas.id), // legacy
   problem: text("problem"),
-  valueProposition: text("value_proposition"),
-  expectedResult: text("expected_result"),
+  solution: text("solution"),
+  outcome: text("outcome"),
+  valueProposition: text("value_proposition"), // legacy alias
+  expectedResult: text("expected_result"), // legacy alias
   status: text("status", { enum: ["draft", "testing", "validated", "rejected"] })
     .default("draft")
     .notNull(),

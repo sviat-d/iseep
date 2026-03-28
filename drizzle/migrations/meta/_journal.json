@@ -99,6 +99,13 @@
       "when": 1774700872770,
       "tag": "0013_mean_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1774706461879,
+      "tag": "0014_parallel_genesis",
+      "breakpoints": true
     }
   ]
 }

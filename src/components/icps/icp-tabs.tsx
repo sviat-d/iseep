@@ -1,13 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import {
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
 import { CriteriaGroupedList } from "@/components/criteria/criteria-grouped-list";
 import { PersonaList } from "@/components/personas/persona-list";
 import { SignalList } from "@/components/signals/signal-list";
@@ -61,19 +59,14 @@ type Signal = {
   updatedAt: Date;
 };
 
-type Segment = {
-  id: string;
-  name: string;
-  status: string;
-  priorityScore: number;
-};
-
 type HypothesisItem = {
   id: string;
   name: string;
-  segmentId: string | null;
-  personaId: string | null;
+  selectedCriteriaIds: unknown;
+  selectedPersonaIds: unknown;
   problem: string | null;
+  solution: string | null;
+  outcome: string | null;
   valueProposition: string | null;
   expectedResult: string | null;
   status: string;
@@ -127,7 +120,7 @@ type IcpTabsProps = {
     criteria: Criterion[];
     personas: Persona[];
     signals: Signal[];
-    segments: Segment[];
+    segments: Array<{ id: string; name: string; status: string; priorityScore: number }>;
     dealStats: { total: number; won: number; lost: number; open: number };
   };
   snapshots: Snapshot[];
@@ -138,12 +131,6 @@ type IcpTabsProps = {
   workspaceId?: string;
 };
 
-const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
-  active: "default",
-  draft: "secondary",
-  archived: "outline",
-};
-
 export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
   return (
     <Tabs defaultValue="profile">
@@ -151,7 +138,6 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
         <TabsTrigger value="profile">Criteria</TabsTrigger>
         <TabsTrigger value="personas">Personas</TabsTrigger>
         <TabsTrigger value="signals">Signals</TabsTrigger>
-        <TabsTrigger value="segments">Segments</TabsTrigger>
         <TabsTrigger value="hypotheses">Hypotheses</TabsTrigger>
         <TabsTrigger value="cases">Cases</TabsTrigger>
         <TabsTrigger value="history">Versions</TabsTrigger>
@@ -169,15 +155,18 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
         <SignalList signals={icp.signals} icpId={icp.id} />
       </TabsContent>
 
-      <TabsContent value="segments" className="pt-4">
-        <SegmentsTab segments={icp.segments} icpId={icp.id} />
-      </TabsContent>
-
       <TabsContent value="hypotheses" className="pt-4">
         <HypothesisTab
           icpId={icp.id}
+          icpName={icp.name}
           hypotheses={hypotheses}
-          segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
+          criteria={icp.criteria.map((c) => ({
+            id: c.id,
+            category: c.category,
+            value: c.value,
+            intent: c.intent,
+            weight: c.weight,
+          }))}
           personas={icp.personas.map((p) => ({ id: p.id, name: p.name }))}
         />
       </TabsContent>
@@ -198,46 +187,5 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
         <IcpVersionHistory icpId={icp.id} snapshots={snapshots} />
       </TabsContent>
     </Tabs>
-  );
-}
-
-function SegmentsTab({ segments, icpId }: { segments: Segment[]; icpId: string }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex justify-end">
-        <Link
-          href={`/segments/new?icpId=${icpId}`}
-          className="inline-flex items-center justify-center rounded-lg px-2.5 h-8 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
-        >
-          Create Segment
-        </Link>
-      </div>
-
-      {segments.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No segments yet.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {segments.map((segment) => (
-            <Link
-              key={segment.id}
-              href={`/segments/${segment.id}`}
-              className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium">{segment.name}</span>
-                <Badge variant={statusVariant[segment.status] ?? "outline"}>
-                  {segment.status}
-                </Badge>
-              </div>
-              <span className="text-sm text-muted-foreground">
-                Priority: {segment.priorityScore}/10
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
   );
 }

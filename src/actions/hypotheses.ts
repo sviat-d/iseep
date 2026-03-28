@@ -8,20 +8,33 @@ import { getAuthContext } from "@/lib/auth";
 import { hypothesisSchema } from "@/lib/validators";
 import type { ActionResult } from "@/lib/types";
 
+function parseIds(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return raw.split(",").filter(Boolean);
+  }
+}
+
 export async function createHypothesis(
   formData: FormData,
 ): Promise<ActionResult & { hypothesisId?: string }> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
 
+  const selectedCriteriaIds = parseIds(formData.get("selectedCriteriaIds") as string);
+  const selectedPersonaIds = parseIds(formData.get("selectedPersonaIds") as string);
+
   const raw = {
     name: formData.get("name") as string,
     icpId: formData.get("icpId") as string,
-    segmentId: (formData.get("segmentId") as string) || undefined,
-    personaId: (formData.get("personaId") as string) || undefined,
+    selectedCriteriaIds,
+    selectedPersonaIds,
     problem: (formData.get("problem") as string) || undefined,
-    valueProposition: (formData.get("valueProposition") as string) || undefined,
-    expectedResult: (formData.get("expectedResult") as string) || undefined,
+    solution: (formData.get("solution") as string) || undefined,
+    outcome: (formData.get("outcome") as string) || undefined,
     status: (formData.get("status") as string) || "draft",
     notes: (formData.get("notes") as string) || undefined,
   };
@@ -35,11 +48,11 @@ export async function createHypothesis(
       workspaceId: ctx.workspaceId,
       icpId: parsed.data.icpId,
       name: parsed.data.name,
-      segmentId: parsed.data.segmentId ?? null,
-      personaId: parsed.data.personaId ?? null,
+      selectedCriteriaIds: parsed.data.selectedCriteriaIds ?? [],
+      selectedPersonaIds: parsed.data.selectedPersonaIds ?? [],
       problem: parsed.data.problem ?? null,
-      valueProposition: parsed.data.valueProposition ?? null,
-      expectedResult: parsed.data.expectedResult ?? null,
+      solution: parsed.data.solution ?? null,
+      outcome: parsed.data.outcome ?? null,
       status: parsed.data.status,
       notes: parsed.data.notes ?? null,
     })
@@ -62,14 +75,17 @@ export async function updateHypothesis(
     .where(and(eq(hypotheses.id, id), eq(hypotheses.workspaceId, ctx.workspaceId)));
   if (!existing) return { error: "Not found" };
 
+  const selectedCriteriaIds = parseIds(formData.get("selectedCriteriaIds") as string);
+  const selectedPersonaIds = parseIds(formData.get("selectedPersonaIds") as string);
+
   const raw = {
     name: formData.get("name") as string,
     icpId: existing.icpId,
-    segmentId: (formData.get("segmentId") as string) || undefined,
-    personaId: (formData.get("personaId") as string) || undefined,
+    selectedCriteriaIds,
+    selectedPersonaIds,
     problem: (formData.get("problem") as string) || undefined,
-    valueProposition: (formData.get("valueProposition") as string) || undefined,
-    expectedResult: (formData.get("expectedResult") as string) || undefined,
+    solution: (formData.get("solution") as string) || undefined,
+    outcome: (formData.get("outcome") as string) || undefined,
     status: (formData.get("status") as string) || existing.status,
     notes: (formData.get("notes") as string) || undefined,
     metricsLeads: (formData.get("metricsLeads") as string) || undefined,
@@ -86,11 +102,11 @@ export async function updateHypothesis(
     .update(hypotheses)
     .set({
       name: parsed.data.name,
-      segmentId: parsed.data.segmentId ?? null,
-      personaId: parsed.data.personaId ?? null,
+      selectedCriteriaIds: parsed.data.selectedCriteriaIds ?? [],
+      selectedPersonaIds: parsed.data.selectedPersonaIds ?? [],
       problem: parsed.data.problem ?? null,
-      valueProposition: parsed.data.valueProposition ?? null,
-      expectedResult: parsed.data.expectedResult ?? null,
+      solution: parsed.data.solution ?? null,
+      outcome: parsed.data.outcome ?? null,
       status: parsed.data.status,
       notes: parsed.data.notes ?? null,
       metricsLeads: parsed.data.metricsLeads ?? 0,
@@ -116,7 +132,6 @@ export async function deleteHypothesis(id: string): Promise<ActionResult> {
     .where(and(eq(hypotheses.id, id), eq(hypotheses.workspaceId, ctx.workspaceId)));
   if (!existing) return { error: "Not found" };
 
-  // Unlink cases from this hypothesis
   await db
     .update(icpEvidence)
     .set({ hypothesisId: null })
