@@ -82,6 +82,12 @@ function asStringArray(val: unknown): string[] {
   return [];
 }
 
+function fmtPct(numerator: number, denominator: number): string | null {
+  if (denominator <= 0 || numerator <= 0) return null;
+  const pct = (numerator / denominator) * 100;
+  return `${parseFloat(pct.toFixed(2))}%`;
+}
+
 function getCriterionLabel(c: CriterionItem): string {
   const propLabel = PROPERTY_OPTIONS.find((p) => p.category === c.category)?.label ?? c.category;
   return `${propLabel}: ${c.value}`;
@@ -141,18 +147,23 @@ function HypothesisFormDialog({
   const [selectedSignals, setSelectedSignals] = useState<Set<string>>(
     new Set(asStringArray(defaultValues?.selectedSignalIds)),
   );
-  const [formRecipients, setFormRecipients] = useState(defaultValues?.recipients ?? 0);
-  const [formReplies, setFormReplies] = useState(defaultValues?.positiveReplies ?? 0);
-  const [formSqls, setFormSqls] = useState(defaultValues?.sqls ?? 0);
+  const toStr = (n: number | null) => (n ? String(n) : "");
+  const [formRecipients, setFormRecipients] = useState(toStr(defaultValues?.recipients ?? null));
+  const [formReplies, setFormReplies] = useState(toStr(defaultValues?.positiveReplies ?? null));
+  const [formSqls, setFormSqls] = useState(toStr(defaultValues?.sqls ?? null));
+  const [formWon, setFormWon] = useState(toStr(defaultValues?.wonDeals ?? null));
+  const [formLost, setFormLost] = useState(toStr(defaultValues?.lostDeals ?? null));
 
   useEffect(() => {
     setStatus(defaultValues?.status ?? "draft");
     setSelectedCriteria(new Set(asStringArray(defaultValues?.selectedCriteriaIds)));
     setSelectedPersonas(new Set(asStringArray(defaultValues?.selectedPersonaIds)));
     setSelectedSignals(new Set(asStringArray(defaultValues?.selectedSignalIds)));
-    setFormRecipients(defaultValues?.recipients ?? 0);
-    setFormReplies(defaultValues?.positiveReplies ?? 0);
-    setFormSqls(defaultValues?.sqls ?? 0);
+    setFormRecipients(toStr(defaultValues?.recipients ?? null));
+    setFormReplies(toStr(defaultValues?.positiveReplies ?? null));
+    setFormSqls(toStr(defaultValues?.sqls ?? null));
+    setFormWon(toStr(defaultValues?.wonDeals ?? null));
+    setFormLost(toStr(defaultValues?.lostDeals ?? null));
   }, [defaultValues, open]);
 
   function toggleCriterion(id: string) {
@@ -436,35 +447,33 @@ function HypothesisFormDialog({
             <div className="grid grid-cols-5 gap-2">
               <div className="space-y-1">
                 <label className="text-[10px] text-muted-foreground">Recipients</label>
-                <Input name="recipients" type="number" min={0} value={formRecipients} onChange={(e) => setFormRecipients(Number(e.target.value) || 0)} className="h-8 text-xs" />
+                <Input name="recipients" type="number" min={0} value={formRecipients} onChange={(e) => setFormRecipients(e.target.value)} placeholder="0" className="h-8 text-xs" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] text-muted-foreground">Positive replies</label>
-                <Input name="positiveReplies" type="number" min={0} value={formReplies} onChange={(e) => setFormReplies(Number(e.target.value) || 0)} className="h-8 text-xs" />
+                <Input name="positiveReplies" type="number" min={0} value={formReplies} onChange={(e) => setFormReplies(e.target.value)} placeholder="0" className="h-8 text-xs" />
+                {(() => {
+                  const rate = fmtPct(Number(formReplies) || 0, Number(formRecipients) || 0);
+                  return rate ? <p className="text-[10px] text-muted-foreground">{rate} reply rate</p> : null;
+                })()}
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] text-muted-foreground">SQLs</label>
-                <Input name="sqls" type="number" min={0} value={formSqls} onChange={(e) => setFormSqls(Number(e.target.value) || 0)} className="h-8 text-xs" />
+                <Input name="sqls" type="number" min={0} value={formSqls} onChange={(e) => setFormSqls(e.target.value)} placeholder="0" className="h-8 text-xs" />
+                {(() => {
+                  const rate = fmtPct(Number(formSqls) || 0, Number(formRecipients) || 0);
+                  return rate ? <p className="text-[10px] text-muted-foreground">{rate} conversion</p> : null;
+                })()}
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] text-muted-foreground">Won deals</label>
-                <Input name="wonDeals" type="number" min={0} defaultValue={defaultValues ? ((defaultValues.wonDeals as number | null) ?? 0) : 0} className="h-8 text-xs" />
+                <Input name="wonDeals" type="number" min={0} value={formWon} onChange={(e) => setFormWon(e.target.value)} placeholder="0" className="h-8 text-xs" />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] text-muted-foreground">Lost deals</label>
-                <Input name="lostDeals" type="number" min={0} defaultValue={defaultValues ? ((defaultValues.lostDeals as number | null) ?? 0) : 0} className="h-8 text-xs" />
+                <Input name="lostDeals" type="number" min={0} value={formLost} onChange={(e) => setFormLost(e.target.value)} placeholder="0" className="h-8 text-xs" />
               </div>
             </div>
-            {formRecipients > 0 && (
-              <div className="flex gap-4 text-xs text-muted-foreground">
-                {formReplies > 0 && (
-                  <span>Reply rate: <span className="font-medium text-foreground">{Math.round((formReplies / formRecipients) * 100)}%</span></span>
-                )}
-                {formSqls > 0 && (
-                  <span>SQL conversion: <span className="font-medium text-foreground">{Math.round((formSqls / formRecipients) * 100)}%</span></span>
-                )}
-              </div>
-            )}
           </div>
 
           <div className="space-y-2">
@@ -537,7 +546,8 @@ function HypothesisCard({
 
   const recipients = hypothesis.recipients ?? 0;
   const positiveReplies = hypothesis.positiveReplies ?? 0;
-  const replyRate = recipients > 0 ? Math.round((positiveReplies / recipients) * 100) : 0;
+  const replyRate = fmtPct(positiveReplies, recipients);
+  const sqlConversion = fmtPct(hypothesis.sqls ?? 0, recipients);
   const hasMetrics = recipients > 0 || (hypothesis.sqls ?? 0) > 0 || (hypothesis.wonDeals ?? 0) > 0;
 
   return (
@@ -574,18 +584,16 @@ function HypothesisCard({
                   <span>{linkedCases.length} case{linkedCases.length > 1 ? "s" : ""}</span>
                 </>
               )}
-              {recipients > 0 && (hypothesis.sqls ?? 0) > 0 && (
+              {sqlConversion && (
                 <>
                   <span>·</span>
-                  <span className="font-medium text-foreground">
-                    {Math.round(((hypothesis.sqls ?? 0) / recipients) * 100)}% SQL conversion
-                  </span>
+                  <span className="font-medium text-foreground">{sqlConversion} SQL conversion</span>
                 </>
               )}
-              {recipients > 0 && replyRate > 0 && !(hypothesis.sqls && hypothesis.sqls > 0) && (
+              {!sqlConversion && replyRate && (
                 <>
                   <span>·</span>
-                  <span>{replyRate}% reply rate</span>
+                  <span>{replyRate} reply rate</span>
                 </>
               )}
             </div>
@@ -679,16 +687,16 @@ function HypothesisCard({
                     <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Outreach funnel</p>
                     <div className="flex items-center gap-3 text-xs">
                       <span className="font-medium">{recipients} recipients</span>
-                      {replyRate > 0 && (
+                      {positiveReplies > 0 && (
                         <>
                           <span className="text-muted-foreground">→</span>
-                          <span>{positiveReplies} positive replies <span className="text-muted-foreground">({replyRate}%)</span></span>
+                          <span>{positiveReplies} positive replies {replyRate && <span className="text-muted-foreground">({replyRate})</span>}</span>
                         </>
                       )}
                       {(hypothesis.sqls ?? 0) > 0 && (
                         <>
                           <span className="text-muted-foreground">→</span>
-                          <span>{hypothesis.sqls} SQLs {recipients > 0 && <span className="text-muted-foreground">({Math.round(((hypothesis.sqls ?? 0) / recipients) * 100)}%)</span>}</span>
+                          <span>{hypothesis.sqls} SQLs {sqlConversion && <span className="text-muted-foreground">({sqlConversion})</span>}</span>
                         </>
                       )}
                     </div>
