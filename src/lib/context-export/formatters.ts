@@ -32,6 +32,26 @@ export function toMarkdown(pkg: GtmContextPackage): string {
     }
   }
 
+  if (pkg.products && pkg.products.length > 0) {
+    lines.push("## Products\n");
+    for (const prod of pkg.products) {
+      lines.push(`### ${prod.name}\n`);
+      if (prod.shortDescription) lines.push(`${prod.shortDescription}\n`);
+      if (prod.description) lines.push(prod.description + "\n");
+      if (prod.pricingModel) lines.push(`**Pricing:** ${prod.pricingModel}${prod.avgTicket ? ` (avg ${prod.avgTicket})` : ""}\n`);
+      if (prod.coreUseCases.length > 0) {
+        lines.push("**Use cases:**");
+        prod.coreUseCases.forEach((uc) => lines.push(`- ${uc}`));
+        lines.push("");
+      }
+      if (prod.keyValueProps.length > 0) {
+        lines.push("**Value props:**");
+        prod.keyValueProps.forEach((vp) => lines.push(`- ${vp}`));
+        lines.push("");
+      }
+    }
+  }
+
   if (pkg.icps && pkg.icps.length > 0) {
     for (const icp of pkg.icps) {
       lines.push("---\n");
@@ -105,6 +125,19 @@ export function toClipboardText(pkg: GtmContextPackage): string {
     if (p.coreUseCases.length > 0) lines.push(`Use cases: ${p.coreUseCases.join(", ")}`);
     if (p.keyValueProps.length > 0) lines.push(`Value props: ${p.keyValueProps.join(", ")}`);
     lines.push("");
+  }
+
+  if (pkg.products && pkg.products.length > 0) {
+    for (const prod of pkg.products) {
+      lines.push("---");
+      lines.push(`PRODUCT: ${prod.name}`);
+      if (prod.shortDescription) lines.push(prod.shortDescription);
+      if (prod.description) lines.push(prod.description);
+      if (prod.pricingModel) lines.push(`Pricing: ${prod.pricingModel}${prod.avgTicket ? ` (avg ${prod.avgTicket})` : ""}`);
+      if (prod.coreUseCases.length > 0) lines.push(`Use cases: ${prod.coreUseCases.join(", ")}`);
+      if (prod.keyValueProps.length > 0) lines.push(`Value props: ${prod.keyValueProps.join(", ")}`);
+      lines.push("");
+    }
   }
 
   if (pkg.icps && pkg.icps.length > 0) {

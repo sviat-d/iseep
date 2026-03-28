@@ -12,6 +12,15 @@ export type GtmContextPackage = {
     industriesFocus: string[];
     geoFocus: string[];
   };
+  products?: Array<{
+    name: string;
+    shortDescription: string | null;
+    description: string | null;
+    coreUseCases: string[];
+    keyValueProps: string[];
+    pricingModel: string | null;
+    avgTicket: string | null;
+  }>;
   icps?: Array<{
     name: string;
     description: string | null;

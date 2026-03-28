@@ -3,6 +3,7 @@ import { getProductContext } from "@/lib/queries/product-context";
 import { getIcps, getIcp } from "@/lib/queries/icps";
 import { getScoredUploads, getScoredLeadStats } from "@/lib/queries/scoring";
 import { getWorkspaceName } from "@/lib/queries/workspace";
+import { getProducts } from "@/actions/products";
 
 export async function buildFullContext(
   workspaceId: string,
@@ -15,9 +16,10 @@ export async function buildFullContext(
   } = modules;
 
   // Fetch all independent data in parallel
-  const [workspaceName, ctx, allIcps, uploads] = await Promise.all([
+  const [workspaceName, ctx, allProducts, allIcps, uploads] = await Promise.all([
     getWorkspaceName(workspaceId),
     includeProduct ? getProductContext(workspaceId) : null,
+    includeProduct ? getProducts(workspaceId) : null,
     includeIcps ? getIcps(workspaceId) : null,
     includeScoring ? getScoredUploads(workspaceId) : null,
   ]);
@@ -39,6 +41,18 @@ export async function buildFullContext(
       industriesFocus: (ctx.industriesFocus as string[]) ?? [],
       geoFocus: (ctx.geoFocus as string[]) ?? [],
     };
+  }
+
+  if (allProducts && allProducts.length > 0) {
+    pkg.products = allProducts.map((p) => ({
+      name: p.name,
+      shortDescription: p.shortDescription,
+      description: p.description,
+      coreUseCases: (p.coreUseCases as string[]) ?? [],
+      keyValueProps: (p.keyValueProps as string[]) ?? [],
+      pricingModel: p.pricingModel,
+      avgTicket: p.avgTicket,
+    }));
   }
 
   if (allIcps) {
@@ -109,10 +123,11 @@ export async function buildIcpContext(
   workspaceId: string,
   icpId: string,
 ): Promise<GtmContextPackage> {
-  // All 3 queries in parallel (was sequential)
-  const [workspaceName, ctx, icp] = await Promise.all([
+  // All queries in parallel
+  const [workspaceName, ctx, allProducts, icp] = await Promise.all([
     getWorkspaceName(workspaceId),
     getProductContext(workspaceId),
+    getProducts(workspaceId),
     getIcp(icpId, workspaceId),
   ]);
 
@@ -133,6 +148,18 @@ export async function buildIcpContext(
       industriesFocus: (ctx.industriesFocus as string[]) ?? [],
       geoFocus: (ctx.geoFocus as string[]) ?? [],
     };
+  }
+
+  if (allProducts && allProducts.length > 0) {
+    pkg.products = allProducts.map((p) => ({
+      name: p.name,
+      shortDescription: p.shortDescription,
+      description: p.description,
+      coreUseCases: (p.coreUseCases as string[]) ?? [],
+      keyValueProps: (p.keyValueProps as string[]) ?? [],
+      pricingModel: p.pricingModel,
+      avgTicket: p.avgTicket,
+    }));
   }
 
   if (icp) {
