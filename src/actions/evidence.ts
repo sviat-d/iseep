@@ -188,8 +188,3 @@ export async function findRelatedCases(
     .orderBy(icpEvidence.createdAt)
     .limit(5);
 }
-
-// Keep old names as aliases for backward compatibility
-export const addEvidence = addCase;
-export const deleteEvidence = deleteCase;
-export const getEvidenceForIcp = getCasesForIcp;

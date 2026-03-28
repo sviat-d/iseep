@@ -30,7 +30,6 @@ type IcpOverviewItem = {
   qualifyCount: number;
   excludeCount: number;
   personaCount: number;
-  segmentCount: number;
   evidenceCount: number;
   updatedAt: Date;
 };
@@ -212,9 +211,6 @@ export function DashboardView({
                 <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                   <span>{icp.qualifyCount + icp.excludeCount} criteria</span>
                   <span>{icp.personaCount} personas</span>
-                  {icp.segmentCount > 0 && (
-                    <span>{icp.segmentCount} segments</span>
-                  )}
                   {icp.evidenceCount > 0 && (
                     <span>{icp.evidenceCount} evidence</span>
                   )}

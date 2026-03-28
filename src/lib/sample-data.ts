@@ -31,14 +31,3 @@ export const SAMPLE_COLUMN_MAPPING: Record<string, string> = {
   contact_title: "contact_title",
   company_size: "company_size",
 };
-
-export const SAMPLE_HEADERS = [
-  "company",
-  "industry",
-  "country",
-  "website",
-  "contact_name",
-  "contact_email",
-  "contact_title",
-  "company_size",
-];

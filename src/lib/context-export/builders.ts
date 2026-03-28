@@ -109,16 +109,6 @@ export async function buildFullContext(
   return pkg;
 }
 
-export async function buildProductContext(
-  workspaceId: string,
-): Promise<GtmContextPackage> {
-  return buildFullContext(workspaceId, {
-    product: true,
-    icps: false,
-    scoring: false,
-  });
-}
-
 export async function buildIcpContext(
   workspaceId: string,
   icpId: string,

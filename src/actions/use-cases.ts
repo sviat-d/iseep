@@ -50,22 +50,6 @@ export async function createUseCase(
   return { success: true, useCaseId: created.id };
 }
 
-export async function renameUseCase(useCaseId: string, newName: string): Promise<ActionResult> {
-  const ctx = await getAuthContext();
-  if (!ctx) return { error: "Unauthorized" };
-
-  const trimmed = newName.trim();
-  if (!trimmed) return { error: "Name is required" };
-
-  await db
-    .update(productUseCases)
-    .set({ name: trimmed, normalizedName: normalize(trimmed), updatedAt: new Date() })
-    .where(and(eq(productUseCases.id, useCaseId), eq(productUseCases.workspaceId, ctx.workspaceId)));
-
-  revalidatePath("/icps");
-  return { success: true };
-}
-
 export async function deleteUseCase(useCaseId: string): Promise<ActionResult> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };

@@ -32,19 +32,6 @@ export async function linkIcpToProduct(icpId: string, productId: string): Promis
   return { success: true };
 }
 
-/** Unlink an ICP from a product */
-export async function unlinkIcpFromProduct(icpId: string, productId: string): Promise<ActionResult> {
-  const ctx = await getAuthContext();
-  if (!ctx) return { error: "Unauthorized" };
-
-  await db.delete(productIcps).where(
-    and(eq(productIcps.productId, productId), eq(productIcps.icpId, icpId), eq(productIcps.workspaceId, ctx.workspaceId))
-  );
-
-  revalidatePath("/icps");
-  return { success: true };
-}
-
 /** Bulk update product attachments for an ICP */
 export async function updateIcpProducts(
   icpId: string,

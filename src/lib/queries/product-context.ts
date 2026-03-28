@@ -10,10 +10,3 @@ export async function getProductContext(workspaceId: string) {
   return ctx ?? null;
 }
 
-export async function getProductContextForProduct(productId: string) {
-  const [ctx] = await db
-    .select()
-    .from(productContext)
-    .where(eq(productContext.productId, productId));
-  return ctx ?? null;
-}
