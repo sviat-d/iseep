@@ -27,6 +27,10 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
   }
 
   const productId = (formData.get("productId") as string) || null;
+  const productIdsRaw = (formData.get("productIds") as string) || "";
+  let productIds: string[];
+  try { productIds = JSON.parse(productIdsRaw); } catch { productIds = productIdsRaw.split(",").filter(Boolean); }
+  if (!Array.isArray(productIds)) productIds = [];
   const useCaseIdsRaw = (formData.get("useCaseIds") as string) || "";
   const useCaseIds = useCaseIdsRaw ? useCaseIdsRaw.split(",").filter(Boolean) : [];
   const channel = (formData.get("channel") as string) || null;
@@ -55,6 +59,7 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
     workspaceId: ctx.workspaceId,
     icpId,
     productId,
+    productIds,
     useCaseIds,
     companyName,
     companyDomain,
@@ -86,6 +91,11 @@ export async function updateCase(caseId: string, icpId: string, formData: FormDa
   const outcome = formData.get("outcome") as string;
   if (!companyName || !outcome) return { error: "Company and outcome are required" };
 
+  const productIdsRaw2 = (formData.get("productIds") as string) || "";
+  let updateProductIds: string[];
+  try { updateProductIds = JSON.parse(productIdsRaw2); } catch { updateProductIds = productIdsRaw2.split(",").filter(Boolean); }
+  if (!Array.isArray(updateProductIds)) updateProductIds = [];
+
   const useCaseIdsRaw = (formData.get("useCaseIds") as string) || "";
   const useCaseIds = useCaseIdsRaw ? useCaseIdsRaw.split(",").filter(Boolean) : [];
   const channel = (formData.get("channel") as string) || null;
@@ -106,6 +116,7 @@ export async function updateCase(caseId: string, icpId: string, formData: FormDa
     .set({
       companyName,
       outcome: outcome as "won" | "lost" | "in_progress",
+      productIds: updateProductIds,
       useCaseIds,
       channel: channel && VALID_CHANNELS.includes(channel as typeof VALID_CHANNELS[number])
         ? (channel as "linkedin" | "email" | "conference" | "referral" | "inbound" | "other")

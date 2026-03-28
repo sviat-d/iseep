@@ -558,6 +558,7 @@ export const hypotheses = pgTable("hypotheses", {
   selectedCriteriaIds: jsonb("selected_criteria_ids").default([]), // string[]
   selectedPersonaIds: jsonb("selected_persona_ids").default([]), // string[]
   selectedSignalIds: jsonb("selected_signal_ids").default([]), // string[]
+  productIds: jsonb("product_ids").default([]), // string[] — products this hypothesis belongs to
   segmentId: uuid("segment_id").references(() => segments.id), // legacy
   personaId: uuid("persona_id").references(() => personas.id), // legacy
   problem: text("problem"),
@@ -595,7 +596,8 @@ export const icpEvidence = pgTable("icp_evidence", {
   icpId: uuid("icp_id")
     .references(() => icps.id)
     .notNull(),
-  productId: uuid("product_id").references(() => products.id), // product-specific cases
+  productId: uuid("product_id").references(() => products.id), // legacy single product
+  productIds: jsonb("product_ids").default([]), // string[] — products this case belongs to
   useCaseId: uuid("use_case_id").references(() => productUseCases.id), // legacy single
   useCaseIds: jsonb("use_case_ids").default([]), // string[] — multiple use cases
   companyName: text("company_name").notNull(),

@@ -41,6 +41,7 @@ import { PROPERTY_OPTIONS } from "@/lib/constants";
 type Hypothesis = {
   id: string;
   name: string;
+  productIds: unknown;
   selectedCriteriaIds: unknown;
   selectedPersonaIds: unknown;
   selectedSignalIds: unknown;
@@ -124,6 +125,8 @@ function HypothesisFormDialog({
   criteria,
   personas,
   signals,
+  icpProducts,
+  currentProductId,
   defaultValues,
   open,
   onOpenChange,
@@ -133,11 +136,15 @@ function HypothesisFormDialog({
   criteria: CriterionItem[];
   personas: PersonaItem[];
   signals: SignalItem[];
+  icpProducts: Array<{ id: string; name: string }>;
+  currentProductId?: string;
   defaultValues?: Hypothesis;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [status, setStatus] = useState(defaultValues?.status ?? "draft");
+  const defaultProductIds = defaultValues ? asStringArray(defaultValues.productIds) : (currentProductId ? [currentProductId] : []);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set(defaultProductIds));
   const [selectedCriteria, setSelectedCriteria] = useState<Set<string>>(
     new Set(asStringArray(defaultValues?.selectedCriteriaIds)),
   );
@@ -156,6 +163,7 @@ function HypothesisFormDialog({
 
   useEffect(() => {
     setStatus(defaultValues?.status ?? "draft");
+    setSelectedProducts(new Set(defaultValues ? asStringArray(defaultValues.productIds) : (currentProductId ? [currentProductId] : [])));
     setSelectedCriteria(new Set(asStringArray(defaultValues?.selectedCriteriaIds)));
     setSelectedPersonas(new Set(asStringArray(defaultValues?.selectedPersonaIds)));
     setSelectedSignals(new Set(asStringArray(defaultValues?.selectedSignalIds)));
@@ -165,6 +173,14 @@ function HypothesisFormDialog({
     setFormWon(toStr(defaultValues?.wonDeals ?? null));
     setFormLost(toStr(defaultValues?.lostDeals ?? null));
   }, [defaultValues, open]);
+
+  function toggleProduct(id: string) {
+    setSelectedProducts((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { if (next.size <= 1) return prev; next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
 
   function toggleCriterion(id: string) {
     setSelectedCriteria((prev) => {
@@ -195,6 +211,7 @@ function HypothesisFormDialog({
     FormData
   >(async (_prev, formData) => {
     formData.set("status", status);
+    formData.set("productIds", JSON.stringify(Array.from(selectedProducts)));
     formData.set("selectedCriteriaIds", JSON.stringify(Array.from(selectedCriteria)));
     formData.set("selectedPersonaIds", JSON.stringify(Array.from(selectedPersonas)));
     formData.set("selectedSignalIds", JSON.stringify(Array.from(selectedSignals)));
@@ -251,6 +268,35 @@ function HypothesisFormDialog({
             <span className="text-xs text-muted-foreground">ICP:</span>{" "}
             <Badge variant="outline" className="text-xs">{icpName}</Badge>
           </div>
+
+          {/* Products */}
+          {icpProducts.length > 0 && (
+            <div className="space-y-2">
+              <Label>Products</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {icpProducts.map((p) => {
+                  const isSelected = selectedProducts.has(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => toggleProduct(p.id)}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedProducts.size === 0 && (
+                <p className="text-[10px] text-destructive">At least one product is required.</p>
+              )}
+            </div>
+          )}
 
           {/* Included criteria */}
           <div className="space-y-2">
@@ -515,6 +561,7 @@ function HypothesisCard({
   criteria,
   personas,
   signals,
+  icpProducts,
   linkedCases,
   onEdit,
   onDelete,
@@ -524,6 +571,7 @@ function HypothesisCard({
   criteria: CriterionItem[];
   personas: PersonaItem[];
   signals: SignalItem[];
+  icpProducts: Array<{ id: string; name: string }>;
   linkedCases: LinkedCase[];
   onEdit: () => void;
   onDelete: () => void;
@@ -535,6 +583,8 @@ function HypothesisCard({
 
   const critIds = asStringArray(hypothesis.selectedCriteriaIds);
   const personaIds = asStringArray(hypothesis.selectedPersonaIds);
+  const hypProductIds = asStringArray(hypothesis.productIds);
+  const hypProducts = icpProducts.filter((p) => hypProductIds.includes(p.id));
   const signalIds = asStringArray(hypothesis.selectedSignalIds);
   const selectedCriteria = criteria.filter((c) => critIds.includes(c.id));
   const selectedPersonas = personas.filter((p) => personaIds.includes(p.id));
@@ -561,6 +611,11 @@ function HypothesisCard({
               <Badge variant={cfg.variant} className="text-[10px]">
                 {cfg.label}
               </Badge>
+              {hypProducts.map((p) => (
+                <Badge key={p.id} variant="outline" className="text-[10px] font-normal">
+                  {p.name}
+                </Badge>
+              ))}
             </div>
             <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
               {critIds.length > 0 && (
@@ -753,6 +808,8 @@ export function HypothesisTab({
   criteria,
   personas,
   signals,
+  icpProducts,
+  currentProductId,
   linkedCasesMap = {},
 }: {
   icpId: string;
@@ -761,6 +818,8 @@ export function HypothesisTab({
   criteria: CriterionItem[];
   personas: PersonaItem[];
   signals: SignalItem[];
+  icpProducts: Array<{ id: string; name: string }>;
+  currentProductId?: string;
   linkedCasesMap?: Record<string, LinkedCase[]>;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -814,6 +873,7 @@ export function HypothesisTab({
               criteria={criteria}
               personas={personas}
               signals={signals}
+              icpProducts={icpProducts}
               linkedCases={linkedCasesMap[h.id] ?? []}
               onEdit={() => handleEdit(h)}
               onDelete={() => handleDelete(h.id)}
@@ -829,6 +889,8 @@ export function HypothesisTab({
         criteria={criteria}
         personas={personas}
         signals={signals}
+        icpProducts={icpProducts}
+        currentProductId={currentProductId}
         defaultValues={editing ?? undefined}
         open={dialogOpen}
         onOpenChange={setDialogOpen}

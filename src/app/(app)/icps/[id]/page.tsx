@@ -43,8 +43,8 @@ export default async function IcpDetailPage({
     ? icpProducts.find((p) => p.id === currentProductId)
     : icpProducts[0] ?? null;
 
-  // Fetch cases scoped to the resolved product (not just the URL param)
-  const cases = await getCasesForIcp(id, ctx.workspaceId, currentProduct?.id);
+  // Fetch ALL cases for the ICP — filtering by product tab happens client-side
+  const cases = await getCasesForIcp(id, ctx.workspaceId);
 
   // Get use cases only from the current product (not all linked products)
   const useCases = currentProduct
@@ -52,6 +52,24 @@ export default async function IcpDetailPage({
     : [];
 
   const otherProducts = icpProducts.filter((p) => p.id !== currentProduct?.id);
+
+  // Compute product usage for safe unlink
+  const productUsage: Record<string, { hypothesesCount: number; casesCount: number }> = {};
+  for (const p of icpProducts) {
+    let hCount = 0;
+    let cCount = 0;
+    for (const h of hypotheses) {
+      const pids = Array.isArray(h.productIds) ? h.productIds as string[] : [];
+      if (pids.includes(p.id)) hCount++;
+    }
+    for (const c of cases) {
+      const pids = Array.isArray(c.productIds) ? c.productIds as string[] : [];
+      if (pids.includes(p.id)) cCount++;
+    }
+    if (hCount > 0 || cCount > 0) {
+      productUsage[p.id] = { hypothesesCount: hCount, casesCount: cCount };
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -82,6 +100,7 @@ export default async function IcpDetailPage({
               icpId={id}
               allProducts={allProducts.map((p) => ({ id: p.id, name: p.name }))}
               attachedProductIds={icpProducts.map((p) => p.id)}
+              productUsage={productUsage}
             />
           </div>
           )}
@@ -107,6 +126,7 @@ export default async function IcpDetailPage({
         snapshots={snapshots}
         cases={cases}
         hypotheses={hypotheses}
+        icpProducts={icpProducts.map((p) => ({ id: p.id, name: p.name }))}
         currentProductId={currentProductId ?? currentProduct?.id}
         useCases={useCases.map((uc) => ({ id: uc.id, name: uc.name }))}
         workspaceId={ctx.workspaceId}

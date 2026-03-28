@@ -27,6 +27,7 @@ export async function createHypothesis(
   const selectedCriteriaIds = parseIds(formData.get("selectedCriteriaIds") as string);
   const selectedPersonaIds = parseIds(formData.get("selectedPersonaIds") as string);
   const selectedSignalIds = parseIds(formData.get("selectedSignalIds") as string);
+  const productIds = parseIds(formData.get("productIds") as string);
 
   const raw = {
     name: formData.get("name") as string,
@@ -53,6 +54,7 @@ export async function createHypothesis(
       selectedCriteriaIds: parsed.data.selectedCriteriaIds ?? [],
       selectedPersonaIds: parsed.data.selectedPersonaIds ?? [],
       selectedSignalIds: parsed.data.selectedSignalIds ?? [],
+      productIds,
       problem: parsed.data.problem ?? null,
       solution: parsed.data.solution ?? null,
       outcome: parsed.data.outcome ?? null,
@@ -81,6 +83,7 @@ export async function updateHypothesis(
   const selectedCriteriaIds = parseIds(formData.get("selectedCriteriaIds") as string);
   const selectedPersonaIds = parseIds(formData.get("selectedPersonaIds") as string);
   const selectedSignalIds = parseIds(formData.get("selectedSignalIds") as string);
+  const productIds = parseIds(formData.get("productIds") as string);
 
   const raw = {
     name: formData.get("name") as string,
@@ -110,6 +113,7 @@ export async function updateHypothesis(
       selectedCriteriaIds: parsed.data.selectedCriteriaIds ?? [],
       selectedPersonaIds: parsed.data.selectedPersonaIds ?? [],
       selectedSignalIds: parsed.data.selectedSignalIds ?? [],
+      productIds,
       problem: parsed.data.problem ?? null,
       solution: parsed.data.solution ?? null,
       outcome: parsed.data.outcome ?? null,

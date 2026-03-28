@@ -35,6 +35,7 @@ type CaseItem = {
   reasonTags: unknown;
   hypothesis: string | null;
   hypothesisId: string | null;
+  productIds: unknown;
   dealValue: string | null;
   dealType: string | null;
   whyWon: string | null;
@@ -123,6 +124,8 @@ function AddCaseForm({
   icpId,
   segments,
   hypotheses = [],
+  icpProducts = [],
+  currentProductId,
   productId,
   useCases,
   workspaceId,
@@ -131,6 +134,8 @@ function AddCaseForm({
   icpId: string;
   segments: Segment[];
   hypotheses?: HypothesisRef[];
+  icpProducts?: Array<{ id: string; name: string }>;
+  currentProductId?: string;
   productId?: string;
   useCases: UseCase[];
   workspaceId?: string;
@@ -142,6 +147,9 @@ function AddCaseForm({
   const [useCaseSearch, setUseCaseSearch] = useState("");
   const [localUseCases, setLocalUseCases] = useState(useCases);
   const [channel, setChannel] = useState<string>("");
+  const [caseSelectedProducts, setCaseSelectedProducts] = useState<Set<string>>(
+    new Set(currentProductId ? [currentProductId] : []),
+  );
   const [selectedSegment, setSelectedSegment] = useState<string>("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -183,6 +191,7 @@ function AddCaseForm({
   function handleSubmit(formData: FormData) {
     formData.set("outcome", outcome);
     formData.set("channel", channel);
+    formData.set("productIds", JSON.stringify(Array.from(caseSelectedProducts)));
     formData.set("segmentId", selectedSegment);
     formData.set("useCaseIds", selectedUseCaseIds.join(","));
     formData.set("reasonTags", selectedTags.join(","));
@@ -269,7 +278,37 @@ function AddCaseForm({
             </div>
           </div>
 
-          {/* Step 3: Hypothesis */}
+          {/* Products */}
+          {icpProducts.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Products</label>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {icpProducts.map((p) => {
+                  const isSelected = caseSelectedProducts.has(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setCaseSelectedProducts((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(p.id)) { if (next.size <= 1) return prev; next.delete(p.id); } else { next.add(p.id); }
+                        return next;
+                      })}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Hypothesis */}
           {hypotheses && hypotheses.length > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground">
@@ -674,6 +713,8 @@ export function IcpCasesTab({
   cases,
   segments,
   hypotheses = [],
+  icpProducts = [],
+  currentProductId,
   productId,
   useCases = [],
   workspaceId,
@@ -682,6 +723,8 @@ export function IcpCasesTab({
   cases: CaseItem[];
   segments: Segment[];
   hypotheses?: HypothesisRef[];
+  icpProducts?: Array<{ id: string; name: string }>;
+  currentProductId?: string;
   productId?: string;
   useCases?: UseCase[];
   workspaceId?: string;
@@ -809,6 +852,8 @@ export function IcpCasesTab({
           icpId={icpId}
           segments={segments}
           hypotheses={hypotheses}
+          icpProducts={icpProducts}
+          currentProductId={currentProductId}
           productId={productId}
           useCases={useCases}
           workspaceId={workspaceId}
@@ -836,6 +881,8 @@ export function IcpCasesTab({
             const segName = c.segmentId ? segmentMap.get(c.segmentId) : null;
             const ucIds = Array.isArray(c.useCaseIds) ? (c.useCaseIds as string[]) : c.useCaseId ? [c.useCaseId] : [];
             const ucNames = ucIds.map((id) => useCaseMap.get(id)).filter(Boolean) as string[];
+            const cProdIds = Array.isArray(c.productIds) ? (c.productIds as string[]) : [];
+            const cProdNames = cProdIds.map((pid) => icpProducts.find((p) => p.id === pid)?.name).filter(Boolean) as string[];
 
             if (editingCaseId === c.id) {
               return (
@@ -863,6 +910,9 @@ export function IcpCasesTab({
                     )}
                     {ucNames.map((name) => (
                       <Badge key={name} variant="secondary" className="text-[10px]">{name}</Badge>
+                    ))}
+                    {cProdNames.map((name) => (
+                      <Badge key={name} variant="outline" className="text-[10px] font-normal">{name}</Badge>
                     ))}
                     {c.channel && c.channel !== "other" && (
                       <Badge variant="secondary" className="text-[10px]">

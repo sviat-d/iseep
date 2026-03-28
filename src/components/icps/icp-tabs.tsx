@@ -62,6 +62,7 @@ type Signal = {
 type HypothesisItem = {
   id: string;
   name: string;
+  productIds: unknown;
   selectedCriteriaIds: unknown;
   selectedPersonaIds: unknown;
   selectedSignalIds: unknown;
@@ -90,6 +91,7 @@ type CaseItem = {
   companyName: string;
   companyDomain: string | null;
   outcome: string;
+  productIds: unknown;
   segmentId: string | null;
   useCaseId: string | null;
   useCaseIds: unknown;
@@ -136,15 +138,37 @@ type IcpTabsProps = {
   snapshots: Snapshot[];
   cases: CaseItem[];
   hypotheses: HypothesisItem[];
+  icpProducts: Array<{ id: string; name: string }>;
   currentProductId?: string;
   useCases?: Array<{ id: string; name: string }>;
   workspaceId?: string;
 };
 
-export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
+function asIds(val: unknown): string[] {
+  if (Array.isArray(val)) return val.filter((v) => typeof v === "string");
+  return [];
+}
+
+export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
+  // Filter hypotheses and cases by current product (or show all for shared/no product)
+  const filteredHypotheses = currentProductId
+    ? hypotheses.filter((h) => {
+        const pids = asIds(h.productIds);
+        return pids.length === 0 || pids.includes(currentProductId);
+      })
+    : hypotheses;
+
+  const filteredCases = currentProductId
+    ? cases.filter((c) => {
+        const pids = asIds(c.productIds);
+        // Also check legacy productId field
+        return pids.length === 0 || pids.includes(currentProductId) || (c as Record<string, unknown>).productId === currentProductId;
+      })
+    : cases;
+
   // Group linked cases per hypothesis
   const linkedCasesMap: Record<string, Array<{ id: string; companyName: string; outcome: string; dealValue: string | null }>> = {};
-  for (const c of cases) {
+  for (const c of filteredCases) {
     if (c.hypothesisId) {
       if (!linkedCasesMap[c.hypothesisId]) linkedCasesMap[c.hypothesisId] = [];
       linkedCasesMap[c.hypothesisId].push({
@@ -183,7 +207,7 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
         <HypothesisTab
           icpId={icp.id}
           icpName={icp.name}
-          hypotheses={hypotheses}
+          hypotheses={filteredHypotheses}
           criteria={icp.criteria.map((c) => ({
             id: c.id,
             category: c.category,
@@ -193,6 +217,8 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
           }))}
           personas={icp.personas.map((p) => ({ id: p.id, name: p.name }))}
           signals={icp.signals.map((s) => ({ id: s.id, type: s.type, label: s.label }))}
+          icpProducts={icpProducts}
+          currentProductId={currentProductId}
           linkedCasesMap={linkedCasesMap}
         />
       </TabsContent>
@@ -200,9 +226,11 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
       <TabsContent value="cases" className="pt-4">
         <IcpCasesTab
           icpId={icp.id}
-          cases={cases}
+          cases={filteredCases}
           segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
-          hypotheses={hypotheses.map((h) => ({ id: h.id, name: h.name }))}
+          hypotheses={filteredHypotheses.map((h) => ({ id: h.id, name: h.name }))}
+          icpProducts={icpProducts}
+          currentProductId={currentProductId}
           productId={currentProductId}
           useCases={useCases}
           workspaceId={workspaceId}
