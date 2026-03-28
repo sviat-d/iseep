@@ -10,6 +10,12 @@ type Persona = {
   id: string;
   name: string;
   description: string | null;
+  goals: string | null;
+  painPoints: string | null;
+  triggers: string | null;
+  decisionCriteria: string | null;
+  objections: string | null;
+  desiredOutcome: string | null;
   icpId: string;
   workspaceId: string;
   createdAt: Date;
@@ -74,6 +80,12 @@ export function PersonaList({
                 id: editingPersona.id,
                 name: editingPersona.name,
                 description: editingPersona.description,
+                goals: editingPersona.goals,
+                painPoints: editingPersona.painPoints,
+                triggers: editingPersona.triggers,
+                decisionCriteria: editingPersona.decisionCriteria,
+                objections: editingPersona.objections,
+                desiredOutcome: editingPersona.desiredOutcome,
               }
             : undefined
         }

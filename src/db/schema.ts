@@ -186,6 +186,12 @@ export const personas = pgTable("personas", {
     .notNull(),
   name: text("name").notNull(),
   description: text("description"),
+  goals: text("goals"),
+  painPoints: text("pain_points"),
+  triggers: text("triggers"),
+  decisionCriteria: text("decision_criteria"),
+  objections: text("objections"),
+  desiredOutcome: text("desired_outcome"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -538,6 +544,35 @@ export const rejectedIcps = pgTable("rejected_icps", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── X. Hypotheses ──────────────────────────────────────────────────────────
+
+export const hypotheses = pgTable("hypotheses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  icpId: uuid("icp_id")
+    .references(() => icps.id)
+    .notNull(),
+  name: text("name").notNull(),
+  segmentId: uuid("segment_id").references(() => segments.id),
+  personaId: uuid("persona_id").references(() => personas.id),
+  problem: text("problem"),
+  valueProposition: text("value_proposition"),
+  expectedResult: text("expected_result"),
+  status: text("status", { enum: ["draft", "testing", "validated", "rejected"] })
+    .default("draft")
+    .notNull(),
+  notes: text("notes"),
+  metricsLeads: integer("metrics_leads").default(0),
+  metricsReplies: integer("metrics_replies").default(0),
+  metricsMeetings: integer("metrics_meetings").default(0),
+  metricsOpps: integer("metrics_opps").default(0),
+  metricsWins: integer("metrics_wins").default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── W. ICP Cases (ICP Learning Loop) ─────────────────────────────────────
 
 export const icpEvidence = pgTable("icp_evidence", {
@@ -558,7 +593,8 @@ export const icpEvidence = pgTable("icp_evidence", {
   channel: text("channel", { enum: ["linkedin", "email", "conference", "referral", "inbound", "other"] }),
   channelDetail: text("channel_detail"),
   reasonTags: jsonb("reason_tags").default([]).notNull(), // string[]
-  hypothesis: text("hypothesis"),
+  hypothesis: text("hypothesis"), // legacy free-text, kept for backward compat
+  hypothesisId: uuid("hypothesis_id").references(() => hypotheses.id),
   note: text("note"),
   industry: text("industry"), // legacy, kept for backward compat
   region: text("region"), // legacy, kept for backward compat

@@ -34,6 +34,7 @@ type CaseItem = {
   channelDetail: string | null;
   reasonTags: unknown;
   hypothesis: string | null;
+  hypothesisId: string | null;
   note: string | null;
   createdAt: Date;
 };
@@ -44,6 +45,11 @@ type Segment = {
 };
 
 type UseCase = {
+  id: string;
+  name: string;
+};
+
+type HypothesisRef = {
   id: string;
   name: string;
 };
@@ -112,6 +118,7 @@ const outcomeConfig = {
 function AddCaseForm({
   icpId,
   segments,
+  hypotheses = [],
   productId,
   useCases,
   workspaceId,
@@ -119,6 +126,7 @@ function AddCaseForm({
 }: {
   icpId: string;
   segments: Segment[];
+  hypotheses?: HypothesisRef[];
   productId?: string;
   useCases: UseCase[];
   workspaceId?: string;
@@ -443,14 +451,20 @@ function AddCaseForm({
 
           {showAdvanced && (
             <div className="space-y-3 pl-4 border-l-2 border-muted">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Hypothesis / angle</label>
-                <Input
-                  name="hypothesis"
-                  placeholder="e.g., Reduce payout costs, Fix blocked accounts"
-                  className="mt-1"
-                />
-              </div>
+              {hypotheses.length > 0 && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
+                  <select
+                    name="hypothesisId"
+                    className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                  >
+                    <option value="">None</option>
+                    {hypotheses.map((h) => (
+                      <option key={h.id} value={h.id}>{h.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Note</label>
                 <Textarea
@@ -486,6 +500,7 @@ function EditCaseInline({
   caseItem,
   icpId,
   segments,
+  hypotheses = [],
   useCases,
   productId,
   onClose,
@@ -493,6 +508,7 @@ function EditCaseInline({
   caseItem: CaseItem;
   icpId: string;
   segments: Segment[];
+  hypotheses?: HypothesisRef[];
   useCases: UseCase[];
   productId?: string;
   onClose: () => void;
@@ -588,10 +604,26 @@ function EditCaseInline({
             </div>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
-              <Input name="hypothesis" defaultValue={caseItem.hypothesis ?? ""} className="mt-1" />
-            </div>
+            {hypotheses.length > 0 ? (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
+                <select
+                  name="hypothesisId"
+                  defaultValue={caseItem.hypothesisId ?? ""}
+                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                >
+                  <option value="">None</option>
+                  {hypotheses.map((h) => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
+                <Input name="hypothesis" defaultValue={caseItem.hypothesis ?? ""} className="mt-1" />
+              </div>
+            )}
             <div>
               <label className="text-xs font-medium text-muted-foreground">Note</label>
               <Input name="note" defaultValue={caseItem.note ?? ""} className="mt-1" />
@@ -613,6 +645,7 @@ export function IcpCasesTab({
   icpId,
   cases,
   segments,
+  hypotheses = [],
   productId,
   useCases = [],
   workspaceId,
@@ -620,6 +653,7 @@ export function IcpCasesTab({
   icpId: string;
   cases: CaseItem[];
   segments: Segment[];
+  hypotheses?: HypothesisRef[];
   productId?: string;
   useCases?: UseCase[];
   workspaceId?: string;
@@ -646,6 +680,7 @@ export function IcpCasesTab({
 
   // Build segment name lookup
   const segmentMap = new Map(segments.map((s) => [s.id, s.name]));
+  const hypothesisMap = new Map(hypotheses.map((h) => [h.id, h.name]));
   const useCaseMap = new Map(useCases.map((uc) => [uc.id, uc.name]));
 
   function handleDelete(caseId: string) {
@@ -745,6 +780,7 @@ export function IcpCasesTab({
         <AddCaseForm
           icpId={icpId}
           segments={segments}
+          hypotheses={hypotheses}
           productId={productId}
           useCases={useCases}
           workspaceId={workspaceId}
@@ -780,6 +816,7 @@ export function IcpCasesTab({
                   caseItem={c}
                   icpId={icpId}
                   segments={segments}
+                  hypotheses={hypotheses}
                   useCases={useCases}
                   productId={productId}
                   onClose={() => setEditingCaseId(null)}
@@ -825,8 +862,10 @@ export function IcpCasesTab({
                       ))}
                     </div>
                   )}
-                  {c.hypothesis && (
-                    <p className="text-xs text-muted-foreground italic">{c.hypothesis}</p>
+                  {(c.hypothesisId ? hypothesisMap.get(c.hypothesisId) : c.hypothesis) && (
+                    <p className="text-xs text-muted-foreground italic">
+                      {c.hypothesisId ? hypothesisMap.get(c.hypothesisId) : c.hypothesis}
+                    </p>
                   )}
                   {c.note && (
                     <p className="text-xs text-muted-foreground">{c.note}</p>

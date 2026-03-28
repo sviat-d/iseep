@@ -13,6 +13,7 @@ import { PersonaList } from "@/components/personas/persona-list";
 import { SignalList } from "@/components/signals/signal-list";
 import { IcpVersionHistory } from "@/components/icps/icp-version-history";
 import { IcpCasesTab } from "@/components/icps/icp-cases-tab";
+import { HypothesisTab } from "@/components/hypotheses/hypothesis-tab";
 
 type Criterion = {
   id: string;
@@ -34,6 +35,12 @@ type Persona = {
   id: string;
   name: string;
   description: string | null;
+  goals: string | null;
+  painPoints: string | null;
+  triggers: string | null;
+  decisionCriteria: string | null;
+  objections: string | null;
+  desiredOutcome: string | null;
   icpId: string;
   workspaceId: string;
   createdAt: Date;
@@ -61,6 +68,24 @@ type Segment = {
   priorityScore: number;
 };
 
+type HypothesisItem = {
+  id: string;
+  name: string;
+  segmentId: string | null;
+  personaId: string | null;
+  problem: string | null;
+  valueProposition: string | null;
+  expectedResult: string | null;
+  status: string;
+  notes: string | null;
+  metricsLeads: number | null;
+  metricsReplies: number | null;
+  metricsMeetings: number | null;
+  metricsOpps: number | null;
+  metricsWins: number | null;
+  createdAt: Date;
+};
+
 type CaseItem = {
   id: string;
   companyName: string;
@@ -73,6 +98,7 @@ type CaseItem = {
   channelDetail: string | null;
   reasonTags: unknown;
   hypothesis: string | null;
+  hypothesisId: string | null;
   note: string | null;
   createdAt: Date;
 };
@@ -106,6 +132,7 @@ type IcpTabsProps = {
   };
   snapshots: Snapshot[];
   cases: CaseItem[];
+  hypotheses: HypothesisItem[];
   currentProductId?: string;
   useCases?: Array<{ id: string; name: string }>;
   workspaceId?: string;
@@ -117,7 +144,7 @@ const statusVariant: Record<string, "default" | "secondary" | "outline"> = {
   archived: "outline",
 };
 
-export function IcpTabs({ icp, snapshots, cases, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
+export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
   return (
     <Tabs defaultValue="profile">
       <TabsList variant="line">
@@ -125,6 +152,7 @@ export function IcpTabs({ icp, snapshots, cases, currentProductId, useCases = []
         <TabsTrigger value="personas">Personas</TabsTrigger>
         <TabsTrigger value="signals">Signals</TabsTrigger>
         <TabsTrigger value="segments">Segments</TabsTrigger>
+        <TabsTrigger value="hypotheses">Hypotheses</TabsTrigger>
         <TabsTrigger value="cases">Cases</TabsTrigger>
         <TabsTrigger value="history">Versions</TabsTrigger>
       </TabsList>
@@ -145,11 +173,21 @@ export function IcpTabs({ icp, snapshots, cases, currentProductId, useCases = []
         <SegmentsTab segments={icp.segments} icpId={icp.id} />
       </TabsContent>
 
+      <TabsContent value="hypotheses" className="pt-4">
+        <HypothesisTab
+          icpId={icp.id}
+          hypotheses={hypotheses}
+          segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
+          personas={icp.personas.map((p) => ({ id: p.id, name: p.name }))}
+        />
+      </TabsContent>
+
       <TabsContent value="cases" className="pt-4">
         <IcpCasesTab
           icpId={icp.id}
           cases={cases}
           segments={icp.segments.map((s) => ({ id: s.id, name: s.name }))}
+          hypotheses={hypotheses.map((h) => ({ id: h.id, name: h.name }))}
           productId={currentProductId}
           useCases={useCases}
           workspaceId={workspaceId}

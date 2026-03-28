@@ -48,6 +48,9 @@ export const PROPERTY_OPTIONS: Array<{
   { label: "Regulatory status", category: "regulatory_status", group: "compliance" },
   { label: "License type", category: "license_type", group: "compliance" },
   { label: "Jurisdiction", category: "jurisdiction", group: "compliance" },
+  { label: "Revenue range", category: "revenue_range", group: "firmographic" },
+  { label: "Funding stage", category: "funding_stage", group: "behavioral" },
+  { label: "Geo complexity", category: "geo_complexity", group: "firmographic" },
   { label: "Keywords", category: "keyword", group: "keyword" },
 ];
 
@@ -77,6 +80,9 @@ export const PICKER_TIERS: Array<{
       { label: "Tech stack", category: "tech_stack", group: "technographic" },
       { label: "Growth stage", category: "growth_stage", group: "behavioral" },
       { label: "Hiring activity", category: "hiring_activity", group: "behavioral" },
+      { label: "Funding stage", category: "funding_stage", group: "behavioral" },
+      { label: "Revenue range", category: "revenue_range", group: "firmographic" },
+      { label: "Geo complexity", category: "geo_complexity", group: "firmographic" },
       { label: "Keywords", category: "keyword", group: "keyword" },
     ],
   },

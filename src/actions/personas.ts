@@ -8,13 +8,25 @@ import { getAuthContext } from "@/lib/auth";
 import { personaSchema } from "@/lib/validators";
 import type { ActionResult } from "@/lib/types";
 
+function extractPersonaFields(formData: FormData) {
+  return {
+    name: formData.get("name") as string,
+    description: (formData.get("description") as string) || undefined,
+    goals: (formData.get("goals") as string) || undefined,
+    painPoints: (formData.get("painPoints") as string) || undefined,
+    triggers: (formData.get("triggers") as string) || undefined,
+    decisionCriteria: (formData.get("decisionCriteria") as string) || undefined,
+    objections: (formData.get("objections") as string) || undefined,
+    desiredOutcome: (formData.get("desiredOutcome") as string) || undefined,
+  };
+}
+
 export async function createPersona(formData: FormData): Promise<ActionResult> {
   const ctx = await getAuthContext();
   if (!ctx) return { error: "Unauthorized" };
 
   const raw = {
-    name: formData.get("name") as string,
-    description: (formData.get("description") as string) || undefined,
+    ...extractPersonaFields(formData),
     icpId: formData.get("icpId") as string,
   };
 
@@ -26,6 +38,12 @@ export async function createPersona(formData: FormData): Promise<ActionResult> {
     icpId: parsed.data.icpId,
     name: parsed.data.name,
     description: parsed.data.description ?? null,
+    goals: parsed.data.goals ?? null,
+    painPoints: parsed.data.painPoints ?? null,
+    triggers: parsed.data.triggers ?? null,
+    decisionCriteria: parsed.data.decisionCriteria ?? null,
+    objections: parsed.data.objections ?? null,
+    desiredOutcome: parsed.data.desiredOutcome ?? null,
   });
 
   revalidatePath(`/icps/${parsed.data.icpId}`);
@@ -43,8 +61,7 @@ export async function updatePersona(id: string, formData: FormData): Promise<Act
   if (!existing) return { error: "Not found" };
 
   const raw = {
-    name: formData.get("name") as string,
-    description: (formData.get("description") as string) || undefined,
+    ...extractPersonaFields(formData),
     icpId: existing.icpId,
   };
 
@@ -53,7 +70,17 @@ export async function updatePersona(id: string, formData: FormData): Promise<Act
 
   await db
     .update(personas)
-    .set({ name: parsed.data.name, description: parsed.data.description ?? null, updatedAt: new Date() })
+    .set({
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      goals: parsed.data.goals ?? null,
+      painPoints: parsed.data.painPoints ?? null,
+      triggers: parsed.data.triggers ?? null,
+      decisionCriteria: parsed.data.decisionCriteria ?? null,
+      objections: parsed.data.objections ?? null,
+      desiredOutcome: parsed.data.desiredOutcome ?? null,
+      updatedAt: new Date(),
+    })
     .where(eq(personas.id, id));
 
   revalidatePath(`/icps/${existing.icpId}`);

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { buildIcpContext } from "@/lib/context-export/builders";
 import { ContextExportButton } from "@/components/shared/context-export-button";
 import { getProducts } from "@/actions/products";
+import { getHypothesesForIcp } from "@/actions/hypotheses";
 
 export default async function IcpDetailPage({
   params,
@@ -26,12 +27,13 @@ export default async function IcpDetailPage({
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icp, snapshots, exportContext, icpProducts, allProducts] = await Promise.all([
+  const [icp, snapshots, exportContext, icpProducts, allProducts, hypotheses] = await Promise.all([
     getIcp(id, ctx.workspaceId),
     getIcpSnapshots(id, ctx.workspaceId),
     buildIcpContext(ctx.workspaceId, id),
     getProductsForIcp(id, ctx.workspaceId),
     getProducts(ctx.workspaceId),
+    getHypothesesForIcp(id, ctx.workspaceId),
   ]);
 
   if (!icp) notFound();
@@ -104,6 +106,7 @@ export default async function IcpDetailPage({
         icp={icp}
         snapshots={snapshots}
         cases={cases}
+        hypotheses={hypotheses}
         currentProductId={currentProductId ?? currentProduct?.id}
         useCases={useCases.map((uc) => ({ id: uc.id, name: uc.name }))}
         workspaceId={ctx.workspaceId}

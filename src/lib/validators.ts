@@ -25,8 +25,33 @@ export const icpSchema = z.object({
 export const personaSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional(),
+  goals: z.string().optional(),
+  painPoints: z.string().optional(),
+  triggers: z.string().optional(),
+  decisionCriteria: z.string().optional(),
+  objections: z.string().optional(),
+  desiredOutcome: z.string().optional(),
   icpId: z.string().uuid(),
 });
+
+export const hypothesisSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  icpId: z.string().uuid(),
+  segmentId: z.string().uuid().optional(),
+  personaId: z.string().uuid().optional(),
+  problem: z.string().optional(),
+  valueProposition: z.string().optional(),
+  expectedResult: z.string().optional(),
+  status: z.enum(["draft", "testing", "validated", "rejected"]),
+  notes: z.string().optional(),
+  metricsLeads: z.coerce.number().int().min(0).optional(),
+  metricsReplies: z.coerce.number().int().min(0).optional(),
+  metricsMeetings: z.coerce.number().int().min(0).optional(),
+  metricsOpps: z.coerce.number().int().min(0).optional(),
+  metricsWins: z.coerce.number().int().min(0).optional(),
+});
+
+export type HypothesisInput = z.infer<typeof hypothesisSchema>;
 
 export const criterionSchema = z.object({
   group: z.enum(["firmographic", "technographic", "behavioral", "compliance", "keyword"]),

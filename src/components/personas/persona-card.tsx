@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
   Card,
   CardContent,
@@ -11,19 +11,39 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { deletePersona } from "@/actions/personas";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, ChevronDown } from "lucide-react";
 
 type PersonaCardProps = {
   persona: {
     id: string;
     name: string;
     description: string | null;
+    goals: string | null;
+    painPoints: string | null;
+    triggers: string | null;
+    decisionCriteria: string | null;
+    objections: string | null;
+    desiredOutcome: string | null;
   };
   onEdit: () => void;
 };
 
+const DETAIL_FIELDS = [
+  { key: "goals", label: "Goals" },
+  { key: "painPoints", label: "Pain points" },
+  { key: "triggers", label: "What makes them look" },
+  { key: "decisionCriteria", label: "Decision criteria" },
+  { key: "objections", label: "Objections" },
+  { key: "desiredOutcome", label: "Desired outcome" },
+] as const;
+
 export function PersonaCard({ persona, onEdit }: PersonaCardProps) {
   const [isPending, startTransition] = useTransition();
+  const [expanded, setExpanded] = useState(false);
+
+  const hasDetails = DETAIL_FIELDS.some(
+    (f) => persona[f.key as keyof typeof persona],
+  );
 
   function handleDelete() {
     startTransition(async () => {
@@ -51,11 +71,42 @@ export function PersonaCard({ persona, onEdit }: PersonaCardProps) {
           </div>
         </CardAction>
       </CardHeader>
-      {persona.description && (
-        <CardContent>
+      <CardContent className="space-y-2">
+        {persona.description && (
           <CardDescription>{persona.description}</CardDescription>
-        </CardContent>
-      )}
+        )}
+        {hasDetails && (
+          <>
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronDown
+                className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`}
+              />
+              {expanded ? "Hide" : "Show"} details
+            </button>
+            {expanded && (
+              <div className="space-y-2 pt-1">
+                {DETAIL_FIELDS.map((field) => {
+                  const value =
+                    persona[field.key as keyof typeof persona] as string | null;
+                  if (!value) return null;
+                  return (
+                    <div key={field.key}>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {field.label}
+                      </p>
+                      <p className="text-xs text-foreground">{value}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
     </Card>
   );
 }
