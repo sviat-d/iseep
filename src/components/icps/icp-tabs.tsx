@@ -167,7 +167,7 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, curren
     : cases;
 
   // Group linked cases per hypothesis
-  const linkedCasesMap: Record<string, Array<{ id: string; companyName: string; outcome: string; dealValue: string | null }>> = {};
+  const linkedCasesMap: Record<string, Array<{ id: string; companyName: string; outcome: string; dealValue: string | null; productIds?: unknown }>> = {};
   for (const c of filteredCases) {
     if (c.hypothesisId) {
       if (!linkedCasesMap[c.hypothesisId]) linkedCasesMap[c.hypothesisId] = [];
@@ -176,6 +176,7 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, curren
         companyName: c.companyName,
         outcome: c.outcome,
         dealValue: c.dealValue,
+        productIds: c.productIds,
       });
     }
   }

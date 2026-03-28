@@ -561,6 +561,7 @@ function EditCaseInline({
   icpId,
   segments,
   hypotheses = [],
+  icpProducts = [],
   useCases,
   productId,
   onClose,
@@ -569,6 +570,7 @@ function EditCaseInline({
   icpId: string;
   segments: Segment[];
   hypotheses?: HypothesisRef[];
+  icpProducts?: Array<{ id: string; name: string }>;
   useCases: UseCase[];
   productId?: string;
   onClose: () => void;
@@ -581,6 +583,8 @@ function EditCaseInline({
   const [selectedUseCaseIds, setSelectedUseCaseIds] = useState<string[]>(existingUcIds);
   const [channel, setChannel] = useState(caseItem.channel ?? "");
   const [selectedSegment, setSelectedSegment] = useState(caseItem.segmentId ?? "");
+  const existingProdIds = Array.isArray(caseItem.productIds) ? (caseItem.productIds as string[]) : [];
+  const [editSelectedProducts, setEditSelectedProducts] = useState<Set<string>>(new Set(existingProdIds));
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
@@ -589,6 +593,7 @@ function EditCaseInline({
   function handleSubmit(formData: FormData) {
     formData.set("outcome", outcome);
     formData.set("channel", channel);
+    formData.set("productIds", JSON.stringify(Array.from(editSelectedProducts)));
     formData.set("segmentId", selectedSegment);
     formData.set("useCaseIds", selectedUseCaseIds.join(","));
     formData.set("reasonTags", selectedTags.join(","));
@@ -624,6 +629,34 @@ function EditCaseInline({
               </div>
             </div>
           </div>
+          {icpProducts.length > 0 && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Products</label>
+              <div className="mt-1 flex flex-wrap gap-1.5">
+                {icpProducts.map((p) => {
+                  const isSelected = editSelectedProducts.has(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setEditSelectedProducts((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(p.id)) { if (next.size <= 1) return prev; next.delete(p.id); } else { next.add(p.id); }
+                        return next;
+                      })}
+                      className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${
+                        isSelected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {hypotheses.length > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
@@ -892,6 +925,7 @@ export function IcpCasesTab({
                   icpId={icpId}
                   segments={segments}
                   hypotheses={hypotheses}
+                  icpProducts={icpProducts}
                   useCases={useCases}
                   productId={productId}
                   onClose={() => setEditingCaseId(null)}
