@@ -176,21 +176,11 @@ function HypothesisFormDialog({
     setFormLost(toStr(defaultValues?.lostDeals ?? null));
   }, [defaultValues, open]);
 
-  // Check which products have linked cases
-  const productCaseCounts: Record<string, number> = {};
-  for (const c of linkedCases) {
-    const cPids = Array.isArray(c.productIds) ? (c.productIds as string[]) : [];
-    for (const pid of cPids) {
-      productCaseCounts[pid] = (productCaseCounts[pid] ?? 0) + 1;
-    }
-  }
-
   function toggleProduct(id: string) {
     setSelectedProducts((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
         if (next.size <= 1) return prev;
-        if ((productCaseCounts[id] ?? 0) > 0) return prev; // blocked by cases
         next.delete(id);
       } else {
         next.add(id);
@@ -293,25 +283,18 @@ function HypothesisFormDialog({
               <div className="flex flex-wrap gap-1.5">
                 {icpProducts.map((p) => {
                   const isSelected = selectedProducts.has(p.id);
-                  const casesUsingProduct = productCaseCounts[p.id] ?? 0;
-                  const isBlocked = isSelected && casesUsingProduct > 0;
                   return (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => toggleProduct(p.id)}
-                      disabled={isBlocked}
-                      title={isBlocked ? `${casesUsingProduct} linked case${casesUsingProduct > 1 ? "s" : ""} use this product` : undefined}
                       className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                         isSelected
-                          ? isBlocked
-                            ? "border-amber-400 bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400 cursor-not-allowed"
-                            : "border-primary bg-primary/10 text-primary"
+                          ? "border-primary bg-primary/10 text-primary"
                           : "border-border text-muted-foreground hover:bg-muted"
                       }`}
                     >
                       {p.name}
-                      {isBlocked && <span className="ml-1 text-[9px]">({casesUsingProduct} case{casesUsingProduct > 1 ? "s" : ""})</span>}
                     </button>
                   );
                 })}
