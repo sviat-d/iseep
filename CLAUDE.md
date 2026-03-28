@@ -531,7 +531,7 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | `/icps` | ICP list + company share banner |
 | `/icps/new` | Create ICP manually |
 | `/icps/import` | Import ICP from text/file (AI) |
-| `/icps/[id]` | ICP detail (tabs: Overview, Personas, Signals, History) |
+| `/icps/[id]?product=X` | ICP detail (tabs: Signals, Personas, Signals-behavioral, Segments, Cases, Versions). Product switcher for shared ICPs. |
 | `/personas/[id]` | Persona detail with linked criteria |
 | `/segments` | Segment list grouped by ICP |
 | `/segments/new` | Create segment |
@@ -568,7 +568,90 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | `GET /api/scoring/latest` | Latest scoring results (bearer token auth) |
 | `POST /api/drafts` | Agent-submitted suggestions (bearer token auth) |
 
-## 23. Current State vs Target State
+## 23. Product-Scoped Shared ICPs [IMPLEMENTED]
+
+Shared ICPs (linked to multiple products via `product_icps`) now correctly scope cases and use cases per product.
+
+**Problem solved:** A shared ICP viewed from Product A showed cases/use cases from ALL products. Now each product sees only its own data within the shared ICP.
+
+**How it works:**
+- `productId` threaded through the entire navigation chain: `products-icps-view` → `icp-list-view` → `icp-table`/`icp-cards` → ICP detail page via `?product=` URL param
+- ICP detail page resolves `currentProduct` from URL param (fallback: first linked product)
+- `getCasesForIcp(icpId, workspaceId, productId)` filters by product when provided
+- `getUseCasesForProduct(productId, workspaceId)` returns only current product's use cases
+- Cases created via `addCase` always include `productId` from hidden form field
+- Use case filter in Cases tab uses `useCaseIds` (array) not legacy `useCaseId` (single)
+
+**Product switcher:** On shared ICP detail page, clickable product chips at the top allow switching between product contexts. Active product highlighted, click reloads page with new `?product=` param.
+
+**Secondary entry points** (dashboard, activity feed, persona links, segment links) don't have product context — fall back to first linked product via `icpProducts[0]`.
+
+**Convention:** Old cases with `productId = null` won't appear when filtering by product. Delete them manually in Supabase when migrating.
+
+## 24. ICP Signal System [IMPLEMENTED]
+
+**Conceptual shift:** ICP is a collection of SIGNALS describing ideal customers, not a set of database filters or criteria.
+
+### Main Page — Signal-based view
+- 3 always-visible intent sections: **Good fit** / **Risk** / **Not a fit**
+- No category grouping on the main page (no Core/Additional/Advanced sections)
+- Each signal displays: **value** (primary text), **attribute + strength** (secondary muted)
+- No "=" syntax, no raw weights — strength labels only: Strong / Medium / Weak
+- ICP completeness line: muted text "X of 4 basics defined" (Industry, Region, Company size, Business model)
+
+### Signal Display
+```
+Affiliate Networks
+Industry · Strong signal
+
+EU, Asia, Latam
+Region · Medium signal
+```
+
+### Weight → Strength Mapping (UI only, data model unchanged)
+| Weight | Strength Label | Display |
+|--------|---------------|---------|
+| >= 8 | Strong signal | Green text |
+| 4-7 | Medium signal | Muted text |
+| <= 3 | Weak signal | Faded text |
+| (exclude intent) | Not shown | — |
+
+Internally weight stored as number (1-10). `weightToStrength()` and `strengthToWeight()` in `constants.ts`.
+
+### Add Signal Modal (2-step guided flow)
+**Step 1 — Select attribute:** Grouped picker (always shown for new signals, skipped when editing)
+- **Basics** (visually bolder): Industry, Region, Company size, Business model
+- **Additional**: Platform, Payment method, Tech stack, Growth stage, Hiring activity, Keywords
+- **Advanced (optional)**: Regulatory status, License type, Jurisdiction
+- **+ Custom signal**
+
+**Step 2 — Configure:**
+- Value input (industry → taxonomy picker, business model → multi-select presets, others → text)
+- Signal strength: Strong / Medium / Weak (visual buttons, maps to weight 9/5/2)
+- Intent: Good fit / Risk / Not a fit (visual color-coded buttons)
+- Optional "Why this matters" note
+
+### Business Model Multi-Select Presets
+When "Business model" selected as attribute, value input becomes clickable preset chips:
+B2B, B2C, B2B2C, Marketplace, SaaS, Services/Agency, E-commerce, Platform/Network, Subscription-based, Transaction-based, Usage-based, Affiliate/Revshare, + Custom
+
+Selected values joined as comma-separated string for DB compatibility.
+
+### Jurisdiction — New Attribute
+Added to compliance group alongside Regulatory status and License type.
+
+### Naming Convention
+UI uses "signal" everywhere. DB model unchanged (still `criteria` table with group/category/intent/weight). Mapping:
+- "criterion" / "rule" → "signal" (UI only)
+- "Add criterion" → "Add signal"
+- "property" → "attribute" (in modal context)
+
+### Key Files
+- `src/components/criteria/criteria-grouped-list.tsx` — main signal view (3 intent sections)
+- `src/components/criteria/criterion-form-dialog.tsx` — add/edit signal modal (2-step)
+- `src/lib/constants.ts` — PICKER_TIERS, SIGNAL_STRENGTHS, BUSINESS_MODEL_PRESETS, weightToStrength/strengthToWeight, KEY_BASICS
+
+## 25. Current State vs Target State
 
 | Feature | Status | Notes |
 |---------|--------|-------|
@@ -619,6 +702,11 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 | Onboarding flow | [IMPLEMENTED] | Context-driven wizard with AI parsing |
 | Inline draft editing | [MISSING] | Edit suggestion before approve (currently approve as-is or reject) |
 | MCP server for Claude Desktop | [IMPLEMENTED] | 4 tools: get_context, list_icps, get_scoring_results, submit_suggestions |
+| Product-scoped shared ICPs | [IMPLEMENTED] | productId threaded through navigation, cases/use cases filtered per product, product switcher chips on ICP detail |
+| ICP Signal System (UX) | [IMPLEMENTED] | Signal-based UI: Good fit/Risk/Not a fit sections, strength labels (Strong/Medium/Weak), no raw weights or "=" syntax |
+| Business model multi-select presets | [IMPLEMENTED] | 12 GTM-friendly preset chips + custom, comma-separated for DB compatibility |
+| Jurisdiction attribute | [IMPLEMENTED] | New compliance attribute alongside Regulatory status and License type |
+| Use case filter fix (useCaseIds) | [IMPLEMENTED] | Cases tab filter uses useCaseIds array, not legacy single useCaseId |
 
 ## 24. Known Gaps (Prioritized)
 
@@ -669,3 +757,12 @@ Email invites, Owner/Member roles, and activity feed for workspace collaboration
 - Onboarding: writes to workspaces (company) + products (product) + product_icps (links), NOT to product_context
 - Browser back in onboarding: pushState per step + popstate listener calls goBackOnboarding()
 - Dialog base width: sm:max-w-md (changed from sm:max-w-sm in dialog.tsx)
+- ICP signals: UI says "signal", DB says "criteria" — mapping is UI-only, no schema changes
+- Signal strength: weight >= 8 = Strong, 4-7 = Medium, <= 3 = Weak (constants.ts: weightToStrength/strengthToWeight)
+- ICP detail: always requires `?product=` URL param for shared ICPs — determines which product's cases/use cases to show
+- Product switcher: clickable chips on shared ICP detail page, switches `?product=` param
+- Business model: multi-select preset chips in modal, stored as comma-separated string in criteria.value
+- Add signal modal: 2-step (picker → configure), picker NEVER bypassed for new signals, only skipped when editing
+- Use case filter: uses useCaseIds (jsonb array), not legacy useCaseId (single FK)
+- Removed from UI: "=" syntax, raw weight numbers (w:10), category grouping on main ICP page
+- Removed exports: EXCLUSION_EMPTY_SUGGESTIONS, RISK_EMPTY_SUGGESTIONS, RISK_DESCRIPTION, EXCLUSIONS_DESCRIPTION (inline in components now or removed)
