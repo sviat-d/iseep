@@ -88,11 +88,11 @@ export async function updateHypothesis(
     outcome: (formData.get("outcome") as string) || undefined,
     status: (formData.get("status") as string) || existing.status,
     notes: (formData.get("notes") as string) || undefined,
-    metricsLeads: (formData.get("metricsLeads") as string) || undefined,
-    metricsReplies: (formData.get("metricsReplies") as string) || undefined,
-    metricsMeetings: (formData.get("metricsMeetings") as string) || undefined,
-    metricsOpps: (formData.get("metricsOpps") as string) || undefined,
-    metricsWins: (formData.get("metricsWins") as string) || undefined,
+    recipients: (formData.get("recipients") as string) || undefined,
+    positiveReplies: (formData.get("positiveReplies") as string) || undefined,
+    sqls: (formData.get("sqls") as string) || undefined,
+    wonDeals: (formData.get("wonDeals") as string) || undefined,
+    lostDeals: (formData.get("lostDeals") as string) || undefined,
   };
 
   const parsed = hypothesisSchema.safeParse(raw);
@@ -109,11 +109,11 @@ export async function updateHypothesis(
       outcome: parsed.data.outcome ?? null,
       status: parsed.data.status,
       notes: parsed.data.notes ?? null,
-      metricsLeads: parsed.data.metricsLeads ?? 0,
-      metricsReplies: parsed.data.metricsReplies ?? 0,
-      metricsMeetings: parsed.data.metricsMeetings ?? 0,
-      metricsOpps: parsed.data.metricsOpps ?? 0,
-      metricsWins: parsed.data.metricsWins ?? 0,
+      recipients: parsed.data.recipients ?? 0,
+      positiveReplies: parsed.data.positiveReplies ?? 0,
+      sqls: parsed.data.sqls ?? 0,
+      wonDeals: parsed.data.wonDeals ?? 0,
+      lostDeals: parsed.data.lostDeals ?? 0,
       updatedAt: new Date(),
     })
     .where(eq(hypotheses.id, id));

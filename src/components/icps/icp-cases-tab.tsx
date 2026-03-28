@@ -35,6 +35,10 @@ type CaseItem = {
   reasonTags: unknown;
   hypothesis: string | null;
   hypothesisId: string | null;
+  dealValue: string | null;
+  dealType: string | null;
+  whyWon: string | null;
+  whyLost: string | null;
   note: string | null;
   createdAt: Date;
 };
@@ -265,29 +269,22 @@ function AddCaseForm({
             </div>
           </div>
 
-          {/* Step 3: Segment */}
-          {segments.length > 0 && (
+          {/* Step 3: Hypothesis */}
+          {hypotheses && hypotheses.length > 0 && (
             <div>
               <label className="text-xs font-medium text-muted-foreground">
-                Segment
-                <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">recommended</span>
+                Hypothesis
+                <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">optional</span>
               </label>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {segments.map((seg) => (
-                  <button
-                    key={seg.id}
-                    type="button"
-                    onClick={() => setSelectedSegment(selectedSegment === seg.id ? "" : seg.id)}
-                    className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                      selectedSegment === seg.id
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {seg.name}
-                  </button>
+              <select
+                name="hypothesisId"
+                className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+              >
+                <option value="">None</option>
+                {hypotheses.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
                 ))}
-              </div>
+              </select>
             </div>
           )}
 
@@ -451,18 +448,41 @@ function AddCaseForm({
 
           {showAdvanced && (
             <div className="space-y-3 pl-4 border-l-2 border-muted">
-              {hypotheses.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
+                  <label className="text-xs font-medium text-muted-foreground">Deal value</label>
+                  <Input
+                    name="dealValue"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="e.g., 5000"
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Deal type</label>
                   <select
-                    name="hypothesisId"
+                    name="dealType"
                     className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
                   >
-                    <option value="">None</option>
-                    {hypotheses.map((h) => (
-                      <option key={h.id} value={h.id}>{h.name}</option>
-                    ))}
+                    <option value="">—</option>
+                    <option value="mrr">MRR</option>
+                    <option value="one_time">One-time</option>
+                    <option value="other">Other</option>
                   </select>
+                </div>
+              </div>
+              {outcome === "won" && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Why won</label>
+                  <Input name="whyWon" placeholder="e.g., Best price, fast integration" className="mt-1" />
+                </div>
+              )}
+              {outcome === "lost" && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Why lost</label>
+                  <Input name="whyLost" placeholder="e.g., Compliance concerns, too expensive" className="mt-1" />
                 </div>
               )}
               <div>
@@ -564,17 +584,19 @@ function EditCaseInline({
               </div>
             </div>
           </div>
-          {segments.length > 0 && (
+          {hypotheses.length > 0 && (
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Segment</label>
-              <div className="mt-1 flex flex-wrap gap-1.5">
-                {segments.map((seg) => (
-                  <button key={seg.id} type="button" onClick={() => setSelectedSegment(selectedSegment === seg.id ? "" : seg.id)}
-                    className={`rounded-full border px-2 py-0.5 text-xs font-medium transition-colors ${selectedSegment === seg.id ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
-                    {seg.name}
-                  </button>
+              <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
+              <select
+                name="hypothesisId"
+                defaultValue={caseItem.hypothesisId ?? ""}
+                className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+              >
+                <option value="">None</option>
+                {hypotheses.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
                 ))}
-              </div>
+              </select>
             </div>
           )}
           {useCases.length > 0 && (
@@ -604,30 +626,35 @@ function EditCaseInline({
             </div>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
-            {hypotheses.length > 0 ? (
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
-                <select
-                  name="hypothesisId"
-                  defaultValue={caseItem.hypothesisId ?? ""}
-                  className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
-                >
-                  <option value="">None</option>
-                  {hypotheses.map((h) => (
-                    <option key={h.id} value={h.id}>{h.name}</option>
-                  ))}
-                </select>
-              </div>
-            ) : (
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Hypothesis</label>
-                <Input name="hypothesis" defaultValue={caseItem.hypothesis ?? ""} className="mt-1" />
-              </div>
-            )}
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Note</label>
-              <Input name="note" defaultValue={caseItem.note ?? ""} className="mt-1" />
+              <label className="text-xs font-medium text-muted-foreground">Deal value</label>
+              <Input name="dealValue" type="number" min={0} step="0.01" defaultValue={caseItem.dealValue ?? ""} className="mt-1" />
             </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Deal type</label>
+              <select name="dealType" defaultValue={caseItem.dealType ?? ""} className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs">
+                <option value="">—</option>
+                <option value="mrr">MRR</option>
+                <option value="one_time">One-time</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          {outcome === "won" && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Why won</label>
+              <Input name="whyWon" defaultValue={caseItem.whyWon ?? ""} className="mt-1" />
+            </div>
+          )}
+          {outcome === "lost" && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Why lost</label>
+              <Input name="whyLost" defaultValue={caseItem.whyLost ?? ""} className="mt-1" />
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Note</label>
+            <Input name="note" defaultValue={caseItem.note ?? ""} className="mt-1" />
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
@@ -867,6 +894,16 @@ export function IcpCasesTab({
                       {c.hypothesisId ? hypothesisMap.get(c.hypothesisId) : c.hypothesis}
                     </p>
                   )}
+                  {c.dealValue && (
+                    <p className="text-xs font-medium">
+                      ${Number(c.dealValue).toLocaleString()}
+                      {c.dealType && c.dealType !== "other" && (
+                        <span className="text-muted-foreground font-normal"> {c.dealType === "mrr" ? "MRR" : "one-time"}</span>
+                      )}
+                    </p>
+                  )}
+                  {c.whyWon && <p className="text-xs text-green-600">Won: {c.whyWon}</p>}
+                  {c.whyLost && <p className="text-xs text-red-500">Lost: {c.whyLost}</p>}
                   {c.note && (
                     <p className="text-xs text-muted-foreground">{c.note}</p>
                   )}

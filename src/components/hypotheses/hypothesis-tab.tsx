@@ -51,6 +51,12 @@ type Hypothesis = {
   expectedResult: string | null;
   status: string;
   notes: string | null;
+  recipients: number | null;
+  positiveReplies: number | null;
+  sqls: number | null;
+  wonDeals: number | null;
+  lostDeals: number | null;
+  // legacy
   metricsLeads: number | null;
   metricsReplies: number | null;
   metricsMeetings: number | null;
@@ -348,17 +354,17 @@ function HypothesisFormDialog({
             </div>
           </div>
 
-          {/* Metrics (only in edit mode) */}
+          {/* Outreach metrics (only in edit mode) */}
           {defaultValues && (
             <div className="space-y-2">
-              <Label>Metrics</Label>
+              <Label>Outreach metrics</Label>
               <div className="grid grid-cols-5 gap-2">
                 {[
-                  { name: "metricsLeads", label: "Leads" },
-                  { name: "metricsReplies", label: "Replies" },
-                  { name: "metricsMeetings", label: "Meetings" },
-                  { name: "metricsOpps", label: "Opps" },
-                  { name: "metricsWins", label: "Wins" },
+                  { name: "recipients", label: "Recipients" },
+                  { name: "positiveReplies", label: "Replies +" },
+                  { name: "sqls", label: "SQLs" },
+                  { name: "wonDeals", label: "Won" },
+                  { name: "lostDeals", label: "Lost" },
                 ].map((m) => (
                   <div key={m.name} className="space-y-1">
                     <label className="text-[10px] text-muted-foreground">{m.label}</label>
@@ -432,10 +438,10 @@ function HypothesisCard({
   const solution = hypothesis.solution ?? hypothesis.valueProposition;
   const outcome = hypothesis.outcome ?? hypothesis.expectedResult;
 
-  const hasMetrics =
-    (hypothesis.metricsLeads ?? 0) > 0 ||
-    (hypothesis.metricsMeetings ?? 0) > 0 ||
-    (hypothesis.metricsWins ?? 0) > 0;
+  const recipients = hypothesis.recipients ?? 0;
+  const positiveReplies = hypothesis.positiveReplies ?? 0;
+  const replyRate = recipients > 0 ? Math.round((positiveReplies / recipients) * 100) : 0;
+  const hasMetrics = recipients > 0 || (hypothesis.sqls ?? 0) > 0 || (hypothesis.wonDeals ?? 0) > 0;
 
   return (
     <Card>
@@ -540,13 +546,13 @@ function HypothesisCard({
                 {hasMetrics && (
                   <div className="flex gap-4 pt-1">
                     {[
-                      { label: "Leads", value: hypothesis.metricsLeads },
-                      { label: "Replies", value: hypothesis.metricsReplies },
-                      { label: "Meetings", value: hypothesis.metricsMeetings },
-                      { label: "Opps", value: hypothesis.metricsOpps },
-                      { label: "Wins", value: hypothesis.metricsWins },
+                      { label: "Recipients", value: recipients },
+                      { label: "Reply rate", value: replyRate > 0 ? `${replyRate}%` : null },
+                      { label: "SQLs", value: hypothesis.sqls },
+                      { label: "Won", value: hypothesis.wonDeals },
+                      { label: "Lost", value: hypothesis.lostDeals },
                     ]
-                      .filter((m) => (m.value ?? 0) > 0)
+                      .filter((m) => m.value != null && m.value !== 0 && m.value !== "0%")
                       .map((m) => (
                         <div key={m.label} className="text-center">
                           <div className="text-sm font-semibold">{m.value}</div>

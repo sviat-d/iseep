@@ -44,11 +44,11 @@ export const hypothesisSchema = z.object({
   outcome: z.string().optional(),
   status: z.enum(["draft", "testing", "validated", "rejected"]),
   notes: z.string().optional(),
-  metricsLeads: z.coerce.number().int().min(0).optional(),
-  metricsReplies: z.coerce.number().int().min(0).optional(),
-  metricsMeetings: z.coerce.number().int().min(0).optional(),
-  metricsOpps: z.coerce.number().int().min(0).optional(),
-  metricsWins: z.coerce.number().int().min(0).optional(),
+  recipients: z.coerce.number().int().min(0).optional(),
+  positiveReplies: z.coerce.number().int().min(0).optional(),
+  sqls: z.coerce.number().int().min(0).optional(),
+  wonDeals: z.coerce.number().int().min(0).optional(),
+  lostDeals: z.coerce.number().int().min(0).optional(),
 });
 
 export type HypothesisInput = z.infer<typeof hypothesisSchema>;

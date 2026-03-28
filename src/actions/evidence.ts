@@ -34,6 +34,10 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
   const segmentId = (formData.get("segmentId") as string) || null;
   const hypothesis = (formData.get("hypothesis") as string)?.trim() || null;
   const hypothesisId = (formData.get("hypothesisId") as string) || null;
+  const dealValueRaw = (formData.get("dealValue") as string)?.trim() || null;
+  const dealType = (formData.get("dealType") as string) || null;
+  const whyWon = (formData.get("whyWon") as string)?.trim() || null;
+  const whyLost = (formData.get("whyLost") as string)?.trim() || null;
   const note = (formData.get("note") as string)?.trim() || null;
   const tagsRaw = formData.get("reasonTags") as string;
 
@@ -63,6 +67,10 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
     reasonTags,
     hypothesis,
     hypothesisId: hypothesisId || null,
+    dealValue: dealValueRaw,
+    dealType: dealType as "mrr" | "one_time" | "other" | null,
+    whyWon,
+    whyLost,
     note,
   });
 
@@ -85,6 +93,10 @@ export async function updateCase(caseId: string, icpId: string, formData: FormDa
   const segmentId = (formData.get("segmentId") as string) || null;
   const hypothesis = (formData.get("hypothesis") as string)?.trim() || null;
   const hypothesisId = (formData.get("hypothesisId") as string) || null;
+  const dealValueRaw = (formData.get("dealValue") as string)?.trim() || null;
+  const dealType = (formData.get("dealType") as string) || null;
+  const whyWon = (formData.get("whyWon") as string)?.trim() || null;
+  const whyLost = (formData.get("whyLost") as string)?.trim() || null;
   const note = (formData.get("note") as string)?.trim() || null;
   const tagsRaw = formData.get("reasonTags") as string;
   const reasonTags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
@@ -103,6 +115,10 @@ export async function updateCase(caseId: string, icpId: string, formData: FormDa
       reasonTags,
       hypothesis,
       hypothesisId: hypothesisId || null,
+      dealValue: dealValueRaw,
+      dealType: dealType as "mrr" | "one_time" | "other" | null,
+      whyWon,
+      whyLost,
       note,
       updatedAt: new Date(),
     })

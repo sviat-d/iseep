@@ -71,6 +71,11 @@ type HypothesisItem = {
   expectedResult: string | null;
   status: string;
   notes: string | null;
+  recipients: number | null;
+  positiveReplies: number | null;
+  sqls: number | null;
+  wonDeals: number | null;
+  lostDeals: number | null;
   metricsLeads: number | null;
   metricsReplies: number | null;
   metricsMeetings: number | null;
@@ -92,6 +97,10 @@ type CaseItem = {
   reasonTags: unknown;
   hypothesis: string | null;
   hypothesisId: string | null;
+  dealValue: string | null;
+  dealType: string | null;
+  whyWon: string | null;
+  whyLost: string | null;
   note: string | null;
   createdAt: Date;
 };

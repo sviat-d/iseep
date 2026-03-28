@@ -568,6 +568,13 @@ export const hypotheses = pgTable("hypotheses", {
     .default("draft")
     .notNull(),
   notes: text("notes"),
+  // Outreach metrics (user-input)
+  recipients: integer("recipients").default(0),
+  positiveReplies: integer("positive_replies").default(0),
+  sqls: integer("sqls").default(0),
+  wonDeals: integer("won_deals").default(0),
+  lostDeals: integer("lost_deals").default(0),
+  // Legacy metrics (kept for backward compat)
   metricsLeads: integer("metrics_leads").default(0),
   metricsReplies: integer("metrics_replies").default(0),
   metricsMeetings: integer("metrics_meetings").default(0),
@@ -599,6 +606,10 @@ export const icpEvidence = pgTable("icp_evidence", {
   reasonTags: jsonb("reason_tags").default([]).notNull(), // string[]
   hypothesis: text("hypothesis"), // legacy free-text, kept for backward compat
   hypothesisId: uuid("hypothesis_id").references(() => hypotheses.id),
+  dealValue: numeric("deal_value"),
+  dealType: text("deal_type", { enum: ["mrr", "one_time", "other"] }),
+  whyWon: text("why_won"),
+  whyLost: text("why_lost"),
   note: text("note"),
   industry: text("industry"), // legacy, kept for backward compat
   region: text("region"), // legacy, kept for backward compat
