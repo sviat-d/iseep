@@ -32,6 +32,24 @@ const CUSTOM_PROPERTY = "__custom__";
 
 const TEXT_PROPERTIES = new Set(["keyword", "tech_stack", "hiring_activity"]);
 
+const VALUE_PLACEHOLDERS: Record<string, string> = {
+  industry: "e.g. FinTech, iGaming, E-commerce",
+  region: "e.g. EU, Asia, Latam",
+  company_size: "e.g. 50-200 employees, Enterprise",
+  platform: "e.g. Shopify, Stripe, AWS",
+  payment_method: "e.g. Crypto, Wire transfer, SEPA",
+  tech_stack: "e.g. React, Python, Kubernetes",
+  growth_stage: "e.g. Series A, Series B, Growth",
+  hiring_activity: "e.g. Hiring engineers, Scaling sales",
+  regulatory_status: "e.g. Licensed, Pending, Unregulated",
+  license_type: "e.g. EMI, PSP, MSB",
+  jurisdiction: "e.g. EU MiCA, US FinCEN, UK FCA",
+  keyword: "e.g. Cross-border, Payouts, Compliance",
+  revenue_range: "e.g. $1M-$10M, $10M+",
+  funding_stage: "e.g. Seed, Series A, Bootstrapped",
+  geo_complexity: "e.g. Multi-region, Cross-border, Single market",
+};
+
 type CriterionFormDialogProps = {
   icpId: string;
   defaultValues?: {
@@ -368,7 +386,7 @@ export function CriterionFormDialog({
                     <Input
                       id="crit-value"
                       name="value"
-                      placeholder="e.g. FinTech, EU, Series A"
+                      placeholder={VALUE_PLACEHOLDERS[resolvedCategory] ?? "Enter value..."}
                       defaultValue={defaultValues?.value ?? ""}
                       required
                     />
@@ -383,7 +401,7 @@ export function CriterionFormDialog({
               <div className="space-y-2">
                 <Label>Signal strength</Label>
                 <div className="grid grid-cols-3 gap-2">
-                  {SIGNAL_STRENGTHS.map((s) => (
+                  {[...SIGNAL_STRENGTHS].reverse().map((s) => (
                     <button
                       key={s.key}
                       type="button"
@@ -409,15 +427,15 @@ export function CriterionFormDialog({
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => setIntent("qualify")}
+                    onClick={() => setIntent("exclude")}
                     className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
-                      intent === "qualify"
-                        ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
+                      intent === "exclude"
+                        ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
                         : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                   >
-                    <Check className="h-3.5 w-3.5" />
-                    Good fit
+                    <ShieldOff className="h-3.5 w-3.5" />
+                    Not a fit
                   </button>
                   <button
                     type="button"
@@ -433,15 +451,15 @@ export function CriterionFormDialog({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setIntent("exclude")}
+                    onClick={() => setIntent("qualify")}
                     className={`flex items-center justify-center gap-1.5 rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors ${
-                      intent === "exclude"
-                        ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400"
+                      intent === "qualify"
+                        ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-400"
                         : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                   >
-                    <ShieldOff className="h-3.5 w-3.5" />
-                    Not a fit
+                    <Check className="h-3.5 w-3.5" />
+                    Good fit
                   </button>
                 </div>
               </div>
