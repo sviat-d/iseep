@@ -607,7 +607,7 @@ export const icpEvidence = pgTable("icp_evidence", {
   hypothesis: text("hypothesis"), // legacy free-text, kept for backward compat
   hypothesisId: uuid("hypothesis_id").references(() => hypotheses.id),
   dealValue: numeric("deal_value"),
-  dealType: text("deal_type", { enum: ["mrr", "one_time", "other"] }),
+  dealType: text("deal_type", { enum: ["mrr", "one_time", "all_time", "ltv_estimated"] }),
   whyWon: text("why_won"),
   whyLost: text("why_lost"),
   note: text("note"),

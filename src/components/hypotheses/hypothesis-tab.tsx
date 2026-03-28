@@ -354,34 +354,37 @@ function HypothesisFormDialog({
             </div>
           </div>
 
-          {/* Outreach metrics (only in edit mode) */}
-          {defaultValues && (
-            <div className="space-y-2">
-              <Label>Outreach metrics</Label>
-              <div className="grid grid-cols-5 gap-2">
-                {[
-                  { name: "recipients", label: "Recipients" },
-                  { name: "positiveReplies", label: "Replies +" },
-                  { name: "sqls", label: "SQLs" },
-                  { name: "wonDeals", label: "Won" },
-                  { name: "lostDeals", label: "Lost" },
-                ].map((m) => (
-                  <div key={m.name} className="space-y-1">
-                    <label className="text-[10px] text-muted-foreground">{m.label}</label>
-                    <Input
-                      name={m.name}
-                      type="number"
-                      min={0}
-                      defaultValue={
-                        (defaultValues[m.name as keyof Hypothesis] as number | null) ?? 0
-                      }
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                ))}
-              </div>
+          {/* Outreach metrics */}
+          <div className="space-y-2">
+            <Label>Outreach metrics</Label>
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { name: "recipients", label: "Recipients" },
+                { name: "positiveReplies", label: "Positive replies" },
+                { name: "sqls", label: "SQLs" },
+                { name: "wonDeals", label: "Won deals" },
+                { name: "lostDeals", label: "Lost deals" },
+              ].map((m) => (
+                <div key={m.name} className="space-y-1">
+                  <label className="text-[10px] text-muted-foreground">{m.label}</label>
+                  <Input
+                    name={m.name}
+                    type="number"
+                    min={0}
+                    defaultValue={
+                      defaultValues
+                        ? ((defaultValues[m.name as keyof Hypothesis] as number | null) ?? 0)
+                        : 0
+                    }
+                    className="h-8 text-xs"
+                  />
+                </div>
+              ))}
             </div>
-          )}
+            <p className="text-[10px] text-muted-foreground">
+              Reply rate and conversion are calculated automatically.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="hyp-notes">Notes</Label>
@@ -414,6 +417,7 @@ function HypothesisCard({
   hypothesis,
   criteria,
   personas,
+  linkedCasesCount,
   onEdit,
   onDelete,
   isPending,
@@ -421,6 +425,7 @@ function HypothesisCard({
   hypothesis: Hypothesis;
   criteria: CriterionItem[];
   personas: PersonaItem[];
+  linkedCasesCount: number;
   onEdit: () => void;
   onDelete: () => void;
   isPending: boolean;
@@ -465,10 +470,24 @@ function HypothesisCard({
                   <span>{personaIds.length} persona{personaIds.length > 1 ? "s" : ""}</span>
                 </>
               )}
-              {problem && (
+              {linkedCasesCount > 0 && (
                 <>
                   {(critIds.length > 0 || personaIds.length > 0) && <span>·</span>}
-                  <span className="truncate max-w-[200px]">{problem}</span>
+                  <span>{linkedCasesCount} case{linkedCasesCount > 1 ? "s" : ""}</span>
+                </>
+              )}
+              {recipients > 0 && (hypothesis.sqls ?? 0) > 0 && (
+                <>
+                  <span>·</span>
+                  <span className="font-medium text-foreground">
+                    {Math.round(((hypothesis.sqls ?? 0) / recipients) * 100)}% SQL conversion
+                  </span>
+                </>
+              )}
+              {recipients > 0 && replyRate > 0 && !(hypothesis.sqls && hypothesis.sqls > 0) && (
+                <>
+                  <span>·</span>
+                  <span>{replyRate}% reply rate</span>
                 </>
               )}
             </div>
@@ -578,12 +597,14 @@ export function HypothesisTab({
   hypotheses,
   criteria,
   personas,
+  linkedCasesCounts = {},
 }: {
   icpId: string;
   icpName: string;
   hypotheses: Hypothesis[];
   criteria: CriterionItem[];
   personas: PersonaItem[];
+  linkedCasesCounts?: Record<string, number>;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Hypothesis | null>(null);
@@ -635,6 +656,7 @@ export function HypothesisTab({
               hypothesis={h}
               criteria={criteria}
               personas={personas}
+              linkedCasesCount={linkedCasesCounts[h.id] ?? 0}
               onEdit={() => handleEdit(h)}
               onDelete={() => handleDelete(h.id)}
               isPending={isPending}

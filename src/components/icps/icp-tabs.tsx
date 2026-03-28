@@ -141,6 +141,14 @@ type IcpTabsProps = {
 };
 
 export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
+  // Count linked cases per hypothesis
+  const linkedCasesCounts: Record<string, number> = {};
+  for (const c of cases) {
+    if (c.hypothesisId) {
+      linkedCasesCounts[c.hypothesisId] = (linkedCasesCounts[c.hypothesisId] ?? 0) + 1;
+    }
+  }
+
   return (
     <Tabs defaultValue="profile">
       <TabsList variant="line">
@@ -177,6 +185,7 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
             weight: c.weight,
           }))}
           personas={icp.personas.map((p) => ({ id: p.id, name: p.name }))}
+          linkedCasesCounts={linkedCasesCounts}
         />
       </TabsContent>
 

@@ -469,7 +469,8 @@ function AddCaseForm({
                     <option value="">—</option>
                     <option value="mrr">MRR</option>
                     <option value="one_time">One-time</option>
-                    <option value="other">Other</option>
+                    <option value="all_time">All time</option>
+                    <option value="ltv_estimated">LTV estimated</option>
                   </select>
                 </div>
               </div>
@@ -897,8 +898,13 @@ export function IcpCasesTab({
                   {c.dealValue && (
                     <p className="text-xs font-medium">
                       ${Number(c.dealValue).toLocaleString()}
-                      {c.dealType && c.dealType !== "other" && (
-                        <span className="text-muted-foreground font-normal"> {c.dealType === "mrr" ? "MRR" : "one-time"}</span>
+                      {c.dealType && (
+                        <span className="text-muted-foreground font-normal"> {
+                          c.dealType === "mrr" ? "MRR" :
+                          c.dealType === "one_time" ? "one-time" :
+                          c.dealType === "all_time" ? "all time" :
+                          c.dealType === "ltv_estimated" ? "LTV est." : c.dealType
+                        }</span>
                       )}
                     </p>
                   )}
