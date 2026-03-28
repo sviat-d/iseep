@@ -1,0 +1,1 @@
+ALTER TABLE "hypotheses" ADD COLUMN "selected_signal_ids" jsonb DEFAULT '[]'::jsonb;

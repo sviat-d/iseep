@@ -39,6 +39,7 @@ export const hypothesisSchema = z.object({
   icpId: z.string().uuid(),
   selectedCriteriaIds: z.array(z.string().uuid()).optional(),
   selectedPersonaIds: z.array(z.string().uuid()).optional(),
+  selectedSignalIds: z.array(z.string().uuid()).optional(),
   problem: z.string().optional(),
   solution: z.string().optional(),
   outcome: z.string().optional(),

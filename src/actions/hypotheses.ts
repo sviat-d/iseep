@@ -26,12 +26,14 @@ export async function createHypothesis(
 
   const selectedCriteriaIds = parseIds(formData.get("selectedCriteriaIds") as string);
   const selectedPersonaIds = parseIds(formData.get("selectedPersonaIds") as string);
+  const selectedSignalIds = parseIds(formData.get("selectedSignalIds") as string);
 
   const raw = {
     name: formData.get("name") as string,
     icpId: formData.get("icpId") as string,
     selectedCriteriaIds,
     selectedPersonaIds,
+    selectedSignalIds,
     problem: (formData.get("problem") as string) || undefined,
     solution: (formData.get("solution") as string) || undefined,
     outcome: (formData.get("outcome") as string) || undefined,
@@ -50,6 +52,7 @@ export async function createHypothesis(
       name: parsed.data.name,
       selectedCriteriaIds: parsed.data.selectedCriteriaIds ?? [],
       selectedPersonaIds: parsed.data.selectedPersonaIds ?? [],
+      selectedSignalIds: parsed.data.selectedSignalIds ?? [],
       problem: parsed.data.problem ?? null,
       solution: parsed.data.solution ?? null,
       outcome: parsed.data.outcome ?? null,
@@ -77,12 +80,14 @@ export async function updateHypothesis(
 
   const selectedCriteriaIds = parseIds(formData.get("selectedCriteriaIds") as string);
   const selectedPersonaIds = parseIds(formData.get("selectedPersonaIds") as string);
+  const selectedSignalIds = parseIds(formData.get("selectedSignalIds") as string);
 
   const raw = {
     name: formData.get("name") as string,
     icpId: existing.icpId,
     selectedCriteriaIds,
     selectedPersonaIds,
+    selectedSignalIds,
     problem: (formData.get("problem") as string) || undefined,
     solution: (formData.get("solution") as string) || undefined,
     outcome: (formData.get("outcome") as string) || undefined,
@@ -104,6 +109,7 @@ export async function updateHypothesis(
       name: parsed.data.name,
       selectedCriteriaIds: parsed.data.selectedCriteriaIds ?? [],
       selectedPersonaIds: parsed.data.selectedPersonaIds ?? [],
+      selectedSignalIds: parsed.data.selectedSignalIds ?? [],
       problem: parsed.data.problem ?? null,
       solution: parsed.data.solution ?? null,
       outcome: parsed.data.outcome ?? null,

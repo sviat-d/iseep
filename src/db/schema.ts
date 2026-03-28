@@ -557,6 +557,7 @@ export const hypotheses = pgTable("hypotheses", {
   name: text("name").notNull(),
   selectedCriteriaIds: jsonb("selected_criteria_ids").default([]), // string[]
   selectedPersonaIds: jsonb("selected_persona_ids").default([]), // string[]
+  selectedSignalIds: jsonb("selected_signal_ids").default([]), // string[]
   segmentId: uuid("segment_id").references(() => segments.id), // legacy
   personaId: uuid("persona_id").references(() => personas.id), // legacy
   problem: text("problem"),

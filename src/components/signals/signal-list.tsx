@@ -65,9 +65,14 @@ export function SignalList({
       </div>
 
       {signals.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No signals defined yet.
-        </p>
+        <div className="py-8 text-center space-y-1">
+          <p className="text-sm text-muted-foreground">
+            No signals defined yet.
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            Signals help you identify the right timing for outreach. They represent intent, change, or trigger events.
+          </p>
+        </div>
       ) : (
         <div className="space-y-2">
           {signals.map((signal) => (

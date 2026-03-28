@@ -64,6 +64,7 @@ type HypothesisItem = {
   name: string;
   selectedCriteriaIds: unknown;
   selectedPersonaIds: unknown;
+  selectedSignalIds: unknown;
   problem: string | null;
   solution: string | null;
   outcome: string | null;
@@ -191,6 +192,7 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, currentProductId, u
             weight: c.weight,
           }))}
           personas={icp.personas.map((p) => ({ id: p.id, name: p.name }))}
+          signals={icp.signals.map((s) => ({ id: s.id, type: s.type, label: s.label }))}
           linkedCasesMap={linkedCasesMap}
         />
       </TabsContent>

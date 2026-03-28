@@ -43,6 +43,7 @@ type Hypothesis = {
   name: string;
   selectedCriteriaIds: unknown;
   selectedPersonaIds: unknown;
+  selectedSignalIds: unknown;
   problem: string | null;
   solution: string | null;
   outcome: string | null;
@@ -74,6 +75,7 @@ type CriterionItem = {
 };
 
 type PersonaItem = { id: string; name: string };
+type SignalItem = { id: string; type: string; label: string };
 
 function asStringArray(val: unknown): string[] {
   if (Array.isArray(val)) return val.filter((v) => typeof v === "string");
@@ -102,6 +104,12 @@ const INTENT_CONFIG = {
   exclude: { label: "Not a fit", icon: ShieldOff, color: "text-red-500" },
 };
 
+const SIGNAL_TYPE_CONFIG = {
+  positive: { label: "Positive", color: "text-green-600" },
+  neutral: { label: "Neutral", color: "text-muted-foreground" },
+  negative: { label: "Negative", color: "text-red-500" },
+};
+
 // ─── Hypothesis Form Dialog ─────────────────────────────────────────────────
 
 function HypothesisFormDialog({
@@ -109,6 +117,7 @@ function HypothesisFormDialog({
   icpName,
   criteria,
   personas,
+  signals,
   defaultValues,
   open,
   onOpenChange,
@@ -117,6 +126,7 @@ function HypothesisFormDialog({
   icpName: string;
   criteria: CriterionItem[];
   personas: PersonaItem[];
+  signals: SignalItem[];
   defaultValues?: Hypothesis;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -128,6 +138,9 @@ function HypothesisFormDialog({
   const [selectedPersonas, setSelectedPersonas] = useState<Set<string>>(
     new Set(asStringArray(defaultValues?.selectedPersonaIds)),
   );
+  const [selectedSignals, setSelectedSignals] = useState<Set<string>>(
+    new Set(asStringArray(defaultValues?.selectedSignalIds)),
+  );
   const [formRecipients, setFormRecipients] = useState(defaultValues?.recipients ?? 0);
   const [formReplies, setFormReplies] = useState(defaultValues?.positiveReplies ?? 0);
   const [formSqls, setFormSqls] = useState(defaultValues?.sqls ?? 0);
@@ -136,6 +149,7 @@ function HypothesisFormDialog({
     setStatus(defaultValues?.status ?? "draft");
     setSelectedCriteria(new Set(asStringArray(defaultValues?.selectedCriteriaIds)));
     setSelectedPersonas(new Set(asStringArray(defaultValues?.selectedPersonaIds)));
+    setSelectedSignals(new Set(asStringArray(defaultValues?.selectedSignalIds)));
     setFormRecipients(defaultValues?.recipients ?? 0);
     setFormReplies(defaultValues?.positiveReplies ?? 0);
     setFormSqls(defaultValues?.sqls ?? 0);
@@ -157,6 +171,14 @@ function HypothesisFormDialog({
     });
   }
 
+  function toggleSignal(id: string) {
+    setSelectedSignals((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
     FormData
@@ -164,6 +186,7 @@ function HypothesisFormDialog({
     formData.set("status", status);
     formData.set("selectedCriteriaIds", JSON.stringify(Array.from(selectedCriteria)));
     formData.set("selectedPersonaIds", JSON.stringify(Array.from(selectedPersonas)));
+    formData.set("selectedSignalIds", JSON.stringify(Array.from(selectedSignals)));
     let result: ActionResult;
     if (defaultValues) {
       result = await updateHypothesis(defaultValues.id, formData);
@@ -294,6 +317,53 @@ function HypothesisFormDialog({
                     </button>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Signals */}
+          <div className="space-y-2">
+            <Label>Signals</Label>
+            <p className="text-[11px] text-muted-foreground">Select signals that indicate the right timing for this hypothesis.</p>
+            {signals.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-1">
+                No signals yet. Add signals in the Signals tab to define when to reach out.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {(["positive", "neutral", "negative"] as const)
+                  .map((type) => {
+                    const items = signals.filter((s) => s.type === type);
+                    if (items.length === 0) return null;
+                    const tcfg = SIGNAL_TYPE_CONFIG[type];
+                    return (
+                      <div key={type}>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className={`h-2 w-2 rounded-full ${type === "positive" ? "bg-green-500" : type === "negative" ? "bg-red-500" : "bg-gray-400"}`} />
+                          <span className="text-[11px] font-medium text-muted-foreground">{tcfg.label}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {items.map((s) => {
+                            const isSelected = selectedSignals.has(s.id);
+                            return (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => toggleSignal(s.id)}
+                                className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                  isSelected
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-border text-muted-foreground hover:bg-muted"
+                                }`}
+                              >
+                                {s.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             )}
           </div>
@@ -435,6 +505,7 @@ function HypothesisCard({
   hypothesis,
   criteria,
   personas,
+  signals,
   linkedCases,
   onEdit,
   onDelete,
@@ -443,6 +514,7 @@ function HypothesisCard({
   hypothesis: Hypothesis;
   criteria: CriterionItem[];
   personas: PersonaItem[];
+  signals: SignalItem[];
   linkedCases: LinkedCase[];
   onEdit: () => void;
   onDelete: () => void;
@@ -454,8 +526,10 @@ function HypothesisCard({
 
   const critIds = asStringArray(hypothesis.selectedCriteriaIds);
   const personaIds = asStringArray(hypothesis.selectedPersonaIds);
+  const signalIds = asStringArray(hypothesis.selectedSignalIds);
   const selectedCriteria = criteria.filter((c) => critIds.includes(c.id));
   const selectedPersonas = personas.filter((p) => personaIds.includes(p.id));
+  const selectedSignals = signals.filter((s) => signalIds.includes(s.id));
 
   const problem = hypothesis.problem;
   const solution = hypothesis.solution ?? hypothesis.valueProposition;
@@ -488,9 +562,15 @@ function HypothesisCard({
                   <span>{personaIds.length} persona{personaIds.length > 1 ? "s" : ""}</span>
                 </>
               )}
-              {linkedCases.length > 0 && (
+              {signalIds.length > 0 && (
                 <>
                   {(critIds.length > 0 || personaIds.length > 0) && <span>·</span>}
+                  <span>{signalIds.length} signal{signalIds.length > 1 ? "s" : ""}</span>
+                </>
+              )}
+              {linkedCases.length > 0 && (
+                <>
+                  {(critIds.length > 0 || personaIds.length > 0 || signalIds.length > 0) && <span>·</span>}
                   <span>{linkedCases.length} case{linkedCases.length > 1 ? "s" : ""}</span>
                 </>
               )}
@@ -520,7 +600,7 @@ function HypothesisCard({
           </div>
         </div>
 
-        {(selectedCriteria.length > 0 || selectedPersonas.length > 0 || problem || solution || outcome || hypothesis.notes || hasMetrics || linkedCases.length > 0) && (
+        {(selectedCriteria.length > 0 || selectedPersonas.length > 0 || selectedSignals.length > 0 || problem || solution || outcome || hypothesis.notes || hasMetrics || linkedCases.length > 0) && (
           <div className="mt-2">
             <button
               type="button"
@@ -551,6 +631,20 @@ function HypothesisCard({
                       {selectedPersonas.map((p) => (
                         <Badge key={p.id} variant="outline" className="text-[10px]">
                           {p.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedSignals.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Signals</p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {selectedSignals.map((s) => (
+                        <Badge key={s.id} variant="secondary" className={`text-[10px] ${
+                          s.type === "positive" ? "text-green-600" : s.type === "negative" ? "text-red-500" : ""
+                        }`}>
+                          {s.label}
                         </Badge>
                       ))}
                     </div>
@@ -650,6 +744,7 @@ export function HypothesisTab({
   hypotheses,
   criteria,
   personas,
+  signals,
   linkedCasesMap = {},
 }: {
   icpId: string;
@@ -657,6 +752,7 @@ export function HypothesisTab({
   hypotheses: Hypothesis[];
   criteria: CriterionItem[];
   personas: PersonaItem[];
+  signals: SignalItem[];
   linkedCasesMap?: Record<string, LinkedCase[]>;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -709,6 +805,7 @@ export function HypothesisTab({
               hypothesis={h}
               criteria={criteria}
               personas={personas}
+              signals={signals}
               linkedCases={linkedCasesMap[h.id] ?? []}
               onEdit={() => handleEdit(h)}
               onDelete={() => handleDelete(h.id)}
@@ -723,6 +820,7 @@ export function HypothesisTab({
         icpName={icpName}
         criteria={criteria}
         personas={personas}
+        signals={signals}
         defaultValues={editing ?? undefined}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
