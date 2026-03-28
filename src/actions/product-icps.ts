@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/db";
 import { productIcps, icps, criteria, personas, signals } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import type { ActionResult } from "@/lib/types";
 
 /** Link an existing ICP to a product (many-to-many) */
@@ -41,6 +41,70 @@ export async function unlinkIcpFromProduct(icpId: string, productId: string): Pr
     and(eq(productIcps.productId, productId), eq(productIcps.icpId, icpId), eq(productIcps.workspaceId, ctx.workspaceId))
   );
 
+  revalidatePath("/icps");
+  return { success: true };
+}
+
+/** Bulk update product attachments for an ICP */
+export async function updateIcpProducts(
+  icpId: string,
+  selectedProductIds: string[],
+): Promise<ActionResult> {
+  const ctx = await getAuthContext();
+  if (!ctx) return { error: "Unauthorized" };
+
+  if (selectedProductIds.length === 0) {
+    return { error: "An ICP must remain attached to at least one product." };
+  }
+
+  // Verify ICP belongs to workspace
+  const [icp] = await db
+    .select({ id: icps.id })
+    .from(icps)
+    .where(and(eq(icps.id, icpId), eq(icps.workspaceId, ctx.workspaceId)));
+  if (!icp) return { error: "ICP not found" };
+
+  // Get current links
+  const currentLinks = await db
+    .select({ productId: productIcps.productId })
+    .from(productIcps)
+    .where(and(eq(productIcps.icpId, icpId), eq(productIcps.workspaceId, ctx.workspaceId)));
+
+  const currentIds = new Set(currentLinks.map((l) => l.productId));
+  const targetIds = new Set(selectedProductIds);
+
+  // Products to add
+  const toAdd = selectedProductIds.filter((id) => !currentIds.has(id));
+  // Products to remove
+  const toRemove = currentLinks
+    .map((l) => l.productId)
+    .filter((id) => !targetIds.has(id));
+
+  if (toAdd.length > 0) {
+    await db.insert(productIcps).values(
+      toAdd.map((productId) => ({
+        workspaceId: ctx.workspaceId,
+        productId,
+        icpId,
+      })),
+    );
+  }
+
+  if (toRemove.length > 0) {
+    for (const productId of toRemove) {
+      await db
+        .delete(productIcps)
+        .where(
+          and(
+            eq(productIcps.productId, productId),
+            eq(productIcps.icpId, icpId),
+            eq(productIcps.workspaceId, ctx.workspaceId),
+          ),
+        );
+    }
+  }
+
+  revalidatePath(`/icps/${icpId}`);
   revalidatePath("/icps");
   return { success: true };
 }

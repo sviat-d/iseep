@@ -8,9 +8,11 @@ import { IcpTabs } from "@/components/icps/icp-tabs";
 import { IcpDeleteDialog } from "@/components/icps/icp-delete-dialog";
 import { IcpEditDialog } from "@/components/icps/icp-edit-dialog";
 import { IcpShareDialog } from "@/components/icps/icp-share-dialog";
+import { IcpManageProductsDialog } from "@/components/icps/icp-manage-products-dialog";
 import { Badge } from "@/components/ui/badge";
 import { buildIcpContext } from "@/lib/context-export/builders";
 import { ContextExportButton } from "@/components/shared/context-export-button";
+import { getProducts } from "@/actions/products";
 
 export default async function IcpDetailPage({
   params,
@@ -24,11 +26,12 @@ export default async function IcpDetailPage({
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icp, snapshots, exportContext, icpProducts] = await Promise.all([
+  const [icp, snapshots, exportContext, icpProducts, allProducts] = await Promise.all([
     getIcp(id, ctx.workspaceId),
     getIcpSnapshots(id, ctx.workspaceId),
     buildIcpContext(ctx.workspaceId, id),
     getProductsForIcp(id, ctx.workspaceId),
+    getProducts(ctx.workspaceId),
   ]);
 
   if (!icp) notFound();
@@ -73,6 +76,11 @@ export default async function IcpDetailPage({
                 Shared
               </Badge>
             )}
+            <IcpManageProductsDialog
+              icpId={id}
+              allProducts={allProducts.map((p) => ({ id: p.id, name: p.name }))}
+              attachedProductIds={icpProducts.map((p) => p.id)}
+            />
           </div>
           )}
           <div className="flex items-center gap-2">
