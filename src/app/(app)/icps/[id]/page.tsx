@@ -14,6 +14,7 @@ import { buildIcpContext } from "@/lib/context-export/builders";
 import { ContextExportButton } from "@/components/shared/context-export-button";
 import { getProducts } from "@/actions/products";
 import { getHypothesesForIcp } from "@/actions/hypotheses";
+import { getPersonaTemplates, getCriteriaTemplates } from "@/actions/templates";
 
 export default async function IcpDetailPage({
   params,
@@ -27,13 +28,15 @@ export default async function IcpDetailPage({
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icp, snapshots, exportContext, icpProducts, allProducts, hypotheses] = await Promise.all([
+  const [icp, snapshots, exportContext, icpProducts, allProducts, hypotheses, personaTpls, criteriaTpls] = await Promise.all([
     getIcp(id, ctx.workspaceId),
     getIcpSnapshots(id, ctx.workspaceId),
     buildIcpContext(ctx.workspaceId, id),
     getProductsForIcp(id, ctx.workspaceId),
     getProducts(ctx.workspaceId),
     getHypothesesForIcp(id, ctx.workspaceId),
+    getPersonaTemplates(ctx.workspaceId),
+    getCriteriaTemplates(ctx.workspaceId),
   ]);
 
   if (!icp) notFound();
@@ -130,6 +133,11 @@ export default async function IcpDetailPage({
         currentProductId={currentProductId ?? currentProduct?.id}
         useCases={useCases.map((uc) => ({ id: uc.id, name: uc.name }))}
         workspaceId={ctx.workspaceId}
+        personaTemplates={personaTpls.map((t) => ({ id: t.id, name: t.name, description: t.description, goals: t.goals, painPoints: t.painPoints, triggers: t.triggers, decisionCriteria: t.decisionCriteria, objections: t.objections, desiredOutcome: t.desiredOutcome }))}
+        criteriaTemplates={criteriaTpls.map((t) => {
+          const d = t.criteriaData as { idealFit?: unknown[]; needsReview?: unknown[]; notFit?: unknown[] };
+          return { id: t.id, name: t.name, description: t.description, idealFitCount: d.idealFit?.length ?? 0, needsReviewCount: d.needsReview?.length ?? 0, notFitCount: d.notFit?.length ?? 0 };
+        })}
       />
     </div>
   );

@@ -11,6 +11,8 @@ import {
   Check,
   AlertTriangle,
   ShieldOff,
+  FileText,
+  Bookmark,
 } from "lucide-react";
 import {
   PROPERTY_OPTIONS,
@@ -18,6 +20,8 @@ import {
   KEY_BASICS_LABELS,
   weightToStrength,
 } from "@/lib/constants";
+import { applyCriteriaTemplate, saveCriteriaAsTemplate } from "@/actions/templates";
+import { Input } from "@/components/ui/input";
 
 type Criterion = {
   id: string;
@@ -162,16 +166,32 @@ function IntentSection({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+type CriteriaTemplateItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  idealFitCount: number;
+  needsReviewCount: number;
+  notFitCount: number;
+};
+
 export function CriteriaGroupedList({
   criteria,
   icpId,
+  criteriaTemplates = [],
 }: {
   criteria: Criterion[];
   icpId: string;
+  criteriaTemplates?: CriteriaTemplateItem[];
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCriterion, setEditingCriterion] = useState<Criterion | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   const goodFit = criteria.filter((c) => c.intent === "qualify");
   const risk = criteria.filter((c) => c.intent === "risk");
@@ -257,12 +277,103 @@ export function CriteriaGroupedList({
         </div>
       </div>
 
-      {/* Add signal */}
-      <div className="flex justify-center">
+      {/* Template picker */}
+      {templatePickerOpen && criteriaTemplates.length > 0 && (
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Apply a saved fit-definition starter set and edit it for this ICP. Templates are copied into this ICP and remain editable locally.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {criteriaTemplates.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  startTransition(async () => {
+                    await applyCriteriaTemplate(t.id, icpId);
+                    setTemplatePickerOpen(false);
+                  });
+                }}
+                className="flex items-start gap-2 rounded-lg border bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">{t.name}</p>
+                  {t.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-1">{t.description}</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                    {[
+                      t.idealFitCount > 0 && `${t.idealFitCount} ideal fit`,
+                      t.needsReviewCount > 0 && `${t.needsReviewCount} needs review`,
+                      t.notFitCount > 0 && `${t.notFitCount} not a fit`,
+                    ].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Save as template inline */}
+      {saveTemplateOpen && (
+        <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Save the current criteria as a reusable template.
+          </p>
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Template name"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              className="text-sm h-8"
+            />
+            <Button
+              size="sm"
+              disabled={templateSaving || !templateName.trim()}
+              onClick={async () => {
+                setTemplateSaving(true);
+                await saveCriteriaAsTemplate(templateName, null, icpId);
+                setTemplateSaving(false);
+                setTemplateSaved(true);
+                setSaveTemplateOpen(false);
+                setTemplateName("");
+                setTimeout(() => setTemplateSaved(false), 2000);
+              }}
+            >
+              {templateSaving ? "Saving..." : "Save"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setSaveTemplateOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center justify-center gap-2">
         <Button variant="outline" onClick={handleAdd}>
           <Plus className="mr-1.5 h-4 w-4" />
           Add signal
         </Button>
+        {criteriaTemplates.length > 0 && (
+          <Button variant="outline" onClick={() => { setTemplatePickerOpen(!templatePickerOpen); setSaveTemplateOpen(false); }}>
+            <FileText className="mr-1.5 h-4 w-4" />
+            Use template
+          </Button>
+        )}
+        {criteria.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs"
+            onClick={() => { setSaveTemplateOpen(!saveTemplateOpen); setTemplatePickerOpen(false); }}
+          >
+            <Bookmark className="mr-1 h-3 w-3" />
+            {templateSaved ? "Saved!" : "Save as template"}
+          </Button>
+        )}
       </div>
 
       {/* Dialog */}

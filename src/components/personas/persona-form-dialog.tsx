@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useActionState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { createPersona, updatePersona } from "@/actions/personas";
+import { savePersonaAsTemplate } from "@/actions/templates";
 import type { ActionResult } from "@/lib/types";
+import { Bookmark } from "lucide-react";
 
 type PersonaFormDialogProps = {
   icpId: string;
@@ -31,6 +33,7 @@ type PersonaFormDialogProps = {
   };
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isFromTemplate?: boolean;
 };
 
 const PERSONA_FIELDS = [
@@ -92,35 +95,53 @@ export function PersonaFormDialog({
   defaultValues,
   open,
   onOpenChange,
+  isFromTemplate,
 }: PersonaFormDialogProps) {
+  const [templateSaved, setTemplateSaved] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const isEditing = defaultValues && defaultValues.id !== "";
+
   const [state, formAction, isPending] = useActionState<
     ActionResult | null,
     FormData
   >(async (_prev, formData) => {
     let result: ActionResult;
-    if (defaultValues) {
+    if (isEditing) {
       result = await updatePersona(defaultValues.id, formData);
     } else {
       result = await createPersona(formData);
     }
     if (result.success) {
       onOpenChange(false);
+      setTemplateSaved(false);
     }
     return result;
   }, null);
 
+  async function handleSaveAsTemplate() {
+    setTemplateSaving(true);
+    const form = document.getElementById("persona-form") as HTMLFormElement;
+    if (!form) return;
+    const formData = new FormData(form);
+    const result = await savePersonaAsTemplate(formData);
+    setTemplateSaving(false);
+    if (result.success) setTemplateSaved(true);
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setTemplateSaved(false); }}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {defaultValues ? "Edit Persona" : "Add Persona"}
+            {isEditing ? "Edit Persona" : isFromTemplate ? "New Persona from Template" : "Add Persona"}
           </DialogTitle>
           <DialogDescription>
-            Define a buyer persona with their decision-making context.
+            {isFromTemplate
+              ? "Template copied here. Adjust fields as needed before saving."
+              : "Define a buyer persona with their decision-making context."}
           </DialogDescription>
         </DialogHeader>
-        <form action={formAction} className="space-y-5">
+        <form id="persona-form" action={formAction} className="space-y-5">
           <input type="hidden" name="icpId" value={icpId} />
 
           {state?.error && (
@@ -178,7 +199,18 @@ export function PersonaFormDialog({
             </div>
           ))}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleSaveAsTemplate}
+              disabled={templateSaving || templateSaved}
+              className="mr-auto text-xs"
+            >
+              <Bookmark className="mr-1 h-3 w-3" />
+              {templateSaved ? "Saved as template" : templateSaving ? "Saving..." : "Save as template"}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -189,7 +221,7 @@ export function PersonaFormDialog({
             <Button type="submit" disabled={isPending}>
               {isPending
                 ? "Saving..."
-                : defaultValues
+                : isEditing
                   ? "Update"
                   : "Add"}
             </Button>

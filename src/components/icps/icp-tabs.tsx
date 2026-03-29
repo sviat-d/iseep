@@ -122,6 +122,27 @@ type Snapshot = {
   snapshotData: unknown;
 };
 
+type PersonaTemplateItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  goals: string | null;
+  painPoints: string | null;
+  triggers: string | null;
+  decisionCriteria: string | null;
+  objections: string | null;
+  desiredOutcome: string | null;
+};
+
+type CriteriaTemplateItem = {
+  id: string;
+  name: string;
+  description: string | null;
+  idealFitCount: number;
+  needsReviewCount: number;
+  notFitCount: number;
+};
+
 type IcpTabsProps = {
   icp: {
     id: string;
@@ -142,6 +163,8 @@ type IcpTabsProps = {
   currentProductId?: string;
   useCases?: Array<{ id: string; name: string }>;
   workspaceId?: string;
+  personaTemplates?: PersonaTemplateItem[];
+  criteriaTemplates?: CriteriaTemplateItem[];
 };
 
 function asIds(val: unknown): string[] {
@@ -149,7 +172,7 @@ function asIds(val: unknown): string[] {
   return [];
 }
 
-export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
+export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, currentProductId, useCases = [], workspaceId, personaTemplates = [], criteriaTemplates = [] }: IcpTabsProps) {
   // Filter hypotheses and cases by current product (or show all for shared/no product)
   const filteredHypotheses = currentProductId
     ? hypotheses.filter((h) => {
@@ -193,11 +216,11 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, curren
       </TabsList>
 
       <TabsContent value="profile" className="pt-4">
-        <CriteriaGroupedList criteria={icp.criteria} icpId={icp.id} />
+        <CriteriaGroupedList criteria={icp.criteria} icpId={icp.id} criteriaTemplates={criteriaTemplates} />
       </TabsContent>
 
       <TabsContent value="personas" className="pt-4">
-        <PersonaList personas={icp.personas} icpId={icp.id} />
+        <PersonaList personas={icp.personas} icpId={icp.id} personaTemplates={personaTemplates} />
       </TabsContent>
 
       <TabsContent value="signals" className="pt-4">

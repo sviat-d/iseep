@@ -621,6 +621,39 @@ export const icpEvidence = pgTable("icp_evidence", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ─── T. Templates ──────────────────────────────────────────────────────────
+
+export const personaTemplates = pgTable("persona_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  goals: text("goals"),
+  painPoints: text("pain_points"),
+  triggers: text("triggers"),
+  decisionCriteria: text("decision_criteria"),
+  objections: text("objections"),
+  desiredOutcome: text("desired_outcome"),
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const criteriaTemplates = pgTable("criteria_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  criteriaData: jsonb("criteria_data").notNull(), // { idealFit: [...], needsReview: [...], notFit: [...] }
+  createdBy: uuid("created_by").references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 // ─── V. Drafts (AI suggestions) ───────────────────────────────────────────
 
 export const drafts = pgTable("drafts", {
