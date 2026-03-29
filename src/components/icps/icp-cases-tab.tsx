@@ -361,12 +361,12 @@ function AddCaseForm({
                 </select>
                 {matchState === "partial" && (
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    Partial match — this case matches part of the hypothesis. Common when a client adopts only part of the solution.
+                    Partial match
                   </p>
                 )}
                 {matchState === "none" && (
                   <p className="mt-1 text-[10px] text-destructive">
-                    This hypothesis is not related to the selected products. Choose another hypothesis or update the case products.
+                    This hypothesis is not related to the selected product. Choose another hypothesis or update the case product.
                   </p>
                 )}
               </div>
@@ -739,12 +739,12 @@ function EditCaseInline({
                 </select>
                 {editMatchState === "partial" && (
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    Partial match — common when a client adopts only part of the solution.
+                    Partial match
                   </p>
                 )}
                 {editMatchState === "none" && (
                   <p className="mt-1 text-[10px] text-destructive">
-                    This hypothesis is not related to the selected products.
+                    This hypothesis is not related to the selected product. Choose another hypothesis or update the case product.
                   </p>
                 )}
               </div>

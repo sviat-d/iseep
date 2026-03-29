@@ -31,7 +31,7 @@ export const personaSchema = z.object({
   decisionCriteria: z.string().optional(),
   objections: z.string().optional(),
   desiredOutcome: z.string().optional(),
-  icpId: z.string().uuid(),
+  icpId: z.string().uuid().optional(), // nullable — personas are workspace-scoped, linked via icp_persona_links
 });
 
 export const hypothesisSchema = z.object({

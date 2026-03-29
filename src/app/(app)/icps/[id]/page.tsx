@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/auth";
 import { getIcp, getIcpSnapshots, getProductsForIcp } from "@/lib/queries/icps";
+import { getPersonasForIcp, getAvailablePersonas } from "@/lib/queries/workspace-view";
 import { getCasesForIcp } from "@/actions/evidence";
 import { getUseCasesForProduct } from "@/actions/use-cases";
 import { IcpTabs } from "@/components/icps/icp-tabs";
@@ -27,13 +28,15 @@ export default async function IcpDetailPage({
   const ctx = await getAuthContext();
   if (!ctx) notFound();
 
-  const [icp, snapshots, exportContext, icpProducts, allProducts, hypotheses] = await Promise.all([
+  const [icp, snapshots, exportContext, icpProducts, allProducts, hypotheses, linkedPersonas, availablePersonas] = await Promise.all([
     getIcp(id, ctx.workspaceId),
     getIcpSnapshots(id, ctx.workspaceId),
     buildIcpContext(ctx.workspaceId, id),
     getProductsForIcp(id, ctx.workspaceId),
     getProducts(ctx.workspaceId),
     getHypothesesForIcp(id, ctx.workspaceId),
+    getPersonasForIcp(id, ctx.workspaceId),
+    getAvailablePersonas(id, ctx.workspaceId),
   ]);
 
   if (!icp) notFound();
@@ -130,6 +133,8 @@ export default async function IcpDetailPage({
         currentProductId={currentProductId ?? currentProduct?.id}
         useCases={useCases.map((uc) => ({ id: uc.id, name: uc.name }))}
         workspaceId={ctx.workspaceId}
+        linkedPersonas={linkedPersonas}
+        availablePersonas={availablePersonas}
       />
     </div>
   );

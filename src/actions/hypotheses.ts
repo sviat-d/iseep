@@ -2,11 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { hypotheses, icpEvidence } from "@/db/schema";
+import { hypotheses, icpEvidence, productIcps } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getAuthContext } from "@/lib/auth";
 import { hypothesisSchema } from "@/lib/validators";
 import type { ActionResult } from "@/lib/types";
+
+async function validateProductSubset(icpId: string, workspaceId: string, productIds: string[]): Promise<string | null> {
+  if (productIds.length === 0) return null;
+  const links = await db
+    .select({ productId: productIcps.productId })
+    .from(productIcps)
+    .where(and(eq(productIcps.icpId, icpId), eq(productIcps.workspaceId, workspaceId)));
+  const allowed = new Set(links.map((l) => l.productId));
+  const invalid = productIds.filter((id) => !allowed.has(id));
+  if (invalid.length > 0) return "Selected products must belong to this ICP.";
+  return null;
+}
 
 function parseIds(raw: string | null): string[] {
   if (!raw) return [];
@@ -44,6 +56,10 @@ export async function createHypothesis(
 
   const parsed = hypothesisSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  // Server-side: hypothesis.productIds ⊆ icp.productIds
+  const subsetError = await validateProductSubset(parsed.data.icpId, ctx.workspaceId, productIds);
+  if (subsetError) return { error: subsetError };
 
   const [created] = await db
     .insert(hypotheses)
@@ -105,6 +121,10 @@ export async function updateHypothesis(
 
   const parsed = hypothesisSchema.safeParse(raw);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  // Server-side: hypothesis.productIds ⊆ icp.productIds
+  const subsetError = await validateProductSubset(existing.icpId, ctx.workspaceId, productIds);
+  if (subsetError) return { error: subsetError };
 
   await db
     .update(hypotheses)

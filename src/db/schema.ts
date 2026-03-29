@@ -174,16 +174,14 @@ export const icps = pgTable("icps", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-// ─── E. Personas ─────────────────────────────────────────────────────────────
+// ─── E. Personas (workspace-scoped library) ─────────────────────────────────
 
 export const personas = pgTable("personas", {
   id: uuid("id").primaryKey().defaultRandom(),
   workspaceId: uuid("workspace_id")
     .references(() => workspaces.id)
     .notNull(),
-  icpId: uuid("icp_id")
-    .references(() => icps.id)
-    .notNull(),
+  icpId: uuid("icp_id").references(() => icps.id), // legacy — nullable, use icp_persona_links for M2M
   name: text("name").notNull(),
   description: text("description"),
   goals: text("goals"),
@@ -195,6 +193,23 @@ export const personas = pgTable("personas", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── E1. ICP-Persona Links (many-to-many with optional override) ────────────
+
+export const icpPersonaLinks = pgTable("icp_persona_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  workspaceId: uuid("workspace_id")
+    .references(() => workspaces.id)
+    .notNull(),
+  icpId: uuid("icp_id")
+    .references(() => icps.id)
+    .notNull(),
+  personaId: uuid("persona_id")
+    .references(() => personas.id)
+    .notNull(),
+  overrideData: jsonb("override_data"), // null = shared, set = customized for this ICP
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [unique("icp_persona_links_icp_persona").on(table.icpId, table.personaId)]);
 
 // ─── F. Criteria (replaces Dimensions) ──────────────────────────────────────
 

@@ -3,9 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/db";
-import { icpEvidence } from "@/db/schema";
+import { icpEvidence, productIcps, hypotheses } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/types";
+
+async function validateCaseProducts(icpId: string, workspaceId: string, productIds: string[]): Promise<string | null> {
+  if (productIds.length === 0) return null;
+  const links = await db
+    .select({ productId: productIcps.productId })
+    .from(productIcps)
+    .where(and(eq(productIcps.icpId, icpId), eq(productIcps.workspaceId, workspaceId)));
+  const allowed = new Set(links.map((l) => l.productId));
+  const invalid = productIds.filter((id) => !allowed.has(id));
+  if (invalid.length > 0) return "Selected product must belong to this ICP.";
+  return null;
+}
+
+async function validateCaseHypothesisOverlap(hypothesisId: string | null, caseProductIds: string[]): Promise<string | null> {
+  if (!hypothesisId || caseProductIds.length === 0) return null;
+  const [hyp] = await db.select({ productIds: hypotheses.productIds }).from(hypotheses).where(eq(hypotheses.id, hypothesisId));
+  if (!hyp) return null;
+  const hypProducts = Array.isArray(hyp.productIds) ? (hyp.productIds as string[]) : [];
+  if (hypProducts.length === 0) return null; // hypothesis has no products — compatible
+  const overlap = caseProductIds.some((id) => hypProducts.includes(id));
+  if (!overlap) return "This hypothesis is not related to the selected product. Choose another hypothesis or update the case product.";
+  return null;
+}
 
 const VALID_OUTCOMES = ["won", "lost", "in_progress"] as const;
 const VALID_CHANNELS = ["linkedin", "email", "conference", "referral", "inbound", "other"] as const;
@@ -48,6 +71,14 @@ export async function addCase(formData: FormData): Promise<ActionResult> {
   const reasonTags = tagsRaw
     ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean)
     : [];
+
+  // Server-side: case.productIds ⊆ icp.productIds
+  const prodError = await validateCaseProducts(icpId, ctx.workspaceId, productIds);
+  if (prodError) return { error: prodError };
+
+  // Server-side: case ��� hypothesis product overlap
+  const overlapError = await validateCaseHypothesisOverlap(hypothesisId, productIds);
+  if (overlapError) return { error: overlapError };
 
   // Extract domain from company name if it looks like a URL
   let companyDomain: string | null = null;
@@ -110,6 +141,14 @@ export async function updateCase(caseId: string, icpId: string, formData: FormDa
   const note = (formData.get("note") as string)?.trim() || null;
   const tagsRaw = formData.get("reasonTags") as string;
   const reasonTags = tagsRaw ? tagsRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+
+  // Server-side: case.productIds ⊆ icp.productIds
+  const prodError = await validateCaseProducts(icpId, ctx.workspaceId, updateProductIds);
+  if (prodError) return { error: prodError };
+
+  // Server-side: case ↔ hypothesis product overlap
+  const overlapError = await validateCaseHypothesisOverlap(hypothesisId, updateProductIds);
+  if (overlapError) return { error: overlapError };
 
   await db
     .update(icpEvidence)

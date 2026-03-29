@@ -215,10 +215,10 @@ export function CriteriaGroupedList({
           <IntentSection
             icon={Check}
             iconClass="text-green-600"
-            title="Good fit"
+            title="Ideal fit"
             signals={goodFit}
             showStrength={true}
-            emptyText="No signals yet. Describe what makes a company a good fit."
+            emptyText="No signals yet. Describe what makes a company an ideal fit."
             onEdit={handleEdit}
             onDelete={handleDelete}
             isPending={isPending}
@@ -230,10 +230,10 @@ export function CriteriaGroupedList({
           <IntentSection
             icon={AlertTriangle}
             iconClass="text-amber-500"
-            title="Risk"
+            title="Needs review"
             signals={risk}
             showStrength={true}
-            emptyText="No risk signals yet."
+            emptyText="No review signals yet."
             onEdit={handleEdit}
             onDelete={handleDelete}
             isPending={isPending}

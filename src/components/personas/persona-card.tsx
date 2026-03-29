@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { deletePersona } from "@/actions/personas";
-import { Pencil, Trash2, ChevronDown } from "lucide-react";
+import { Pencil, Trash2, ChevronDown, AlertTriangle } from "lucide-react";
 
 type PersonaCardProps = {
   persona: {
@@ -26,6 +26,8 @@ type PersonaCardProps = {
     desiredOutcome: string | null;
   };
   onEdit: () => void;
+  badge?: React.ReactNode;
+  sharedWarning?: boolean;
 };
 
 const DETAIL_FIELDS = [
@@ -37,9 +39,10 @@ const DETAIL_FIELDS = [
   { key: "desiredOutcome", label: "Desired outcome" },
 ] as const;
 
-export function PersonaCard({ persona, onEdit }: PersonaCardProps) {
+export function PersonaCard({ persona, onEdit, badge, sharedWarning }: PersonaCardProps) {
   const [isPending, startTransition] = useTransition();
   const [expanded, setExpanded] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
 
   const hasDetails = DETAIL_FIELDS.some(
     (f) => persona[f.key as keyof typeof persona],
@@ -51,13 +54,24 @@ export function PersonaCard({ persona, onEdit }: PersonaCardProps) {
     });
   }
 
+  function handleEditClick() {
+    if (sharedWarning) {
+      setShowWarning(true);
+    } else {
+      onEdit();
+    }
+  }
+
   return (
     <Card size="sm">
       <CardHeader>
-        <CardTitle>{persona.name}</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          {persona.name}
+          {badge}
+        </CardTitle>
         <CardAction>
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon-xs" onClick={onEdit}>
+            <Button variant="ghost" size="icon-xs" onClick={handleEditClick}>
               <Pencil className="h-3 w-3" />
             </Button>
             <Button
@@ -75,6 +89,27 @@ export function PersonaCard({ persona, onEdit }: PersonaCardProps) {
         {persona.description && (
           <CardDescription>{persona.description}</CardDescription>
         )}
+
+        {/* Shared persona edit warning */}
+        {showWarning && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-2.5 space-y-2">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                This persona is used in multiple ICPs. Changes will apply everywhere.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => { setShowWarning(false); onEdit(); }}>
+                Edit everywhere
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowWarning(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+
         {hasDetails && (
           <>
             <button

@@ -35,7 +35,7 @@ export default async function PersonaDetailPage({
       {persona.criteria.length > 0 && (
         <div>
           <h2 className="mb-3 text-lg font-semibold">Persona-specific Criteria</h2>
-          <CriteriaGroupedList criteria={persona.criteria} icpId={persona.icpId} />
+          <CriteriaGroupedList criteria={persona.criteria} icpId={persona.icpId ?? ""} />
         </div>
       )}
     </div>

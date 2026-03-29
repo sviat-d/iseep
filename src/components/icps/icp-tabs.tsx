@@ -9,9 +9,9 @@ import {
 import { CriteriaGroupedList } from "@/components/criteria/criteria-grouped-list";
 import { PersonaList } from "@/components/personas/persona-list";
 import { SignalList } from "@/components/signals/signal-list";
-import { IcpVersionHistory } from "@/components/icps/icp-version-history";
 import { IcpCasesTab } from "@/components/icps/icp-cases-tab";
 import { HypothesisTab } from "@/components/hypotheses/hypothesis-tab";
+import { IcpOverviewTab } from "@/components/icps/icp-overview-tab";
 
 type Criterion = {
   id: string;
@@ -39,7 +39,7 @@ type Persona = {
   decisionCriteria: string | null;
   objections: string | null;
   desiredOutcome: string | null;
-  icpId: string;
+  icpId: string | null;
   workspaceId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -108,18 +108,27 @@ type CaseItem = {
   createdAt: Date;
 };
 
-type Snapshot = {
+type LinkedPersona = {
+  linkId: string;
+  personaId: string;
+  name: string;
+  description: string | null;
+  goals: string | null;
+  painPoints: string | null;
+  triggers: string | null;
+  decisionCriteria: string | null;
+  objections: string | null;
+  desiredOutcome: string | null;
+  overrideData: unknown;
+  isCustomized: boolean;
+  icpCount: number;
+};
+
+type AvailablePersona = {
   id: string;
-  version: number;
-  changeSummary: string | null;
-  note: string | null;
-  source: string | null;
-  tags: unknown;
-  createdAt: Date;
-  createdBy: string | null;
-  icpId: string;
-  workspaceId: string;
-  snapshotData: unknown;
+  name: string;
+  description: string | null;
+  icpCount: number;
 };
 
 type IcpTabsProps = {
@@ -135,13 +144,15 @@ type IcpTabsProps = {
     segments: Array<{ id: string; name: string; status: string; priorityScore: number }>;
     dealStats: { total: number; won: number; lost: number; open: number };
   };
-  snapshots: Snapshot[];
+  snapshots: unknown[];
   cases: CaseItem[];
   hypotheses: HypothesisItem[];
   icpProducts: Array<{ id: string; name: string }>;
   currentProductId?: string;
   useCases?: Array<{ id: string; name: string }>;
   workspaceId?: string;
+  linkedPersonas?: LinkedPersona[];
+  availablePersonas?: AvailablePersona[];
 };
 
 function asIds(val: unknown): string[] {
@@ -149,7 +160,7 @@ function asIds(val: unknown): string[] {
   return [];
 }
 
-export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, currentProductId, useCases = [], workspaceId }: IcpTabsProps) {
+export function IcpTabs({ icp, cases, hypotheses, icpProducts, currentProductId, useCases = [], workspaceId, linkedPersonas = [], availablePersonas = [] }: IcpTabsProps) {
   // Filter hypotheses and cases by current product (or show all for shared/no product)
   const filteredHypotheses = currentProductId
     ? hypotheses.filter((h) => {
@@ -161,7 +172,6 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, curren
   const filteredCases = currentProductId
     ? cases.filter((c) => {
         const pids = asIds(c.productIds);
-        // Also check legacy productId field
         return pids.length === 0 || pids.includes(currentProductId) || (c as Record<string, unknown>).productId === currentProductId;
       })
     : cases;
@@ -182,26 +192,44 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, curren
   }
 
   return (
-    <Tabs defaultValue="profile">
+    <Tabs defaultValue="overview">
       <TabsList variant="line">
-        <TabsTrigger value="profile">Criteria</TabsTrigger>
-        <TabsTrigger value="personas">Personas</TabsTrigger>
-        <TabsTrigger value="signals">Signals</TabsTrigger>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="fit">Fit definition</TabsTrigger>
         <TabsTrigger value="hypotheses">Hypotheses</TabsTrigger>
         <TabsTrigger value="cases">Cases</TabsTrigger>
-        <TabsTrigger value="history">Versions</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="profile" className="pt-4">
-        <CriteriaGroupedList criteria={icp.criteria} icpId={icp.id} />
+      <TabsContent value="overview" className="pt-4">
+        <IcpOverviewTab
+          icpId={icp.id}
+          icpProducts={icpProducts}
+          personas={linkedPersonas.length > 0
+            ? linkedPersonas.map((p) => ({ id: p.personaId, name: p.name, description: p.description, isCustomized: p.isCustomized, icpCount: p.icpCount }))
+            : icp.personas.map((p) => ({ id: p.id, name: p.name, description: p.description }))}
+          signals={icp.signals.map((s) => ({ id: s.id, type: s.type, label: s.label, strength: s.strength }))}
+          criteria={icp.criteria.map((c) => ({ id: c.id, group: c.group, category: c.category, value: c.value, intent: c.intent, weight: c.weight }))}
+          hypotheses={filteredHypotheses.map((h) => ({ id: h.id, name: h.name, status: h.status }))}
+          cases={filteredCases.map((c) => ({ id: c.id, companyName: c.companyName, outcome: c.outcome, dealValue: c.dealValue }))}
+        />
       </TabsContent>
 
-      <TabsContent value="personas" className="pt-4">
-        <PersonaList personas={icp.personas} icpId={icp.id} />
-      </TabsContent>
+      <TabsContent value="fit" className="pt-4">
+        <div className="space-y-8">
+          {/* Criteria (Fit Definition) */}
+          <CriteriaGroupedList criteria={icp.criteria} icpId={icp.id} />
 
-      <TabsContent value="signals" className="pt-4">
-        <SignalList signals={icp.signals} icpId={icp.id} />
+          {/* Personas */}
+          <PersonaList
+            personas={icp.personas}
+            icpId={icp.id}
+            linkedPersonas={linkedPersonas}
+            availablePersonas={availablePersonas}
+          />
+
+          {/* Signals */}
+          <SignalList signals={icp.signals} icpId={icp.id} />
+        </div>
       </TabsContent>
 
       <TabsContent value="hypotheses" className="pt-4">
@@ -236,10 +264,6 @@ export function IcpTabs({ icp, snapshots, cases, hypotheses, icpProducts, curren
           useCases={useCases}
           workspaceId={workspaceId}
         />
-      </TabsContent>
-
-      <TabsContent value="history" className="pt-4">
-        <IcpVersionHistory icpId={icp.id} snapshots={snapshots} />
       </TabsContent>
     </Tabs>
   );

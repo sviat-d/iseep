@@ -1,12 +1,12 @@
 import { db } from "@/db";
 import { personas, criteria, icps } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 export async function getPersonas(icpId: string, workspaceId: string) {
   return db
     .select()
     .from(personas)
-    .where(and(eq(personas.icpId, icpId), eq(personas.workspaceId, workspaceId)))
+    .where(and(sql`${personas.icpId} = ${icpId}`, eq(personas.workspaceId, workspaceId)))
     .orderBy(personas.name);
 }
 
@@ -18,10 +18,12 @@ export async function getPersona(id: string, workspaceId: string) {
 
   if (!persona) return null;
 
-  const [icp] = await db
-    .select({ id: icps.id, name: icps.name })
-    .from(icps)
-    .where(eq(icps.id, persona.icpId));
+  const [icp] = persona.icpId
+    ? await db
+        .select({ id: icps.id, name: icps.name })
+        .from(icps)
+        .where(eq(icps.id, persona.icpId))
+    : [undefined];
 
   const personaCriteria = await db
     .select()

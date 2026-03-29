@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getAuthContext } from "@/lib/auth";
 import { db } from "@/db";
-import { productIcps, icps, criteria, personas, signals } from "@/db/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { productIcps, icps, criteria, personas, signals, hypotheses, icpEvidence } from "@/db/schema";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/types";
 
 /** Link an existing ICP to a product (many-to-many) */
@@ -78,6 +78,36 @@ export async function updateIcpProducts(
   }
 
   if (toRemove.length > 0) {
+    // Server-side guardrail: block removal if product is used by hypotheses or cases
+    for (const productId of toRemove) {
+      const [hypUsage] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(hypotheses)
+        .where(
+          and(
+            eq(hypotheses.icpId, icpId),
+            sql`${hypotheses.productIds}::jsonb @> ${JSON.stringify([productId])}::jsonb`,
+          ),
+        );
+      const [caseUsage] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(icpEvidence)
+        .where(
+          and(
+            eq(icpEvidence.icpId, icpId),
+            sql`${icpEvidence.productIds}::jsonb @> ${JSON.stringify([productId])}::jsonb`,
+          ),
+        );
+      const hCount = hypUsage?.count ?? 0;
+      const cCount = caseUsage?.count ?? 0;
+      if (hCount > 0 || cCount > 0) {
+        const parts = [];
+        if (hCount > 0) parts.push(`${hCount} hypothesis${hCount > 1 ? "es" : ""}`);
+        if (cCount > 0) parts.push(`${cCount} case${cCount > 1 ? "s" : ""}`);
+        return { error: `Cannot remove this product — still used by ${parts.join(" and ")}.` };
+      }
+    }
+
     for (const productId of toRemove) {
       await db
         .delete(productIcps)
