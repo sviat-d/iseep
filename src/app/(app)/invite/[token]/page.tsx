@@ -16,7 +16,7 @@ export default async function InvitePage({
   // Must be logged in to accept an invite
   const ctx = await getAuthContext();
   if (!ctx) {
-    redirect(`/sign-in?invite=${encodeURIComponent(token)}`);
+    redirect(`/sign-up?invite=${encodeURIComponent(token)}`);
   }
 
   // Look up the pending invite
