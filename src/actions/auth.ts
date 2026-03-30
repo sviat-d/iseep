@@ -32,7 +32,8 @@ export async function signIn(formData: FormData): Promise<AuthResult> {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  const redirectTo = (formData.get("redirectTo") as string) || "/dashboard";
+  redirect(redirectTo);
 }
 
 export async function signUp(formData: FormData): Promise<AuthResult> {
@@ -130,7 +131,8 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
     return { error: "Something went wrong. Please try again." };
   }
 
-  redirect("/dashboard");
+  const redirectTo = (formData.get("redirectTo") as string) || "/dashboard";
+  redirect(redirectTo);
 }
 
 export async function requestPasswordReset(
