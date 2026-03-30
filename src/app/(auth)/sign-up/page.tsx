@@ -37,10 +37,12 @@ function SignUpContent() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">
-          Create your account
+          {inviteToken ? "Join your team" : "Create your account"}
         </CardTitle>
         <CardDescription>
-          Get started with iseep — set up your workspace
+          {inviteToken
+            ? "Create an account to accept your team invite"
+            : "Get started with iseep — set up your workspace"}
         </CardDescription>
       </CardHeader>
 
@@ -126,15 +128,19 @@ function SignUpContent() {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="workspaceName">Workspace name</Label>
-            <Input
-              id="workspaceName"
-              name="workspaceName"
-              placeholder="Acme Corp"
-              required
-            />
-          </div>
+          {inviteToken ? (
+            <input type="hidden" name="workspaceName" value="My workspace" />
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="workspaceName">Workspace name</Label>
+              <Input
+                id="workspaceName"
+                name="workspaceName"
+                placeholder="Acme Corp"
+                required
+              />
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isPending}>
