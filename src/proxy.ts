@@ -33,12 +33,18 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/share/");
+  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith("/share/") || pathname.startsWith("/forgot-password") || pathname.startsWith("/reset-password");
 
-  // Redirect unauthenticated users to sign-in
+  // Redirect unauthenticated users to sign-up (with invite token) or sign-in
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/sign-in";
+    if (pathname.startsWith("/invite/")) {
+      const token = pathname.replace("/invite/", "");
+      url.pathname = "/sign-up";
+      url.searchParams.set("invite", token);
+    } else {
+      url.pathname = "/sign-in";
+    }
     return NextResponse.redirect(url);
   }
 
