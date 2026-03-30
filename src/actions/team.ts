@@ -9,6 +9,7 @@ import { invites, memberships, users, workspaces } from "@/db/schema";
 import { getAuthContext } from "@/lib/auth";
 import { canManageTeam } from "@/lib/permissions";
 import { logActivity } from "@/lib/activity";
+import { sendEmail, inviteEmailHtml } from "@/lib/email";
 import type { ActionResult } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +66,24 @@ export async function inviteMember(email: string): Promise<ActionResult> {
     token,
     status: "pending",
   });
+
+  // Get workspace name and inviter name for the email
+  const [ws] = await db.select({ name: workspaces.name }).from(workspaces).where(eq(workspaces.id, ctx.workspaceId));
+  const [inviter] = await db.select({ fullName: users.fullName, email: users.email }).from(users).where(eq(users.id, ctx.userId));
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://app.iseep.io";
+  const inviteUrl = `${siteUrl}/invite/${token}`;
+
+  // Send invite email (fire-and-forget — don't block on failure)
+  sendEmail({
+    to: normalizedEmail,
+    subject: `You're invited to ${ws?.name ?? "a workspace"} on iseep`,
+    html: inviteEmailHtml({
+      workspaceName: ws?.name ?? "a workspace",
+      inviterName: inviter?.fullName ?? inviter?.email ?? "A teammate",
+      inviteUrl,
+    }),
+  }).catch((e) => console.error("[invite] Email send failed:", e));
 
   logActivity(ctx.workspaceId, ctx.userId, {
     eventType: "member_invited",
