@@ -118,12 +118,14 @@ Return ONLY valid JSON (no markdown, no code blocks, no explanation):
 - Company description should describe the company/platform overall, NOT repeat a single product description
 
 ### ICPs — CRITICAL
-- If the user already defined ICPs with names, criteria, and weights — extract them EXACTLY as given
+- ONE ICP = ONE industry/vertical. NEVER combine multiple industries into one ICP (e.g. "Payroll & E-commerce" is WRONG — make separate "Payroll Companies" and "E-commerce Platforms" ICPs)
+- If the user already defined ICPs with names, criteria, and weights — extract them EXACTLY as given, do not merge or rename them
 - Preserve the user's exact ICP names, criteria values, weights/importance, and intents
 - Input like "Criteria (qualify): industry=Affiliate Networks (10)" means: group=firmographic, category=industry, value=Affiliate Networks, intent=qualify, importance=10
 - Input like "Criteria (risk): region=UK, USA" means: group=firmographic, category=region, value=UK, USA, intent=risk, importance=5
 - Input like "Personas: CEO, CFO, Head of Affiliates" means personas with those titles
-- If user did NOT define ICPs, generate 3-5 ICPs based on the target industries and products described
+- For user-defined ICPs: extract as-is. For remaining industries mentioned in the input that don't have explicit ICPs: generate one ICP per industry
+- There is no limit on the number of ICPs — create as many as the input warrants (one per distinct industry/vertical)
 - Each ICP must have 5-10 criteria across multiple groups
 - Each ICP must have at least 1 exclude criterion
 - Each ICP must have 2-3 personas
