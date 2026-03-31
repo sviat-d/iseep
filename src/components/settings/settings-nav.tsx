@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, Users } from "lucide-react";
+import { Sparkles, Users, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const settingsItems = [
+  { href: "/settings/workspace", label: "Workspace", icon: Building2 },
   { href: "/settings/ai", label: "AI Settings", icon: Sparkles },
   { href: "/settings/team", label: "Team", icon: Users },
 ];
