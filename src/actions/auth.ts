@@ -77,8 +77,15 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
     return { error: "Failed to create account" };
   }
 
-  // Supabase may return a user even for existing emails (security behavior).
-  // Check if this user already exists in our DB.
+  // Supabase returns empty identities for existing emails (security behavior)
+  if (authData.user.identities?.length === 0) {
+    return {
+      error: "An account with this email already exists.",
+      code: "email_exists",
+    };
+  }
+
+  // Check if this user already exists in our DB (by ID or email).
   const { eq } = await import("drizzle-orm");
   const [existingUser] = await db
     .select({ id: users.id })
@@ -86,6 +93,19 @@ export async function signUp(formData: FormData): Promise<AuthResult> {
     .where(eq(users.id, authData.user.id));
 
   if (existingUser) {
+    return {
+      error: "An account with this email already exists.",
+      code: "email_exists",
+    };
+  }
+
+  const normalizedEmail = parsed.data.email.trim().toLowerCase();
+  const [existingByEmail] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, normalizedEmail));
+
+  if (existingByEmail) {
     return {
       error: "An account with this email already exists.",
       code: "email_exists",
