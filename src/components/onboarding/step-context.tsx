@@ -14,17 +14,17 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, ClipboardPaste, Sparkles, Upload, Copy, Check, CheckCircle2 } from "lucide-react";
 import { parseContext } from "@/actions/onboarding";
 
-const AI_PROMPT = `I need to set up my company's GTM intelligence system. Please help me describe:
+const AI_PROMPT = `Help me describe my business for a sales intelligence tool. Ask me questions if you need more details, then write a complete summary covering:
 
-1. **Company & Product**: What we do, our core product/service, key value propositions
-2. **Target Customers**: Who buys from us (industries, company sizes, regions, job titles)
-3. **Good-Fit Signals**: What makes a company a great customer for us
-4. **Risk/Red Flags**: What makes a company a poor fit or high-risk
-5. **Compliance/Constraints**: Any regulatory, licensing, or geographic restrictions
-6. **Use Cases**: Top 3-5 use cases our customers have
-7. **Competitive Edge**: Why customers choose us over alternatives
+1. Company & Product — what we do, our core product/service, key value propositions
+2. Target Customers — who buys from us: industries, company sizes, regions, typical job titles of buyers
+3. Good-Fit Signals — what makes a company a great customer for us
+4. Risk / Red Flags — what makes a company a poor fit or high-risk
+5. Compliance & Constraints — any regulatory, licensing, or geographic restrictions
+6. Use Cases — top 3-5 practical use cases our customers have
+7. Competitive Edge — why customers choose us over alternatives
 
-Please be specific with industries, regions, company sizes, and buyer personas.`;
+Be specific: name real industries, regions, company sizes, and buyer roles. Write in plain language, no bullet-point lists — use full sentences so the tool can extract structured data from your response.`;
 
 export function StepContext() {
   const [text, setText] = useState("");
@@ -134,7 +134,6 @@ export function StepContext() {
           <Card
             className="cursor-pointer transition-all hover:border-primary/50 hover:bg-primary/[0.02]"
             onClick={() => {
-              setMode("upload");
               fileRef.current?.click();
             }}
           >
@@ -164,7 +163,7 @@ export function StepContext() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="rounded-md bg-muted p-3 text-xs font-mono whitespace-pre-wrap">
+            <div className="rounded-md bg-muted p-4 text-sm leading-relaxed whitespace-pre-wrap">
               {AI_PROMPT}
             </div>
             <Button
