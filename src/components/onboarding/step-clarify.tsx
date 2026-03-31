@@ -48,7 +48,7 @@ export function StepClarify({
     });
   }
 
-  const { product, icps, missingQuestions } = parsedContext;
+  const { company, products, icps, missingQuestions } = parsedContext;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -76,36 +76,53 @@ export function StepClarify({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {product.companyName && (
+          {company.name && (
             <div>
               <p className="text-xs font-medium text-muted-foreground">Company</p>
-              <p className="text-sm">{product.companyName}</p>
+              <p className="text-sm">{company.name}{company.website && <span className="ml-1 text-muted-foreground">({company.website})</span>}</p>
             </div>
           )}
-          {product.productDescription && (
+          {company.description && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground">Product</p>
-              <p className="text-sm">{product.productDescription}</p>
+              <p className="text-xs font-medium text-muted-foreground">About</p>
+              <p className="text-sm">{company.description}</p>
             </div>
           )}
-          {product.targetCustomers && (
+          {company.targetCustomers && (
             <div>
               <p className="text-xs font-medium text-muted-foreground">Target customers</p>
-              <p className="text-sm">{product.targetCustomers}</p>
+              <p className="text-sm">{company.targetCustomers}</p>
             </div>
           )}
           <div className="flex flex-wrap gap-1.5">
-            {product.industriesFocus.map((ind) => (
+            {company.industriesFocus.map((ind) => (
               <Badge key={ind} variant="secondary" className="text-xs">
                 {ind}
               </Badge>
             ))}
-            {product.geoFocus.map((geo) => (
+            {company.geoFocus.map((geo) => (
               <Badge key={geo} variant="outline" className="text-xs">
                 {geo}
               </Badge>
             ))}
           </div>
+          {products.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">
+                {products.length} product{products.length > 1 ? "s" : ""} detected
+              </p>
+              <div className="space-y-1 mt-1">
+                {products.map((p, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <p className="text-sm font-medium">{p.name}</p>
+                    {p.shortDescription && (
+                      <span className="text-xs text-muted-foreground">{p.shortDescription}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {icps.length > 0 && (
             <div>
               <p className="text-xs font-medium text-muted-foreground">

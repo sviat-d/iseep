@@ -3,18 +3,27 @@ import { getAiConfig, callAi } from "@/lib/ai-client";
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type ParsedContext = {
-  product: {
-    companyName: string | null;
-    productDescription: string;
+  company: {
+    name: string | null;
+    website: string | null;
+    description: string | null;
     targetCustomers: string | null;
-    coreUseCases: string[];
-    keyValueProps: string[];
     industriesFocus: string[];
     geoFocus: string[];
   };
+  products: Array<{
+    name: string;
+    shortDescription: string | null;
+    description: string;
+    coreUseCases: string[];
+    keyValueProps: string[];
+    pricingModel: string | null;
+    avgTicket: string | null;
+  }>;
   icps: Array<{
     name: string;
     description: string;
+    productRefs: string[];
     criteria: Array<{
       group: "firmographic" | "technographic" | "behavioral" | "compliance" | "keyword";
       category: string;
@@ -45,191 +54,175 @@ const VALID_CONFIDENCE = ["high", "medium", "low"] as const;
 
 // ─── System Prompt ──────────────────────────────────────────────────────────
 
-const PARSE_SYSTEM_PROMPT = `You are the onboarding intelligence engine for iseep — a GTM (Go-To-Market) intelligence platform for B2B sales teams.
+const PARSE_SYSTEM_PROMPT = `You are the onboarding extraction engine for iseep — a sales intelligence tool for B2B teams.
 
-Your job is to analyze free-text input about a company and extract structured product context, an Ideal Customer Profile (ICP), and identify what information is missing.
+Your job: analyze free-text input about a company and extract structured data for company info, products, and Ideal Customer Profiles (ICPs).
 
-## What iseep does
+## Output structure
 
-iseep helps B2B sales teams:
-- Define and manage Ideal Customer Profiles (ICPs) with structured criteria
-- Score leads against ICPs using deterministic + AI-assisted matching
-- Discover new market segments from unmatched leads
-- Track deals, win/loss reasons, and product requests for ICP refinement
-
-## Product context fields to extract
-
-- companyName: The name of the company (null if not mentioned)
-- productDescription: What the company sells / does (required — synthesize from context if not explicit)
-- targetCustomers: Who they sell to, in plain language (null if unclear)
-- coreUseCases: Specific problems the product solves or jobs it does (array of strings)
-- keyValueProps: Why customers choose this product over alternatives (array of strings)
-- industriesFocus: Industries they target, using standard labels like "FinTech", "E-commerce", "SaaS", "Healthcare", "Gaming & Betting", "Logistics", etc. (array of strings)
-- geoFocus: Geographic regions or countries they focus on, e.g. "EU", "US", "APAC", "UK", "LATAM" (array of strings)
-
-## ICP criteria model
-
-Each ICP has criteria organized by group, with an intent for each:
-
-### Groups:
-- "firmographic" — Core company characteristics: industry, company_size, region, business_model, revenue, funding_stage, employee_count
-- "technographic" — Technology and tools: platform, tech_stack, payment_method, integrations, infrastructure
-- "behavioral" — Observable activity patterns: growth_stage, hiring_activity, web_traffic, market_activity, product_usage
-- "compliance" — Regulatory and legal factors: regulatory_status, license_type, jurisdiction, certifications
-- "keyword" — Terms and topics associated with this profile: keyword, industry_term, product_term
-
-### Intents:
-- "qualify" — Positive fit indicator. This criterion makes a company MORE likely to be an ideal customer. Assign importance 1-10 (10 = most critical).
-- "risk" — Soft warning flag. Having this criterion is a yellow flag but not a dealbreaker. No importance needed.
-- "exclude" — Hard disqualifier. If a company matches this criterion, they are NOT a fit regardless of other matches. No importance needed.
-
-### Categories (examples):
-Firmographic: industry, region, company_size, business_model, revenue, funding_stage
-Technographic: platform, tech_stack, payment_method, integrations
-Behavioral: growth_stage, hiring_activity, web_traffic
-Compliance: regulatory_status, license_type, jurisdiction
-Keyword: keyword, industry_term
-
-## Personas
-
-Buyer personas are job titles / roles at target companies who would be involved in purchasing decisions. Each has:
-- name: Job title (e.g. "VP of Engineering", "Head of Payments", "CFO")
-- description: Brief context about why this persona cares about the product
-
-## Missing questions
-
-Identify 3-5 pieces of information that would significantly improve the ICP if known but are NOT present in the input. For each:
-- id: A unique short identifier (e.g. "q1", "q2")
-- question: The question to ask the user (clear, specific, actionable)
-- hint: A helpful example or suggestion to guide the user's answer
-- field: Which field this answer would help fill (e.g. "product.geoFocus", "icp.criteria.technographic", "icp.personas")
-
-Focus questions on the most impactful missing information: deal-breaker criteria, key technologies, geographic scope, company size range, buyer personas.
-
-## Confidence rating
-
-- "high" — The text provides detailed, specific information about the product, customers, and market. You can extract a robust ICP.
-- "medium" — The text provides reasonable information but is missing important details (e.g. no company size, no geography, vague product description).
-- "low" — The text is vague, very short, or covers only one aspect of the business. The ICP will be speculative.
-
-## Output format
-
-Return ONLY valid JSON (no markdown, no explanation, no code blocks) with this exact structure:
+Return ONLY valid JSON (no markdown, no code blocks, no explanation):
 
 {
-  "product": {
-    "companyName": "string or null",
-    "productDescription": "string",
-    "targetCustomers": "string or null",
-    "coreUseCases": ["string"],
-    "keyValueProps": ["string"],
-    "industriesFocus": ["string"],
-    "geoFocus": ["string"]
+  "company": {
+    "name": "string or null",
+    "website": "string or null — full URL if mentioned",
+    "description": "string — what the company does overall (NOT a product description)",
+    "targetCustomers": "string — who they sell to",
+    "industriesFocus": ["industry labels"],
+    "geoFocus": ["regions/countries"]
   },
+  "products": [
+    {
+      "name": "string — product name, e.g. 'Accept Payments'",
+      "shortDescription": "string — one sentence, max 100 chars",
+      "description": "string — full description",
+      "coreUseCases": ["string — specific jobs/flows this product enables"],
+      "keyValueProps": ["string — why customers choose this product"],
+      "pricingModel": "string or null — e.g. 'Per transaction', 'Subscription', 'Volume-based'",
+      "avgTicket": "string or null — e.g. '$5,000/mo', '$1,000-$5,000/month'"
+    }
+  ],
   "icps": [
     {
-      "name": "string — short label, e.g. 'Transportation & Logistics'",
-      "description": "string — 1-2 sentence summary of this customer segment",
+      "name": "string — short segment label, e.g. 'Affiliate Networks'",
+      "description": "string — 1-3 sentences describing this customer segment",
+      "productRefs": ["product names this ICP is relevant to — must match product names exactly"],
       "criteria": [
         {
           "group": "firmographic|technographic|behavioral|compliance|keyword",
-          "category": "string",
-          "value": "string — comma-separated if multiple values",
+          "category": "industry|region|company_size|business_model|platform|tech_stack|payment_method|growth_stage|hiring_activity|regulatory_status|license_type|jurisdiction|keyword",
+          "value": "string — specific value, comma-separated if multiple",
           "intent": "qualify|risk|exclude",
-          "importance": "number 1-10 (only for qualify intent)",
-          "note": "string — brief context (optional)"
+          "importance": 1-10,
+          "note": "optional context"
         }
       ],
       "personas": [
-        {
-          "name": "Job Title",
-          "description": "Why this persona matters"
-        }
+        { "name": "Job Title", "description": "Why this persona cares about the product" }
       ]
     }
   ],
   "missingQuestions": [
+    { "id": "q1", "question": "string", "hint": "string", "field": "string" }
+  ],
+  "confidence": "high|medium|low"
+}
+
+## Extraction rules
+
+### Company vs Products
+- "company" = the organization itself (name, website, overall mission, target market, regions)
+- "products" = specific offerings/services the company sells (each with its own name, description, pricing, use cases)
+- If the input describes multiple products, extract EACH as a separate product entry
+- If only one product is described, still put it in the products array
+- Company description should describe the company/platform overall, NOT repeat a single product description
+
+### ICPs — CRITICAL
+- If the user already defined ICPs with names, criteria, and weights — extract them EXACTLY as given
+- Preserve the user's exact ICP names, criteria values, weights/importance, and intents
+- Input like "Criteria (qualify): industry=Affiliate Networks (10)" means: group=firmographic, category=industry, value=Affiliate Networks, intent=qualify, importance=10
+- Input like "Criteria (risk): region=UK, USA" means: group=firmographic, category=region, value=UK, USA, intent=risk, importance=5
+- Input like "Personas: CEO, CFO, Head of Affiliates" means personas with those titles
+- If user did NOT define ICPs, generate 3-5 ICPs based on the target industries and products described
+- Each ICP must have 5-10 criteria across multiple groups
+- Each ICP must have at least 1 exclude criterion
+- Each ICP must have 2-3 personas
+
+### Criteria details
+- "qualify" (importance 1-10): positive fit signal. 8-10 = must-have, 5-7 = important, 1-4 = nice-to-have
+- "risk" (importance 1-10, default 5): soft warning, yellow flag but not a dealbreaker
+- "exclude" (importance 1-10, default 8): hard disqualifier, blocks the lead
+- Groups: firmographic (industry, region, company_size, business_model, revenue, funding_stage), technographic (platform, tech_stack, payment_method), behavioral (growth_stage, hiring_activity), compliance (regulatory_status, license_type, jurisdiction), keyword
+- For payments/fintech products, include compliance criteria
+
+### productRefs
+- Link each ICP to the products it applies to using exact product names from the products array
+- If an ICP applies to all products, list all product names
+- If empty, the ICP will be linked to all products
+
+### Missing questions
+- Generate 3-5 questions about information NOT in the input
+- Focus on: deal-breaker criteria, technologies, company size, buyer personas, competitive landscape
+- Each question must be specific and actionable
+
+## Example
+
+INPUT:
+"ACME Corp (https://acme.io) builds payment APIs. Product 1: Checkout — online payment form, $500/mo avg. Product 2: Payouts — mass disbursements via API, $3000/mo avg. Target: e-commerce, marketplaces, gig economy in US and EU."
+
+OUTPUT:
+{
+  "company": {
+    "name": "ACME Corp",
+    "website": "https://acme.io",
+    "description": "Payment API platform for online businesses, enabling checkout and mass payouts",
+    "targetCustomers": "E-commerce businesses, marketplaces, and gig economy platforms",
+    "industriesFocus": ["E-commerce", "Marketplaces", "Gig Economy"],
+    "geoFocus": ["US", "EU"]
+  },
+  "products": [
     {
-      "id": "q1",
-      "question": "string",
-      "hint": "string",
-      "field": "string"
+      "name": "Checkout",
+      "shortDescription": "Online payment form for accepting customer payments",
+      "description": "Checkout enables businesses to accept online payments through customizable payment forms embedded on their websites",
+      "coreUseCases": ["Online payment acceptance", "Subscription billing", "One-time purchases"],
+      "keyValueProps": ["Easy integration", "Customizable UI", "Multi-currency"],
+      "pricingModel": "Per transaction",
+      "avgTicket": "$500/mo"
+    },
+    {
+      "name": "Payouts",
+      "shortDescription": "Mass disbursement API for paying recipients at scale",
+      "description": "Payouts allows businesses to send money to multiple recipients efficiently through API-driven mass disbursements",
+      "coreUseCases": ["Mass payouts", "Affiliate payments", "Creator payouts"],
+      "keyValueProps": ["API-driven", "Scalable", "Global reach"],
+      "pricingModel": "Volume-based",
+      "avgTicket": "$3,000/mo"
     }
   ],
-  "confidence": "high|medium|low"
-}
+  "icps": [
+    {
+      "name": "E-commerce Platforms",
+      "description": "Online retailers and e-commerce platforms that need payment acceptance and occasional payouts to suppliers",
+      "productRefs": ["Checkout", "Payouts"],
+      "criteria": [
+        { "group": "firmographic", "category": "industry", "value": "E-commerce", "intent": "qualify", "importance": 9 },
+        { "group": "firmographic", "category": "region", "value": "US, EU", "intent": "qualify", "importance": 6 },
+        { "group": "firmographic", "category": "company_size", "value": "50-500 employees", "intent": "qualify", "importance": 5 },
+        { "group": "technographic", "category": "platform", "value": "Shopify, WooCommerce, Custom", "intent": "qualify", "importance": 4 },
+        { "group": "firmographic", "category": "region", "value": "Sanctioned countries", "intent": "exclude", "importance": 10 }
+      ],
+      "personas": [
+        { "name": "CTO", "description": "Evaluates technical integration and API quality" },
+        { "name": "Head of Payments", "description": "Owns payment infrastructure decisions" }
+      ]
+    }
+  ],
+  "missingQuestions": [
+    { "id": "q1", "question": "What company size range is your sweet spot?", "hint": "e.g. 10-50 employees, $1M-$10M ARR", "field": "icp.criteria.firmographic" }
+  ],
+  "confidence": "medium"
+}`;
 
-## Guidelines
+const REFINE_SYSTEM_PROMPT = `You are the onboarding extraction engine for iseep. You previously extracted structured data from a user's free-text input. The user answered follow-up questions. Merge answers into the existing context.
 
-1. Extract EVERYTHING you can from the text. Be thorough — look for implicit information too.
-2. Generate 3-5 distinct ICPs, one per major industry/vertical the product serves. Each ICP should represent a different customer segment (e.g., "Transportation & Logistics", "Agriculture", "Insurance"). Do NOT create one generic ICP — split by industry.
-3. Each ICP should have 5-10 criteria across multiple groups. Include industry-specific criteria.
-4. Each ICP should have at least 1 exclude criterion (disqualifiers specific to that segment).
-5. Each ICP should have 2-3 personas relevant to that industry. If the text doesn't mention specific roles, infer likely buyer personas.
-6. For importance scores: 8-10 for must-have criteria, 5-7 for important criteria, 1-4 for nice-to-have criteria.
-7. Make questions specific and actionable — avoid generic questions like "tell me more about your product".
-8. If the text is about a payments/fintech product, include compliance-related criteria.
-9. Synthesize — don't just copy text verbatim. Transform raw information into structured, normalized criteria values.`;
-
-const REFINE_SYSTEM_PROMPT = `You are the onboarding intelligence engine for iseep — a GTM intelligence platform for B2B sales teams.
-
-You previously extracted structured product context and an ICP from a user's free-text input. Now the user has answered follow-up clarification questions. Your job is to merge these answers into the existing context and produce an updated, more complete result.
-
-## What to do
-
-1. Read the existing parsed context carefully.
-2. Read each Q&A pair — the question ID maps to a specific field.
-3. Merge the answers into the appropriate fields:
-   - If an answer provides new criteria, ADD them to icp.criteria with the correct group/intent.
-   - If an answer refines an existing criterion, UPDATE the value or add a note.
-   - If an answer reveals product information, UPDATE the product fields.
-   - If an answer mentions new personas, ADD them to icp.personas.
-   - If an answer mentions exclusions or disqualifiers, add exclude-intent criteria.
-4. Adjust the confidence rating upward if the answers filled significant gaps.
-5. Do NOT include missingQuestions in the output — those are done.
-
-## ICP criteria model
-
-### Groups:
-- "firmographic" — industry, company_size, region, business_model, revenue, funding_stage
-- "technographic" — platform, tech_stack, payment_method, integrations
-- "behavioral" — growth_stage, hiring_activity, web_traffic
-- "compliance" — regulatory_status, license_type, jurisdiction
-- "keyword" — keyword, industry_term, product_term
-
-### Intents:
-- "qualify" — Positive fit (importance 1-10)
-- "risk" — Soft warning flag
-- "exclude" — Hard disqualifier
+## Rules
+1. Preserve all existing data not contradicted by answers
+2. Add new criteria, personas, or products from answers
+3. If an answer refines an existing field, UPDATE it
+4. If an answer is vague or "N/A", skip it
+5. Bump confidence up if answers filled major gaps
+6. Set missingQuestions to an empty array
 
 ## Output format
+Return ONLY valid JSON with the same structure as the input (company, products, icps, missingQuestions: [], confidence).
 
-Return ONLY valid JSON (no markdown, no explanation, no code blocks):
-
-{
-  "product": {
-    "companyName": "string or null",
-    "productDescription": "string",
-    "targetCustomers": "string or null",
-    "coreUseCases": ["string"],
-    "keyValueProps": ["string"],
-    "industriesFocus": ["string"],
-    "geoFocus": ["string"]
-  },
-  "icps": [
-    { "name": "string", "description": "string", "criteria": [...], "personas": [...] }
-  ],
-  "missingQuestions": [],
-  "confidence": "high|medium|low"
-}
-
-## Guidelines
-
-1. Preserve all existing data that is not contradicted by answers.
-2. Do not remove criteria or personas unless an answer explicitly invalidates them.
-3. Add new criteria from answers — be specific and structured, not vague.
-4. If an answer is vague or unhelpful (e.g. "I don't know", "N/A"), skip it — don't invent data.
-5. Bump confidence up if answers filled major gaps (e.g. from "low" to "medium", or "medium" to "high").`;
+Keep the exact same JSON schema:
+- "company": { name, website, description, targetCustomers, industriesFocus, geoFocus }
+- "products": [{ name, shortDescription, description, coreUseCases, keyValueProps, pricingModel, avgTicket }]
+- "icps": [{ name, description, productRefs, criteria: [{ group, category, value, intent, importance }], personas: [{ name, description }] }]
+- "missingQuestions": []
+- "confidence": "high|medium|low"`;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -279,48 +272,73 @@ function normalizeIntent(intent: string): typeof VALID_INTENTS[number] {
  * any missing or malformed fields.
  */
 function normalizeParsedContext(raw: Record<string, unknown>): ParsedContext {
-  const rawProduct = (raw.product ?? {}) as Record<string, unknown>;
-  const rawIcp = (raw.icp ?? {}) as Record<string, unknown>;
-  const rawQuestions = raw.missingQuestions;
-  const rawConfidence = raw.confidence;
+  // ── Company ───────────────────────────────────────────────────────────
+  const rawCompany = (raw.company ?? raw.product ?? {}) as Record<string, unknown>;
 
-  // ── Product ─────────────────────────────────────────────────────────────
-  const product: ParsedContext["product"] = {
-    companyName: typeof rawProduct.companyName === "string" ? rawProduct.companyName : null,
-    productDescription:
-      typeof rawProduct.productDescription === "string" && rawProduct.productDescription.length > 0
-        ? rawProduct.productDescription
-        : "No product description extracted",
-    targetCustomers: typeof rawProduct.targetCustomers === "string" ? rawProduct.targetCustomers : null,
-    coreUseCases: normalizeStringArray(rawProduct.coreUseCases),
-    keyValueProps: normalizeStringArray(rawProduct.keyValueProps),
-    industriesFocus: normalizeStringArray(rawProduct.industriesFocus),
-    geoFocus: normalizeStringArray(rawProduct.geoFocus),
+  const company: ParsedContext["company"] = {
+    name: typeof rawCompany.name === "string" ? rawCompany.name
+        : typeof rawCompany.companyName === "string" ? rawCompany.companyName
+        : null,
+    website: typeof rawCompany.website === "string" ? rawCompany.website : null,
+    description: typeof rawCompany.description === "string" ? rawCompany.description
+               : typeof rawCompany.companyDescription === "string" ? rawCompany.companyDescription
+               : typeof rawCompany.productDescription === "string" ? rawCompany.productDescription
+               : null,
+    targetCustomers: typeof rawCompany.targetCustomers === "string" ? rawCompany.targetCustomers : null,
+    industriesFocus: normalizeStringArray(rawCompany.industriesFocus),
+    geoFocus: normalizeStringArray(rawCompany.geoFocus),
   };
 
-  // ── ICPs ────────────────────────────────────────────────────────────────
-  // Support both "icps" (array) and legacy "icp" (single object)
+  // ── Products ──────────────────────────────────────────────────────────
+  const rawProducts = Array.isArray(raw.products) ? raw.products : [];
+
+  const productsArr: ParsedContext["products"] = rawProducts.map((rp: Record<string, unknown>) => ({
+    name: typeof rp.name === "string" && rp.name.length > 0 ? rp.name : "Product",
+    shortDescription: typeof rp.shortDescription === "string" ? rp.shortDescription : null,
+    description: typeof rp.description === "string" && rp.description.length > 0
+      ? rp.description : "No description extracted",
+    coreUseCases: normalizeStringArray(rp.coreUseCases),
+    keyValueProps: normalizeStringArray(rp.keyValueProps),
+    pricingModel: typeof rp.pricingModel === "string" ? rp.pricingModel : null,
+    avgTicket: typeof rp.avgTicket === "string" ? rp.avgTicket : null,
+  }));
+
+  // If AI returned no products, create a fallback from company description
+  if (productsArr.length === 0) {
+    productsArr.push({
+      name: company.name || "Default Product",
+      shortDescription: null,
+      description: company.description || "No product description extracted",
+      coreUseCases: [],
+      keyValueProps: [],
+      pricingModel: null,
+      avgTicket: null,
+    });
+  }
+
+  // ── ICPs ──────────────────────────────────────────────────────────────
+  const rawIcp = (raw.icp ?? {}) as Record<string, unknown>;
   const rawIcpArray = Array.isArray(raw.icps) ? raw.icps : (rawIcp.name ? [rawIcp] : []);
 
-  const icps: ParsedContext["icps"] = rawIcpArray.map((rawIcpItem: Record<string, unknown>) => {
+  const icpsArr: ParsedContext["icps"] = rawIcpArray.map((rawIcpItem: Record<string, unknown>) => {
     const rawCriteria = Array.isArray(rawIcpItem.criteria) ? rawIcpItem.criteria : [];
     const rawPersonas = Array.isArray(rawIcpItem.personas) ? rawIcpItem.personas : [];
 
-    const criteria = rawCriteria.map(
-      (c: Record<string, unknown>) => {
-        const intent = normalizeIntent(String(c.intent ?? "qualify"));
-        return {
-          group: normalizeGroup(String(c.group ?? "firmographic")),
-          category: typeof c.category === "string" && c.category.length > 0 ? c.category : "unknown",
-          value: typeof c.value === "string" && c.value.length > 0 ? c.value : "",
-          intent,
-          importance: intent === "qualify" ? normalizeImportance(c.importance) : undefined,
-          note: typeof c.note === "string" && c.note.length > 0 ? c.note : undefined,
-        };
-      }
-    ).filter((c) => c.value.length > 0);
+    const criteriaArr = rawCriteria.map((c: Record<string, unknown>) => {
+      const intent = normalizeIntent(String(c.intent ?? "qualify"));
+      return {
+        group: normalizeGroup(String(c.group ?? "firmographic")),
+        category: typeof c.category === "string" && c.category.length > 0 ? c.category : "unknown",
+        value: typeof c.value === "string" && c.value.length > 0 ? c.value : "",
+        intent,
+        importance: intent === "qualify" ? normalizeImportance(c.importance)
+                  : intent === "exclude" ? normalizeImportance(c.importance ?? 8)
+                  : normalizeImportance(c.importance ?? 5),
+        note: typeof c.note === "string" && c.note.length > 0 ? c.note : undefined,
+      };
+    }).filter((c) => c.value.length > 0);
 
-    const personas = rawPersonas
+    const personasArr = rawPersonas
       .map((p: Record<string, unknown>) => ({
         name: typeof p.name === "string" && p.name.length > 0 ? p.name : "",
         description: typeof p.description === "string" ? p.description : "",
@@ -329,26 +347,26 @@ function normalizeParsedContext(raw: Record<string, unknown>): ParsedContext {
 
     return {
       name: typeof rawIcpItem.name === "string" && rawIcpItem.name.length > 0 ? rawIcpItem.name : "ICP",
-      description:
-        typeof rawIcpItem.description === "string" && rawIcpItem.description.length > 0
-          ? rawIcpItem.description
-          : "Auto-generated ICP",
-      criteria,
-      personas,
+      description: typeof rawIcpItem.description === "string" && rawIcpItem.description.length > 0
+        ? rawIcpItem.description : "Auto-generated ICP",
+      productRefs: normalizeStringArray(rawIcpItem.productRefs),
+      criteria: criteriaArr,
+      personas: personasArr,
     };
   });
 
-  // Ensure at least one ICP
-  if (icps.length === 0) {
-    icps.push({
+  if (icpsArr.length === 0) {
+    icpsArr.push({
       name: "Primary ICP",
       description: "Auto-generated ICP from onboarding context",
+      productRefs: [],
       criteria: [],
       personas: [],
     });
   }
 
-  // ── Missing questions ───────────────────────────────────────────────────
+  // ── Missing questions ─────────────────────────────────────────────────
+  const rawQuestions = raw.missingQuestions;
   const missingQuestions: ParsedContext["missingQuestions"] = Array.isArray(rawQuestions)
     ? rawQuestions
         .map((q: Record<string, unknown>, idx: number) => ({
@@ -360,14 +378,15 @@ function normalizeParsedContext(raw: Record<string, unknown>): ParsedContext {
         .filter((q) => q.question.length > 0)
     : [];
 
-  // ── Confidence ──────────────────────────────────────────────────────────
+  // ── Confidence ────────────────────────────────────────────────────────
+  const rawConfidence = raw.confidence;
   const confidence: ParsedContext["confidence"] =
     typeof rawConfidence === "string" &&
     (VALID_CONFIDENCE as readonly string[]).includes(rawConfidence.toLowerCase())
       ? (rawConfidence.toLowerCase() as ParsedContext["confidence"])
       : "low";
 
-  return { product, icps, missingQuestions, confidence };
+  return { company, products: productsArr, icps: icpsArr, missingQuestions, confidence };
 }
 
 /**
@@ -409,7 +428,7 @@ export async function parseOnboardingContext(
   try {
     const config = await getAiConfig(workspaceId);
 
-    const userPrompt = `Analyze the following text and extract structured product context, an Ideal Customer Profile, and identify missing information.
+    const userPrompt = `Analyze the following text and extract structured company info, products, and Ideal Customer Profiles.
 
 INPUT TEXT:
 ---
@@ -418,7 +437,7 @@ ${text}
 
 Remember: Return ONLY valid JSON. No markdown code blocks, no explanations, no extra text.`;
 
-    const responseText = await callAi(config, PARSE_SYSTEM_PROMPT, userPrompt, 4000);
+    const responseText = await callAi(config, PARSE_SYSTEM_PROMPT, userPrompt, 8000);
 
     const jsonStr = extractJson(responseText);
     const raw = JSON.parse(jsonStr) as Record<string, unknown>;
@@ -482,7 +501,7 @@ ${qaPairs.map((qa) => `- [${qa.questionId}] (field: ${qa.field}) Q: ${qa.questio
 
 Merge these answers into the existing context. Update product fields, add/refine ICP criteria and personas as appropriate. Set missingQuestions to an empty array. Return ONLY valid JSON, no markdown code blocks.`;
 
-    const responseText = await callAi(config, REFINE_SYSTEM_PROMPT, userPrompt, 4000);
+    const responseText = await callAi(config, REFINE_SYSTEM_PROMPT, userPrompt, 8000);
 
     const jsonStr = extractJson(responseText);
     const raw = JSON.parse(jsonStr) as Record<string, unknown>;

@@ -30,6 +30,7 @@ export const workspaces = pgTable("workspaces", {
   profileSharedIcpIds: jsonb("profile_shared_icp_ids"), // string[] | null (null = all active)
   apiToken: text("api_token").unique(),
   onboardingStep: integer("onboarding_step").notNull().default(4),
+  onboardingData: jsonb("onboarding_data"), // ParsedContext JSON, cleared after onboarding
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

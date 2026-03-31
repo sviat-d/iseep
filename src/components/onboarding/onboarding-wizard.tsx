@@ -15,14 +15,23 @@ type OnboardingWizardProps = {
   step: number; // 0 = context, 1 = clarify, 2 = reveal
   parsedContext?: ParsedContext | null;
   revealData?: {
-    product: {
-      companyName: string | null;
-      productDescription: string;
-      coreUseCases: string[];
-      keyValueProps: string[];
+    company: {
+      name: string | null;
+      website: string | null;
+      description: string | null;
+      targetCustomers: string | null;
       industriesFocus: string[];
       geoFocus: string[];
     };
+    products: Array<{
+      name: string;
+      shortDescription: string | null;
+      description: string;
+      coreUseCases: string[];
+      keyValueProps: string[];
+      pricingModel: string | null;
+      avgTicket: string | null;
+    }>;
     icps: Array<{
       id: string;
       name: string;
@@ -85,7 +94,7 @@ export function OnboardingWizard({ step, parsedContext, revealData }: Onboarding
             <StepClarify parsedContext={parsedContext} />
           )}
           {step === 2 && revealData && (
-            <StepReveal product={revealData.product} icps={revealData.icps} />
+            <StepReveal company={revealData.company} products={revealData.products} icps={revealData.icps} />
           )}
         </div>
       </div>

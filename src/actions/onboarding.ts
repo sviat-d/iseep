@@ -55,8 +55,6 @@ export async function goBackOnboarding(
 
 // ─── 2. Parse Context (Step 1 → Step 2) ────────────────────────────────────
 
-let _parsedContextCache: Map<string, ParsedContext> = new Map();
-
 export async function parseContext(
   text: string,
 ): Promise<ActionResult> {
@@ -76,23 +74,22 @@ export async function parseContext(
       return { error: "Could not parse your context. Please try adding more detail." };
     }
 
-    // Save COMPANY info to workspaces table
-    const product = parsed.product;
+    // Save COMPANY info to workspaces + cache ParsedContext in DB
+    const company = parsed.company;
     await db
       .update(workspaces)
       .set({
         onboardingStep: 1,
-        name: product.companyName || undefined,
-        companyDescription: product.productDescription || null,
-        targetCustomers: product.targetCustomers || null,
-        industriesFocus: product.industriesFocus,
-        geoFocus: product.geoFocus,
+        name: company.name || undefined,
+        website: company.website || undefined,
+        companyDescription: company.description || null,
+        targetCustomers: company.targetCustomers || null,
+        industriesFocus: company.industriesFocus,
+        geoFocus: company.geoFocus,
+        onboardingData: parsed as unknown as Record<string, unknown>,
         updatedAt: new Date(),
       })
       .where(eq(workspaces.id, ctx.workspaceId));
-
-    // Cache parsed context for Step 2
-    _parsedContextCache.set(ctx.workspaceId, parsed);
 
     revalidatePath("/dashboard");
     return { success: true };
@@ -108,30 +105,41 @@ export async function getParsedContext(): Promise<ParsedContext | null> {
   const ctx = await getAuthContext();
   if (!ctx) return null;
 
-  const cached = _parsedContextCache.get(ctx.workspaceId);
-  if (cached) return cached;
-
-  // Fallback: reconstruct from workspace data
   const [ws] = await db
-    .select()
+    .select({
+      onboardingData: workspaces.onboardingData,
+      name: workspaces.name,
+      website: workspaces.website,
+      companyDescription: workspaces.companyDescription,
+      targetCustomers: workspaces.targetCustomers,
+      industriesFocus: workspaces.industriesFocus,
+      geoFocus: workspaces.geoFocus,
+    })
     .from(workspaces)
     .where(eq(workspaces.id, ctx.workspaceId));
 
   if (!ws) return null;
 
+  // If we have cached onboardingData, return it directly
+  if (ws.onboardingData) {
+    return ws.onboardingData as unknown as ParsedContext;
+  }
+
+  // Fallback: reconstruct minimal context from workspace fields
   return {
-    product: {
-      companyName: ws.name,
-      productDescription: ws.companyDescription ?? "",
-      targetCustomers: ws.targetCustomers,
-      coreUseCases: [],
-      keyValueProps: [],
+    company: {
+      name: ws.name,
+      website: ws.website ?? null,
+      description: ws.companyDescription ?? null,
+      targetCustomers: ws.targetCustomers ?? null,
       industriesFocus: (ws.industriesFocus as string[]) ?? [],
       geoFocus: (ws.geoFocus as string[]) ?? [],
     },
+    products: [],
     icps: [{
       name: "Auto-generated ICP",
       description: "",
+      productRefs: [],
       criteria: [],
       personas: [],
     }],
@@ -149,62 +157,64 @@ export async function refineContext(
   if (!ctx) return { error: "Unauthorized" };
 
   try {
-    let parsed: ParsedContext | null | undefined = _parsedContextCache.get(ctx.workspaceId);
-    if (!parsed) {
-      parsed = await getParsedContext();
-    }
-
+    let parsed = await getParsedContext();
     if (!parsed) {
       return { error: "No parsed context found. Please go back and provide your context again." };
     }
 
     // Refine with AI if user provided answers
     const hasAnswers = Object.values(answers).some((v) => v.trim());
-    if (hasAnswers && parsed) {
+    if (hasAnswers) {
       const refined = await refineOnboardingContext(parsed, answers, ctx.workspaceId);
       if (refined) parsed = refined;
     }
 
     // Update COMPANY info on workspaces
-    const product = parsed.product;
+    const company = parsed.company;
     await db
       .update(workspaces)
       .set({
-        name: product.companyName || undefined,
-        companyDescription: product.productDescription || null,
-        targetCustomers: product.targetCustomers || null,
-        industriesFocus: product.industriesFocus,
-        geoFocus: product.geoFocus,
+        name: company.name || undefined,
+        website: company.website || undefined,
+        companyDescription: company.description || null,
+        targetCustomers: company.targetCustomers || null,
+        industriesFocus: company.industriesFocus,
+        geoFocus: company.geoFocus,
         updatedAt: new Date(),
       })
       .where(eq(workspaces.id, ctx.workspaceId));
 
-    // Create or get default PRODUCT
-    let [defaultProduct] = await db
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.workspaceId, ctx.workspaceId))
-      .limit(1);
+    // Create ALL products from parsed data
+    const productNameToId = new Map<string, string>();
 
-    if (!defaultProduct) {
-      [defaultProduct] = await db.insert(products).values({
+    for (const productData of parsed.products) {
+      const [newProduct] = await db.insert(products).values({
         workspaceId: ctx.workspaceId,
-        name: product.companyName || "Default Product",
-        description: product.productDescription || null,
-        coreUseCases: product.coreUseCases,
-        keyValueProps: product.keyValueProps,
+        name: productData.name,
+        shortDescription: productData.shortDescription || null,
+        description: productData.description || null,
+        coreUseCases: productData.coreUseCases,
+        keyValueProps: productData.keyValueProps,
+        pricingModel: productData.pricingModel || null,
+        avgTicket: productData.avgTicket || null,
       }).returning({ id: products.id });
-    } else {
-      // Update existing product with parsed data
-      await db.update(products).set({
-        description: product.productDescription || null,
-        coreUseCases: product.coreUseCases,
-        keyValueProps: product.keyValueProps,
-        updatedAt: new Date(),
-      }).where(eq(products.id, defaultProduct.id));
+
+      productNameToId.set(productData.name, newProduct.id);
     }
 
-    // Create ACTIVE ICPs and link to product
+    // If no products were created (edge case), create a default
+    if (productNameToId.size === 0) {
+      const [defaultProduct] = await db.insert(products).values({
+        workspaceId: ctx.workspaceId,
+        name: company.name || "Default Product",
+        description: company.description || null,
+      }).returning({ id: products.id });
+      productNameToId.set(company.name || "Default Product", defaultProduct.id);
+    }
+
+    const allProductIds = Array.from(productNameToId.values());
+
+    // Create ACTIVE ICPs and link to products
     const { logActivity } = await import("@/lib/activity");
 
     for (const icpData of parsed.icps) {
@@ -220,12 +230,25 @@ export async function refineContext(
         })
         .returning();
 
-      // Link ICP to product via many-to-many
-      await db.insert(productIcps).values({
-        workspaceId: ctx.workspaceId,
-        productId: defaultProduct.id,
-        icpId: newIcp.id,
-      });
+      // Resolve product links from productRefs (names) to IDs
+      let linkedProductIds: string[];
+      if (icpData.productRefs.length > 0) {
+        linkedProductIds = icpData.productRefs
+          .map((ref) => productNameToId.get(ref))
+          .filter((id): id is string => !!id);
+        if (linkedProductIds.length === 0) linkedProductIds = allProductIds;
+      } else {
+        linkedProductIds = allProductIds;
+      }
+
+      // Link ICP to products via many-to-many
+      for (const productId of linkedProductIds) {
+        await db.insert(productIcps).values({
+          workspaceId: ctx.workspaceId,
+          productId,
+          icpId: newIcp.id,
+        });
+      }
 
       if (icpData.criteria.length > 0) {
         await db.insert(criteria).values(
@@ -237,7 +260,7 @@ export async function refineContext(
             value: c.value,
             operator: "equals" as const,
             intent: c.intent,
-            weight: c.intent === "qualify" ? (c.importance ?? 5) : (c.importance ?? null),
+            weight: c.importance ?? (c.intent === "exclude" ? 8 : c.intent === "risk" ? 5 : 5),
             note: c.note || null,
           })),
         );
@@ -262,13 +285,15 @@ export async function refineContext(
       });
     }
 
-    // Advance to step 2 (reveal)
+    // Advance to step 2 (reveal) + clear onboarding cache
     await db
       .update(workspaces)
-      .set({ onboardingStep: 2, updatedAt: new Date() })
+      .set({
+        onboardingStep: 2,
+        onboardingData: null,
+        updatedAt: new Date(),
+      })
       .where(eq(workspaces.id, ctx.workspaceId));
-
-    _parsedContextCache.delete(ctx.workspaceId);
 
     revalidatePath("/dashboard");
     revalidatePath("/icps");

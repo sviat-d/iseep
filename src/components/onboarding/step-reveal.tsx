@@ -42,19 +42,30 @@ type IcpReveal = {
   personas: Array<{ name: string }>;
 };
 
+type RevealProduct = {
+  name: string;
+  shortDescription: string | null;
+  description: string;
+  coreUseCases: string[];
+  keyValueProps: string[];
+  pricingModel: string | null;
+  avgTicket: string | null;
+};
+
 type RevealProps = {
-  product: {
-    companyName: string | null;
-    productDescription: string;
-    coreUseCases: string[];
-    keyValueProps: string[];
+  company: {
+    name: string | null;
+    website: string | null;
+    description: string | null;
+    targetCustomers: string | null;
     industriesFocus: string[];
     geoFocus: string[];
   };
+  products: RevealProduct[];
   icps: IcpReveal[];
 };
 
-export function StepReveal({ product, icps }: RevealProps) {
+export function StepReveal({ company, products, icps }: RevealProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [shareLink, setShareLink] = useState<string | null>(null);
@@ -94,7 +105,7 @@ export function StepReveal({ product, icps }: RevealProps) {
           Your GTM profile is ready
         </h2>
         <p className="mt-2 text-muted-foreground">
-          iseep created your company profile and {icps.length} ICP{icps.length > 1 ? "s" : ""} from your context. Everything is editable.
+          iseep created your company profile, {products.length} product{products.length > 1 ? "s" : ""}, and {icps.length} ICP{icps.length > 1 ? "s" : ""} from your context. Everything is editable.
         </p>
       </div>
 
@@ -107,38 +118,39 @@ export function StepReveal({ product, icps }: RevealProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {product.companyName && (
-            <p className="text-lg font-semibold">{product.companyName}</p>
+          {company.name && (
+            <p className="text-lg font-semibold">
+              {company.name}
+              {company.website && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">{company.website}</span>
+              )}
+            </p>
           )}
-          <p className="text-sm text-muted-foreground">
-            {product.productDescription}
-          </p>
-          {product.coreUseCases.length > 0 && (
+          {company.description && (
+            <p className="text-sm text-muted-foreground">{company.description}</p>
+          )}
+          {company.targetCustomers && (
             <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">Use cases</p>
-              <div className="flex flex-wrap gap-1.5">
-                {product.coreUseCases.map((uc) => (
-                  <Badge key={uc} variant="secondary" className="text-xs">{uc}</Badge>
-                ))}
-              </div>
+              <p className="text-xs font-medium text-muted-foreground mb-1">Target customers</p>
+              <p className="text-sm">{company.targetCustomers}</p>
             </div>
           )}
           <div className="flex flex-wrap gap-3">
-            {product.industriesFocus.length > 0 && (
+            {company.industriesFocus.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">Industries</p>
                 <div className="flex flex-wrap gap-1">
-                  {product.industriesFocus.map((ind) => (
+                  {company.industriesFocus.map((ind) => (
                     <Badge key={ind} variant="outline" className="text-xs">{ind}</Badge>
                   ))}
                 </div>
               </div>
             )}
-            {product.geoFocus.length > 0 && (
+            {company.geoFocus.length > 0 && (
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">Regions</p>
                 <div className="flex flex-wrap gap-1">
-                  {product.geoFocus.map((geo) => (
+                  {company.geoFocus.map((geo) => (
                     <Badge key={geo} variant="outline" className="text-xs">
                       <Globe className="mr-0.5 h-2.5 w-2.5" />{geo}
                     </Badge>
@@ -149,6 +161,50 @@ export function StepReveal({ product, icps }: RevealProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Products */}
+      {products.length > 0 && products.map((prod, idx) => (
+        <Card key={idx}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{prod.name}</CardTitle>
+            {prod.shortDescription && (
+              <p className="text-sm text-muted-foreground">{prod.shortDescription}</p>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {prod.description && prod.description !== prod.shortDescription && (
+              <p className="text-sm text-muted-foreground">{prod.description}</p>
+            )}
+            <div className="flex flex-wrap gap-3">
+              {prod.coreUseCases.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Use cases</p>
+                  <div className="flex flex-wrap gap-1">
+                    {prod.coreUseCases.map((uc) => (
+                      <Badge key={uc} variant="secondary" className="text-xs">{uc}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {prod.keyValueProps.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Value props</p>
+                  <div className="flex flex-wrap gap-1">
+                    {prod.keyValueProps.map((vp) => (
+                      <Badge key={vp} variant="outline" className="text-xs">{vp}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            {(prod.pricingModel || prod.avgTicket) && (
+              <p className="text-xs text-muted-foreground">
+                {[prod.pricingModel, prod.avgTicket].filter(Boolean).join(" · ")}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      ))}
 
       {/* Share Link — prominent CTA */}
       <Card className="border-primary/30 bg-primary/[0.03]">
