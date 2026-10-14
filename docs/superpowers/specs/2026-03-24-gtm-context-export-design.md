@@ -176,7 +176,7 @@ Compact version of markdown without tables or heavy formatting. Optimized for AI
 
 Example output:
 ```
-COMPANY: INXY Payments (inxy.io)
+COMPANY: Acme Payments (acme.com)
 Multi-currency crypto payment gateway for B2B cross-border payouts.
 Target: B2B companies needing compliant, low-fee cross-border payments at scale.
 Industries: FinTech, iGaming, E-commerce, AdTech

@@ -28,7 +28,7 @@ Returns the full GTM context package.
 {
   "schemaVersion": 1,
   "exportedAt": "2026-03-25T12:00:00Z",
-  "workspace": { "name": "INXY" },
+  "workspace": { "name": "Acme" },
   "product": { ... },
   "icps": [ ... ],
   "scoring": { ... }
